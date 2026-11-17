@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { Header, letterTile, useToast } from "./ui";
+import { AdminKeys } from "./AdminKeys";
 
 type U = { id: string; name: string | null; email: string | null; approved: boolean; search_limit: number; approved_at: string | null; note: string | null; created_at: string; resume_added_at: string | null; used: number };
 type Data = { users: U[]; stats: { students: number; started: number; finished: number; failed: number; applied: number } };
@@ -16,6 +17,7 @@ export function AdminPanel({ initial, me }: { initial: Data; me: string }) {
   const [users, setUsers] = useState(initial.users);
   const [tab, setTab] = useState<"waiting" | "approved" | "all">(initial.users.some((u) => !u.approved) ? "waiting" : "approved");
   const [limits, setLimits] = useState<Record<string, string>>({});
+  const [section, setSection] = useState<"students" | "keys">("students");
   const toast = useToast();
 
   async function update(id: string, patch: Partial<U>) {
@@ -25,6 +27,7 @@ export function AdminPanel({ initial, me }: { initial: Data; me: string }) {
   }
 
   const waiting = users.filter((u) => !u.approved && u.email !== me);
+  const waitingCount = waiting.length;
   const shown = tab === "waiting" ? waiting : tab === "approved" ? users.filter((u) => u.approved) : users;
   const s = initial.stats;
 
@@ -32,7 +35,14 @@ export function AdminPanel({ initial, me }: { initial: Data; me: string }) {
     <>
       <Header signedIn initial={me[0]} admin />
       <main className="wrap wide">
-        <h1 className="h1">Admin</h1>
+        <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <h1 className="h1">Admin</h1>
+          <div className="seg" role="tablist" aria-label="Admin sections">
+            <button role="tab" aria-selected={section === "students"} onClick={() => setSection("students")}>Students{waitingCount ? ` · ${waitingCount} waiting` : ""}</button>
+            <button role="tab" aria-selected={section === "keys"} onClick={() => setSection("keys")}>API keys</button>
+          </div>
+        </div>
+        {section === "keys" ? <AdminKeys /> : (<>
         <div style={{ marginTop: 24, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(140px,100%), 1fr))", gap: 12 }}>
           {[["Students who searched", s.students], ["Searches started", s.started], ["Finished", s.finished], ["Failed", s.failed], ["Marked applied", s.applied]].map(([l, n]) => (
             <div key={l as string} className="card" style={{ padding: "16px 18px" }}>
@@ -80,7 +90,8 @@ export function AdminPanel({ initial, me }: { initial: Data; me: string }) {
             );
           })}
         </div>
-        <p className="mute" style={{ margin: "16px 8px 0", fontSize: 13 }}>Approving gives the student the number of searches in the box. Failed, closed and fake jobs never count. Removing access keeps their saved jobs but stops new searches.</p>
+        </>)}
+        {section === "students" && <p className="mute" style={{ margin: "16px 8px 0", fontSize: 13 }}>Approving gives the student the number of searches in the box. Failed, closed and fake jobs never count. Removing access keeps their saved jobs but stops new searches.</p>}
       </main>
       {toast.el}
     </>

@@ -6,6 +6,7 @@ import { Header, Icon, Spinner, letterTile } from "./ui";
 import { LinkBox } from "./LinkBox";
 import { ProgressPopup } from "./ProgressPopup";
 import { ResumeUpload } from "./ResumeUpload";
+import { WaitingScreen } from "./WaitingScreen";
 
 type Job = { id: string; title: string | null; company: string | null; status: string; apply_status: string | null; applied_at: string | null; created_at: string };
 
@@ -25,6 +26,16 @@ export function Home(p: { signedIn: boolean; initialLink?: string; name?: string
   const [scanId, setScanId] = useState<string | null>(null);
   const [picked, setPicked] = useState<Record<string, string>>({});
   const [stopped, setStopped] = useState(false);
+  const [restored, setRestored] = useState("");
+
+  // A link pasted while waiting for approval comes back into the box once approved.
+  useEffect(() => {
+    if (!p.signedIn || !p.approved) return;
+    try {
+      const l = localStorage.getItem("hf_pending_link");
+      if (l) { setRestored(l); localStorage.removeItem("hf_pending_link"); }
+    } catch { /* storage blocked */ }
+  }, [p.signedIn, p.approved]);
   const jobs = p.jobs || [];
   const applied = jobs.filter((j) => j.apply_status && ["applied", "no_reply", "replied"].includes(j.apply_status));
   const returning = p.signedIn && jobs.some((j) => j.apply_status);
@@ -47,6 +58,13 @@ export function Home(p: { signedIn: boolean; initialLink?: string; name?: string
     await fetch(`/api/jobs/${id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ apply_status: key }) });
   }
 
+  if (p.signedIn && !p.approved) return (
+    <>
+      <Header signedIn initial={first[0]} showJobs={false} />
+      <WaitingScreen email={p.email || ""} pendingLink={p.initialLink} />
+    </>
+  );
+
   return (
     <>
       <Header signedIn={p.signedIn} initial={first[0]} showJobs={returning} admin={p.admin} />
@@ -62,19 +80,9 @@ export function Home(p: { signedIn: boolean; initialLink?: string; name?: string
           </>
         )}
 
-        {p.signedIn && !p.approved && (
-          <div className="card" style={{ marginTop: 28, padding: "18px 20px", display: "flex", gap: 14, alignItems: "flex-start", background: "#FFF4E5", color: "#7A4A00" }}>
-            <span style={{ flex: "none", marginTop: 2 }}>{Icon.info(22)}</span>
-            <div style={{ fontSize: 15, lineHeight: 1.5 }}>
-              <b style={{ fontSize: 16 }}>You&apos;re on the waiting list.</b><br />
-              Hunting Fox is free while we test it, so Rajveer approves every student by hand. You can paste a job now, and it&apos;ll work as soon as you&apos;re approved.
-            </div>
-          </div>
-        )}
+        <LinkBox key={restored} signedIn={p.signedIn} initial={restored || (!p.signedIn ? p.initialLink : "")} onStarted={(id) => setScanId(id)} />
 
-        <LinkBox signedIn={p.signedIn} initial={!p.signedIn || !p.approved ? p.initialLink : ""} onStarted={(id) => setScanId(id)} />
-
-        {p.signedIn && !p.approved ? null : p.signedIn && p.resumeName ? (
+        {p.signedIn && p.resumeName ? (
           <div className="mute" style={{ margin: "4px 8px 0", display: "flex", alignItems: "center", gap: 8, fontSize: 14, flexWrap: "wrap" }}>
             <span style={{ color: "var(--green)" }}>{Icon.check(16)}</span>Using {p.resumeName} · <Link href="/account" style={{ color: "var(--pink)", fontWeight: 700, textDecoration: "none", padding: "10px 2px" }}>Change</Link> · {p.left} of {p.limit} searches left
           </div>

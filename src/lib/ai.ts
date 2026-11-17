@@ -1,16 +1,18 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { setting } from "@/lib/secrets";
 
 // One task per call. Writing goes to Haiku; decisions (ranking, yes/no) go to
 // Cloudflare's decision model when configured, else Haiku.
 
-const WRITER_MODEL = process.env.WRITER_MODEL || "claude-haiku-5-5";
-
-let _anthropic: Anthropic | null = null;
-function anthropic() {
-  if (!_anthropic) _anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  return _anthropic;
+// Keys and model can be changed in /admin; env variables are the fallback.
+let _client: { key: string; c: Anthropic } | null = null;
+async function anthropic() {
+  const key = await setting("anthropic_key", "ANTHROPIC_API_KEY");
+  if (!key) throw new Error("No Anthropic key. Add one in /admin.");
+  if (!_client || _client.key !== key) _client = { key, c: new Anthropic({ apiKey: key }) };
+  return _client.c;
 }
 
 const promptCache = new Map<string, string>();
@@ -36,8 +38,8 @@ export function parseJson<T>(text: string): T {
  * calls, so it's marked for caching; only the short user input is new each time.
  */
 export async function writer<T>(promptName: string, input: unknown, maxTokens = 1200): Promise<T> {
-  const res = await anthropic().messages.create({
-    model: WRITER_MODEL,
+  const res = await (await anthropic()).messages.create({
+    model: (await setting("writer_model", "WRITER_MODEL")) || "claude-haiku-5-5",
     max_tokens: maxTokens,
     temperature: 0.3,
     system: [{ type: "text", text: prompt(promptName), cache_control: { type: "ephemeral" } }],
@@ -52,9 +54,9 @@ export async function writer<T>(promptName: string, input: unknown, maxTokens = 
  * CF_API_TOKEN and CF_DECISION_MODEL are set; falls back to Haiku on any error.
  */
 export async function decide<T>(promptName: string, input: unknown): Promise<T> {
-  const acct = process.env.CF_ACCOUNT_ID;
-  const tok = process.env.CF_API_TOKEN;
-  const model = process.env.CF_DECISION_MODEL;
+  const acct = await setting("cf_account_id", "CF_ACCOUNT_ID");
+  const tok = await setting("cf_api_token", "CF_API_TOKEN");
+  const model = await setting("cf_decision_model", "CF_DECISION_MODEL");
   if (acct && tok && model) {
     try {
       const r = await fetch(`https://api.cloudflare.com/client/v4/accounts/${acct}/ai/run/${model}`, {

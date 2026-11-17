@@ -1,19 +1,36 @@
 import { adminClient } from "@/lib/supabase/clients";
+import { decrypt } from "@/lib/secrets";
 
-// Token pool. Env: APIFY_TOKENS="label1:token1,label2:token2" (labels are just names).
+// Token pool: tokens added in /admin (encrypted in apify_tokens), then any in env APIFY_TOKENS="label:token,...".
 type Tok = { label: string; token: string };
 
-function pool(): Tok[] {
-  return (process.env.APIFY_TOKENS || "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean)
-    .map((s, i) => {
-      const at = s.indexOf(":");
-      return at > 0 && !s.startsWith("apify_api_")
-        ? { label: s.slice(0, at), token: s.slice(at + 1) }
-        : { label: "acct" + (i + 1), token: s };
-    });
+async function pool(): Promise<Tok[]> {
+  const out: Tok[] = [];
+  const { data } = await adminClient().from("apify_tokens").select("label,token_enc,added_at").not("token_enc", "is", null).order("added_at");
+  (data || []).forEach((r) => {
+    try { out.push({ label: r.label, token: decrypt(r.token_enc) }); } catch { /* unreadable: skip */ }
+  });
+  const seen = new Set(out.map((t) => t.label));
+  (process.env.APIFY_TOKENS || "").split(",").map((s) => s.trim()).filter(Boolean).forEach((s, i) => {
+    const at = s.indexOf(":");
+    const t = at > 0 && !s.startsWith("apify_api_") ? { label: s.slice(0, at), token: s.slice(at + 1) } : { label: "env" + (i + 1), token: s };
+    if (!seen.has(t.label)) out.push(t);
+  });
+  return out;
+}
+
+/** Credit left on one token, straight from Apify. */
+export async function checkToken(token: string): Promise<{ ok: boolean; remaining?: number; error?: string }> {
+  try {
+    const r = await fetch(`https://api.apify.com/v2/users/me/limits?token=${token}`, { signal: AbortSignal.timeout(10_000) });
+    if (!r.ok) return { ok: false, error: r.status === 401 ? "This token doesn't work. Copy it again from Apify." : `Apify said ${r.status}` };
+    const j = await r.json();
+    const used = j?.data?.current?.monthlyUsageUsd ?? 0;
+    const max = j?.data?.limits?.maxMonthlyUsageUsd ?? 5;
+    return { ok: true, remaining: Math.max(0, max - used) };
+  } catch (e) {
+    return { ok: false, error: String(e) };
+  }
 }
 
 const B2B_MONTHLY_ROWS = 500;
@@ -40,7 +57,7 @@ export async function addRows(label: string, rows: number) {
  * Uses GET /v2/users/me/limits (current.monthlyUsageUsd vs limits.maxMonthlyUsageUsd).
  */
 export async function pooledRemainingUsd(): Promise<number> {
-  const toks = pool();
+  const toks = await pool();
   const state = await tokenState();
   const sb = adminClient();
   let total = 0;
@@ -88,8 +105,8 @@ export async function runActor<T = Record<string, unknown>>(
   input: unknown,
   opts: { timeoutSec?: number; b2bRows?: number } = {}
 ): Promise<{ items: T[]; label: string }> {
-  const toks = pool();
-  if (!toks.length) throw new Error("No Apify tokens set (APIFY_TOKENS).");
+  const toks = await pool();
+  if (!toks.length) throw new Error("No Apify tokens. Add one in /admin.");
   const state = await tokenState();
   const usable = toks.filter((t) => {
     const s = state.get(t.label);

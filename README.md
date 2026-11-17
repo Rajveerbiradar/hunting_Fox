@@ -19,7 +19,7 @@ The resume is read once at upload (`prompts/resume-profile.md`) and reused for e
 
 ## Setup
 
-1. **Supabase**: create a project, run `supabase/migrations/001_init.sql`, then `002_approval.sql`, in the SQL editor. Turn on Google under Authentication → Providers, and add `https://YOUR-SITE/auth/callback` to the redirect URLs.
+1. **Supabase**: create a project, run `supabase/migrations/001_init.sql`, then `002_approval.sql`, then `003_keys.sql`, in the SQL editor. Turn on Google under Authentication → Providers, and add `https://YOUR-SITE/auth/callback` to the redirect URLs.
 2. **Vercel**: import this repo, add every variable from `.env.example`, deploy.
 3. Set `NEXT_PUBLIC_SITE_URL` to the deployed address and redeploy.
 4. Test with 3 LinkedIn links and 1 Naukri link before sharing.
@@ -32,9 +32,13 @@ Nobody can search until you approve them. Put your Google email in `ADMIN_EMAILS
 - **Remove access** stops new searches but keeps their saved jobs.
 - Failed, closed and fake jobs never count toward a student's searches.
 
+## API keys
+
+Paste, replace or remove keys in `/admin` → **API keys**: Apify accounts, the Anthropic key, the writing model (Haiku or Sonnet) and Cloudflare Clef. Each key is checked before it's saved, stored encrypted with `KEYS_SECRET`, and never shown again except its last 4 characters. Env variables still work as a fallback.
+
 ## Apify accounts
 
-`APIFY_TOKENS` takes any number of tokens. Each Apify call tries them in order and moves to the next one when a token is out of credit, over its limit, revoked (401/402/403), busy (429) or down (5xx). Out-of-credit and revoked tokens are parked in the `apify_tokens` table and skipped; the credit check un-parks them when they have credit again. A timeout is never retried on another account, so one slow run is never paid for twice.
+Any number of accounts (from `/admin` and/or `APIFY_TOKENS`). Each Apify call tries them in order and moves to the next one when a token is out of credit, over its limit, revoked (401/402/403), busy (429) or down (5xx). Out-of-credit and revoked tokens are parked in the `apify_tokens` table and skipped; the credit check un-parks them when they have credit again. A timeout is never retried on another account, so one slow run is never paid for twice.
 
 ## Beep numbers
 

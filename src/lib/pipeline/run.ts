@@ -159,7 +159,7 @@ async function scan(job: any) {
   await sb.from("jobs").update({ status: "ready", step: 5, finished_at: new Date().toISOString() }).eq("id", job.id);
   await sb.from("events").insert({ user_id: job.user_id, job_id: job.id, name: "finished" });
   if (profile?.email_ready && profile?.email)
-    await sendEmail(profile.email, `${company.name} is ready`, `Here's what to do for the ${jd.title} job at ${company.name}:\n${SITE()}/jobs/${job.id}\n\nScanner never sends anything for you.`);
+    await sendEmail(profile.email, `${company.name} is ready`, `Here's what to do for the ${jd.title} job at ${company.name}:\n${SITE()}/jobs/${job.id}\n\nHunting Fox never sends anything for you.`);
 }
 
 export async function writePerson(p: Person, ctx: Parameters<typeof buildMessages>[1], rp: ResumeProfile | null): Promise<Person> {

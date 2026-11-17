@@ -1,0 +1,46 @@
+# Hunting Fox
+
+Paste a LinkedIn or Naukri job. Hunting Fox checks the company is real, finds people who work there, shows what to change in your resume, and writes messages you send yourself.
+
+## How a scan works
+
+Each pasted link becomes one row in `jobs` and runs on its own (`after()` in `POST /api/jobs`), so one slow or failed job never blocks another. The progress popup polls that row.
+
+| Step | Who does it | Cost |
+|---|---|---|
+| 1. Read the job | Apify (`automation_craft/linkedin-job-details-scraper` or `blackfalcondata/naukri-jobs-feed`) | ~$0.001 |
+| 2. Check the company | Plain code rules (`src/lib/pipeline/rules.ts`) | free |
+| 3. Find people | Apify `b2bsearch/company-employees`, fallback `harvestapi/linkedin-company-employees`. Cached per company for 7 days. Code keeps only each person's current job. | ~$0.045 full / less in lean |
+| 4a. Resume changes | Writer model, one call (`prompts/resume-changes.md`). Edits that don't match a real resume line are dropped. | 1 call |
+| 4b. Rank people | Decision model, one call, in parallel with 4a (`prompts/rank-people.md`) | 1 call |
+| 5. Messages | Fixed template filled by code. The writer adds one line only when ranking found a real connection (`prompts/personal-line.md`). Only the top 2 people are written; the rest when the student taps "Show more". | 0–2 calls |
+
+The resume is read once at upload (`prompts/resume-profile.md`) and reused for every job.
+
+## Setup
+
+1. **Supabase**: create a project, run `supabase/migrations/001_init.sql`, then `002_approval.sql`, in the SQL editor. Turn on Google under Authentication → Providers, and add `https://YOUR-SITE/auth/callback` to the redirect URLs.
+2. **Vercel**: import this repo, add every variable from `.env.example`, deploy.
+3. Set `NEXT_PUBLIC_SITE_URL` to the deployed address and redeploy.
+4. Test with 3 LinkedIn links and 1 Naukri link before sharing.
+
+## Approving students
+
+Nobody can search until you approve them. Put your Google email in `ADMIN_EMAILS`, sign in, and open `/admin`:
+
+- **Waiting** lists everyone who signed up. Set how many searches they get (default 25) and tap **Approve**.
+- **Remove access** stops new searches but keeps their saved jobs.
+- Failed, closed and fake jobs never count toward a student's searches.
+
+## Apify accounts
+
+`APIFY_TOKENS` takes any number of tokens. Each Apify call tries them in order and moves to the next one when a token is out of credit, over its limit, revoked (401/402/403), busy (429) or down (5xx). Out-of-credit and revoked tokens are parked in the `apify_tokens` table and skipped; the credit check un-parks them when they have credit again. A timeout is never retried on another account, so one slow run is never paid for twice.
+
+## Beep numbers
+
+Also shown at the top of `/admin`.
+
+```sql
+select name, count(*) from events group by name;            -- started / finished / applied_marked / failed
+select count(distinct user_id) from events where name = 'started';
+```

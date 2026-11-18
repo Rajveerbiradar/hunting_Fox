@@ -200,8 +200,10 @@ h1, h2, h3 { text-wrap: balance; }
 .rdoc.clean .rmark, .rdoc .rmark.clean { background: none; padding: 0; margin: 0; }
 @media (max-width: 640px) { .rdoc { padding: 28px 20px; } .rdoc h1 { font-size: 24px; } }
 @media print {
-  @page { size: A4; margin: 14mm; }
-  .rdoc { box-shadow: none; padding: 0; max-width: none; border-radius: 0; }
+  /* Margin 0 turns off the browser's own header and footer (date, page title, web address, page number).
+     The white space moves inside the resume and repeats on every page (box-decoration-break). */
+  @page { size: A4; margin: 0; }
+  .rdoc { box-shadow: none; padding: 14mm 16mm; max-width: none; border-radius: 0; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
   .rdoc .rmark { background: none; padding: 0; margin: 0; }
   .rdoc .rold, .rdoc .rwhy { display: none; }
 }

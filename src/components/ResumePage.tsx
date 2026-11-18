@@ -46,7 +46,7 @@ export function ResumePage({ jobId, company, resume, hasResume, skills, initial,
           </div>
           {diff && (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
-              <Link href={`/jobs/${jobId}/resume/print`} target="_blank" className={`btn ${unanswered ? "sec" : "lg pri"}`}>{Icon.download()}{unanswered ? "Download anyway" : "Download PDF"}</Link>
+              <a href={`/api/jobs/${jobId}/pdf`} download className={`btn ${unanswered ? "sec" : "lg pri"}`}>{Icon.download()}{unanswered ? "Download anyway" : "Download PDF"}</a>
               <span style={{ fontSize: 14, fontWeight: unanswered ? 600 : 400, color: unanswered ? "var(--ink)" : "var(--mute)" }}>{unanswered ? `Answer ${unanswered} ${unanswered === 1 ? "question" : "questions"} below first` : "Saved here. Come back any time."}</span>
             </div>
           )}

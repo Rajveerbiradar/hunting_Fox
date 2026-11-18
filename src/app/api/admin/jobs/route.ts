@@ -6,9 +6,15 @@ import { runJob } from "@/lib/pipeline/run";
 export const maxDuration = 300;
 
 /** Every job link students pasted, with who pasted it, what came of it and how long it took. */
-export async function GET() {
+export async function GET(req: Request) {
   if (!(await requireAdmin())) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   const sb = adminClient();
+  // ?log=<job id>: that job's step-by-step log.
+  const logFor = new URL(req.url).searchParams.get("log");
+  if (logFor) {
+    const { data, error } = await sb.from("job_logs").select("at,level,step,msg,ms").eq("job_id", logFor).order("id").limit(300);
+    return NextResponse.json({ log: data || [], error: error ? "Run supabase/migrations/006_job_logs.sql to turn on logs." : undefined });
+  }
   const { data: jobs } = await sb.from("jobs").select("id,user_id,url,portal,status,step,error,title,company,created_at,finished_at,own_key,reports(people,verdict)").order("created_at", { ascending: false }).limit(500);
   const ids = [...new Set((jobs || []).map((j) => j.user_id))];
   const { data: profs } = await sb.from("profiles").select("id,name,email").in("id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]);

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { LiveStep, Spinner, letterTile, useSort, useToast } from "./ui";
 
+type L = { at: string; level: "info" | "warn" | "error"; step: string | null; msg: string; ms: number | null };
 type J = { id: string; url: string; portal: string; status: string; step: number; error: string | null; title: string | null; company: string | null; created_at: string; finished_at: string | null; own_key: boolean; people: number | null; verdict: string | null; student: string };
 
 const STATUS: Record<string, [string, string, string]> = {
@@ -28,6 +29,14 @@ export function AdminJobs() {
   const [tab, setTab] = useState("all");
   const [site, setSite] = useState("all");
   const sorter = useSort("admin_jobs");
+  const [logOpen, setLogOpen] = useState<string | null>(null);
+  const [log, setLog] = useState<{ lines: L[]; error?: string } | null>(null);
+  async function openLog(id: string) {
+    if (logOpen === id) { setLogOpen(null); return; }
+    setLogOpen(id); setLog(null);
+    const d = await fetch(`/api/admin/jobs?log=${id}`, { cache: "no-store" }).then((r) => r.json()).catch(() => ({ log: [], error: "Couldn't load the log." }));
+    setLog({ lines: d.log || [], error: d.error });
+  }
   const toast = useToast();
 
   const load = () => fetch("/api/admin/jobs", { cache: "no-store" }).then((r) => r.json()).then((d) => setJobs(d.jobs || []));
@@ -83,9 +92,30 @@ export function AdminJobs() {
                 {(j.status === "failed" || (working(j) && Date.now() - new Date(j.created_at).getTime() > 10 * 60_000)) && (
                   <button className="btn sec sm" onClick={async () => { await fetch("/api/admin/jobs", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: j.id }) }); toast.show("Running again"); load(); }}>Run again</button>
                 )}
+                <button className="btn sec sm" aria-expanded={logOpen === j.id} onClick={() => openLog(j.id)}>{logOpen === j.id ? "Hide log" : "Log"}</button>
                 <a className="btn sec sm" href={j.url} target="_blank" rel="noopener">Job post</a>
                 {j.status === "ready" && <Link className="btn sec sm" href={`/jobs/${j.id}`}>Open</Link>}
               </div>
+              {logOpen === j.id && (
+                <div style={{ flexBasis: "100%", background: "var(--sunken)", borderRadius: 14, padding: 12, overflowX: "auto" }}>
+                  {!log ? <div className="mute" style={{ display: "flex", gap: 8, alignItems: "center" }}><Spinner size={16} />Loading log…</div>
+                    : log.error ? <div style={{ color: "var(--red)", fontSize: 14 }}>{log.error}</div>
+                    : !log.lines.length ? <div className="mute" style={{ fontSize: 14 }}>No log lines for this job (it ran before logging was added).</div>
+                    : (
+                      <table style={{ borderCollapse: "collapse", fontFamily: "ui-monospace, Menlo, monospace", fontSize: 12.5, lineHeight: 1.5, width: "100%" }}>
+                        <tbody>
+                          {log.lines.map((l, k) => (
+                            <tr key={k} style={{ verticalAlign: "top", color: l.level === "error" ? "var(--red)" : l.level === "warn" ? "#7A4A00" : "var(--ink)" }}>
+                              <td style={{ padding: "2px 10px 2px 0", whiteSpace: "nowrap", color: "var(--mute)" }}>{l.ms != null ? `+${(l.ms / 1000).toFixed(1)}s` : new Date(l.at).toLocaleTimeString()}</td>
+                              <td style={{ padding: "2px 10px 2px 0", whiteSpace: "nowrap", fontWeight: 700 }}>{l.level === "info" ? "" : l.level.toUpperCase()} {l.step}</td>
+                              <td style={{ padding: "2px 0", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{l.msg}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                </div>
+              )}
             </div>
           );
         })}

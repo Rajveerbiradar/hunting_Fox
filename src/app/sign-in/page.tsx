@@ -10,11 +10,13 @@ const GoogleG = () => (
 );
 
 function SignIn() {
-  const link = useSearchParams().get("link") || "";
+  const params = useSearchParams();
+  const link = params.get("link") || "";
+  const back = params.get("next") || "";
   const [busy, setBusy] = useState(false);
   async function google() {
     setBusy(true);
-    const next = link ? `/?link=${encodeURIComponent(link)}` : "/";
+    const next = link ? `/?link=${encodeURIComponent(link)}` : back.startsWith("/") ? back : "/";
     await browserClient().auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo: `${location.origin}/auth/callback?next=${encodeURIComponent(next)}` },

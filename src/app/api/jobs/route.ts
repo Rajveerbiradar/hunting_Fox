@@ -2,6 +2,7 @@ import { NextResponse, after } from "next/server";
 import { adminClient, currentUser, userClient } from "@/lib/supabase/clients";
 import { checkLink } from "@/lib/links";
 import { runJob } from "@/lib/pipeline/run";
+import { jlog } from "@/lib/joblog";
 import { access } from "@/lib/limits";
 import { appSettings } from "@/lib/secrets";
 
@@ -47,6 +48,7 @@ export async function POST(req: Request) {
   await sb.from("events").insert({ user_id: user.id, job_id: job.id, name: "started" });
 
   // Each job runs in its own background invocation: one failing never blocks another.
+  await jlog("info", "queued", "Saved. Starting in the background.", job.id);
   after(() => runJob(job.id));
   return NextResponse.json({ id: job.id }, { status: 201 });
 }

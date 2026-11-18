@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { adminClient } from "@/lib/supabase/clients";
+import { jlog, jobCtx } from "@/lib/joblog";
 import { scanMode } from "@/lib/apify";
 import { ownKeys } from "@/lib/ownKeys";
 import { withoutBlocked } from "@/lib/removals";
@@ -15,6 +16,7 @@ const CACHE_DAYS = 7;
 type Ranked = { order: { i: number; why: string; link: Person["link"] }[] };
 
 async function setStep(jobId: string, step: number, detail: string) {
+  await jlog("info", `step ${step}`, detail);
   await adminClient().from("jobs").update({ step, step_detail: detail, status: "scanning" }).eq("id", jobId);
 }
 
@@ -24,14 +26,18 @@ async function setStep(jobId: string, step: number, detail: string) {
  */
 export async function runJob(jobId: string) {
   const sb = adminClient();
-  const { data: job } = await sb.from("jobs").select("*").eq("id", jobId).single();
-  if (!job || job.status === "ready") return;
+  const { data: job, error: readErr } = await sb.from("jobs").select("*").eq("id", jobId).single();
+  if (!job) { await jlog("error", "start", `Couldn't read the job row: ${readErr?.message || "not found"}`, jobId); return; }
+  if (job.status === "ready") return;
   await sb.from("jobs").update({ attempts: (job.attempts || 0) + 1 }).eq("id", jobId);
+  await jobCtx.run({ jobId, started: Date.now() }, async () => {
+  await jlog("info", "start", `Attempt ${(job.attempts || 0) + 1} · ${job.portal} · ${job.url}`);
   try {
     await scan(job);
+    await jlog("info", "done", "Finished");
   } catch (e: any) {
-    console.error("scan failed", jobId, e);
     const msg = String(e?.message || e);
+    await jlog("error", "failed", `${msg}${e?.stack ? `\n${String(e.stack).split("\n").slice(1, 6).join("\n")}` : ""}`);
     await sb.from("jobs").update({
       status: "failed",
       error: msg.includes("JOB_NOT_FOUND") ? "not_found" : msg.includes("OWN_KEY_OUT") ? "own_key_out" : msg.slice(0, 300),
@@ -39,6 +45,7 @@ export async function runJob(jobId: string) {
     }).eq("id", jobId);
     await sb.from("events").insert({ user_id: job.user_id, job_id: jobId, name: "failed" });
   }
+  });
 }
 
 async function scan(job: any) {
@@ -50,6 +57,7 @@ async function scan(job: any) {
   // A student's own Apify key pays for the search, so it doesn't count toward their limit.
   let apifyKey: string | null = own.apify?.token || null;
   const mode = apifyKey ? "full" : await scanMode();
+  await jlog("info", "setup", `Mode ${mode} · ${apifyKey ? "student's own Apify key" : "shared Apify accounts"} · ${own.ai ? "student's own AI key" : "shared AI providers"} · resume ${profile?.resume_profile ? "yes" : "no"}`);
   if (apifyKey !== null) await sb.from("jobs").update({ own_key: true }).eq("id", job.id);
 
   // Own key ran out mid-search: use their free searches if they said so, else stop.
@@ -124,7 +132,7 @@ async function scan(job: any) {
       resume_lines: lines,
       job: { title: jd.title, key_skills: jd.keySkills, description: jd.description.slice(0, 3000) },
       team: teamSummary(people),
-    }, 1200, own.ai).catch(() => ({ edits: [], suggestions: [] }));
+    }, 1200, own.ai).catch(async (e) => { await jlog("warn", "resume", `Resume changes skipped: ${String(e?.message || e).slice(0, 200)}`); return { edits: [], suggestions: [] }; });
     // Anti-invention guard: an edit must replace a line that really exists.
     const edits = (out.edits || []).filter((e) => lines.includes(e.old) && e.new && e.new !== e.old).slice(0, 4);
     return {
@@ -142,7 +150,7 @@ async function scan(job: any) {
       job: { title: jd.title, key_skills: jd.keySkills, company: company.name, size_band: band },
       student,
       people: people.map((p, i) => ({ i, title: p.title, months: p.months, activity: p.active, schools: p.schools, past_companies: p.pastCompanies, headline: p.headline })),
-    }, own.ai).catch(() => ({ order: people.map((_, i) => ({ i, why: "", link: null })) }));
+    }, own.ai).catch(async (e) => { await jlog("warn", "rank", `Ranking skipped, keeping found order: ${String(e?.message || e).slice(0, 200)}`); return { order: people.map((_, i) => ({ i, why: "", link: null })) }; });
   })();
 
   const [resume, ranked] = await Promise.all([resumeTask, rankTask]);

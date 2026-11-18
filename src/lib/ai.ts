@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { adminClient } from "@/lib/supabase/clients";
 import { decrypt, setting } from "@/lib/secrets";
+import { jlog } from "@/lib/joblog";
 
 // Every AI call goes through the OpenAI SDK, so any provider that speaks the OpenAI
 // format works: Anthropic, OpenAI, OpenRouter, Groq, Cloudflare Workers AI and others.
@@ -93,17 +94,18 @@ async function run<T>(task: "writer" | "ranker", promptName: string, input: unkn
     ...list.filter((p) => p.id === pick),
     ...list.filter((p) => p.id !== pick),
   ];
-  if (!ordered.length) throw new Error("No AI provider. Add one in /admin → API keys.");
+  if (!ordered.length) { await jlog("error", "ai", "No AI provider. Add one in /admin → API keys."); throw new Error("No AI provider. Add one in /admin → API keys."); }
   let last: unknown;
   for (const p of ordered) {
     try {
       const text = await chat(p, prompt(promptName), JSON.stringify(input), maxTokens);
       const out = parseJson<T>(text);
+      await jlog("info", "ai", `${promptName} on ${p.name} (${p.model}) OK`);
       if (p.id !== "own") void markProvider(p.id, true);
       return out;
     } catch (e) {
       last = e;
-      console.warn(`AI provider ${p.name} failed, trying next:`, String(e).slice(0, 200));
+      await jlog("warn", "ai", `${promptName} on ${p.name} (${p.model}) failed: ${String((e as { message?: string })?.message || e).slice(0, 300)}`);
       void markProvider(p.id, false, String(e));
     }
   }

@@ -1,5 +1,6 @@
 import { adminClient } from "@/lib/supabase/clients";
 import { decrypt, setting } from "@/lib/secrets";
+import { jlog } from "@/lib/joblog";
 
 // Token pool: tokens added in /admin (encrypted in apify_tokens), then any in env APIFY_TOKENS="label:token,...".
 type Tok = { label: string; token: string };
@@ -122,14 +123,15 @@ export async function runActor<T = Record<string, unknown>>(
       method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input),
       signal: AbortSignal.timeout(((opts.timeoutSec ?? 120) + 15) * 1000),
     });
-    if (r.ok) return { items: (await r.json()) as T[], label: "own" };
+    if (r.ok) { const items = (await r.json()) as T[]; await jlog("info", "apify", `${actor} on student's own key OK · ${Array.isArray(items) ? items.length : 0} items`); return { items, label: "own" }; }
     const text = await r.text();
+    await jlog("warn", "apify", `${actor} on student's own key failed · ${r.status} ${text.slice(0, 200)}`);
     const e = new Error(`Own Apify key: ${r.status} ${text.slice(0, 200)}`) as Error & { ownKeyOut?: boolean };
     e.ownKeyOut = [401, 402, 403].includes(r.status) || /usage|limit|credit|insufficient/i.test(text);
     throw e;
   }
   const toks = await pool();
-  if (!toks.length) throw new Error("No Apify tokens. Add one in /admin.");
+  if (!toks.length) { await jlog("error", "apify", "No Apify accounts. Add one in /admin → API keys."); throw new Error("No Apify tokens. Add one in /admin → API keys."); }
   const state = await tokenState();
   const usable = toks.filter((t) => {
     const s = state.get(t.label);
@@ -142,6 +144,8 @@ export async function runActor<T = Record<string, unknown>>(
   let lastErr = "";
   for (const t of order) {
     const url = `https://api.apify.com/v2/acts/${id}/run-sync-get-dataset-items?token=${t.token}&timeout=${opts.timeoutSec ?? 120}`;
+    const t0 = Date.now();
+    await jlog("info", "apify", `${actor} on account "${t.label}"`);
     let r: Response;
     try {
       r = await fetch(url, {
@@ -152,14 +156,19 @@ export async function runActor<T = Record<string, unknown>>(
       });
     } catch (e) {
       lastErr = String(e);
+      await jlog("warn", "apify", `${actor} on "${t.label}" network error after ${Date.now() - t0} ms: ${lastErr.slice(0, 200)}`);
       // A timeout means the run may still be going and costing money: don't start it again on another account.
       if (/TimeoutError|aborted/i.test(lastErr)) throw new Error(`Apify ${actor} timed out`);
       continue; // network hiccup: try the next token
     }
-    if (r.ok) return { items: (await r.json()) as T[], label: t.label };
+    if (r.ok) {
+      const items = (await r.json()) as T[];
+      await jlog("info", "apify", `${actor} on "${t.label}" OK · ${Array.isArray(items) ? items.length : 0} items · ${Date.now() - t0} ms`);
+      return { items, label: t.label };
+    }
     const text = await r.text();
     lastErr = `${t.label}: ${r.status} ${text.slice(0, 200)}`;
-    console.warn("Apify token failed, trying next", lastErr);
+    await jlog("warn", "apify", `${actor} failed · ${lastErr}`);
     // Out of credit, over the limit, or a bad/revoked token: park this account and move on.
     if ([401, 402, 403].includes(r.status) || /usage|limit|credit|insufficient|token/i.test(text)) {
       await markExhausted(t.label);

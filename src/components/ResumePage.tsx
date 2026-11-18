@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { BackLink, Header, Icon, copyText, useToast } from "./ui";
 import { ResumeUpload } from "./ResumeUpload";
 import { appliedUse, buildDiff } from "@/lib/resumeDiff";
@@ -17,6 +17,8 @@ type R = {
   gaps?: { id: string; question: string; why: string }[];
   failed?: string;
   company_brief?: { believes: string; building: string; deliver: string };
+  rewriting?: { at: string; kind: "answers" | "redo" };
+  rewrite_error?: string;
 };
 
 export function ResumePage({ jobId, company, resume: start, hasResume, skills, initial, portal }: { jobId: string; company: string; resume: R | null; hasResume: boolean; skills: Skill[]; initial: string; portal: string }) {
@@ -49,6 +51,12 @@ export function ResumePage({ jobId, company, resume: start, hasResume, skills, i
   const keys = [...new Set((preview?.right || []).filter((r) => r.kind === "add" && r.key).map((r) => r.key!))];
   const kept = keys.filter((k) => decisions[k] !== false).length;
   const dirty = !appliedAt || keys.some((k) => (decisions[k] !== false) !== ((resume?.decisions || {})[k] !== false));
+  // Keep / Drop only change this list (saved when the student taps Apply); say so on every press.
+  function decide(k: string, keep: boolean) {
+    const was = decisions[k] !== false;
+    setDecisions({ ...decisions, [k]: keep });
+    toast.show(keep ? (was ? "Already kept. Tap Apply to put it in your resume" : "Kept. Tap Apply to put it in your resume") : "Dropped. Your old line stays");
+  }
   const marks: Record<number, DocMark> = {};
   preview?.right.forEach((r, i) => {
     if (r.kind !== "add") return;
@@ -59,8 +67,8 @@ export function ResumePage({ jobId, company, resume: start, hasResume, skills, i
       off: !!k && decisions[k] === false,
       extra: review && k ? (
         <div className="rkeep noprint">
-          <button type="button" aria-pressed={decisions[k] !== false} onClick={() => setDecisions({ ...decisions, [k]: true })}>✓ Keep</button>
-          <button type="button" aria-pressed={decisions[k] === false} onClick={() => setDecisions({ ...decisions, [k]: false })}>✕ Drop</button>
+          <button type="button" aria-pressed={decisions[k] !== false} onClick={() => decide(k, true)}>{decisions[k] !== false ? "✓ Kept" : "Keep"}</button>
+          <button type="button" aria-pressed={decisions[k] === false} onClick={() => decide(k, false)}>{decisions[k] === false ? "✕ Dropped" : "Drop"}</button>
         </div>
       ) : undefined,
     };
@@ -74,15 +82,31 @@ export function ResumePage({ jobId, company, resume: start, hasResume, skills, i
   });
   // The AI's answer never arrived (or was empty): never show that as "already fits".
   const broke = review && !!resume && (!!resume.failed || (!resume.edits.length && !resume.priorities?.length && !resume.summary_insert));
-  const [redoing, setRedoing] = useState(false);
-  async function redo() {
-    setRedoing(true);
-    const r = await fetch(`/api/jobs/${jobId}/resume-plan`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "redo" }) }).catch(() => null);
+  // Try again and Rewrite with my answers run on the server. The page shows "Rewriting…" (even after leaving
+  // and coming back) and checks every 3 s until the new suggestions are saved.
+  const rw = resume?.rewriting;
+  const busy = !!rw && Date.now() - new Date(rw.at).getTime() < 5 * 60_000;
+  useEffect(() => {
+    if (!busy) return;
+    let alive = true;
+    const t = setInterval(async () => {
+      const r = await fetch(`/api/jobs/${jobId}/resume-plan`, { cache: "no-store" }).catch(() => null);
+      const d = r && r.ok ? await r.json().catch(() => null) : null;
+      if (!alive || !d?.resume || d.resume.rewriting) return;
+      setResume(d.resume);
+      setDecisions(d.resume.decisions || {});
+      setAppliedAt(d.resume.applied ? d.resume.applied_at : undefined);
+      toast.show(d.resume.rewrite_error ? "Couldn't rewrite it this time. Try again." : "Done. Review the new changes below.");
+    }, 3000);
+    return () => { alive = false; clearInterval(t); };
+  }, [busy, jobId]); // eslint-disable-line react-hooks/exhaustive-deps
+  async function startRewrite(body: object) {
+    const r = await fetch(`/api/jobs/${jobId}/resume-plan`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }).catch(() => null);
     const d = r ? await r.json().catch(() => ({})) : {};
-    if (d.resume) { setResume(d.resume); setDecisions({}); setAppliedAt(undefined); toast.show("Done. Review the changes below."); }
-    else toast.show("Still couldn't write it. Try again in a minute.");
-    setRedoing(false);
+    if (d.resume?.rewriting) { setResume(d.resume); setAnswers({}); }
+    else toast.show("Couldn't start just now. Try again in a minute.");
   }
+  const redo = () => startRewrite({ action: "redo" });
 
   async function apply() {
     setApplying(true);
@@ -96,17 +120,9 @@ export function ResumePage({ jobId, company, resume: start, hasResume, skills, i
   // Gap questions: the student's own rough answers become new facts (saved for every job) and a fresh rewrite.
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [skipped, setSkipped] = useState<Record<string, boolean>>({});
-  const [rewriting, setRewriting] = useState(false);
   const gaps = (resume?.gaps || []).filter((g) => !skipped[g.id]);
   const ready = gaps.filter((g) => (answers[g.id] || "").trim().length >= 10);
-  async function rewrite() {
-    setRewriting(true);
-    const r = await fetch(`/api/jobs/${jobId}/resume-plan`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "answers", answers: ready.map((g) => ({ q: g.question, a: answers[g.id] })) }) }).catch(() => null);
-    const d = r ? await r.json().catch(() => ({})) : {};
-    if (d.resume) { setResume(d.resume); setDecisions({}); setAppliedAt(undefined); setAnswers({}); toast.show("Rewritten with your answers. Review the new changes below."); }
-    else toast.show("Couldn't rewrite just now. Try again in a minute.");
-    setRewriting(false);
-  }
+  const rewrite = () => startRewrite({ action: "answers", answers: ready.map((g) => ({ q: g.question, a: answers[g.id] })) });
   return (
     <>
       <Header signedIn initial={initial} />
@@ -139,15 +155,29 @@ export function ResumePage({ jobId, company, resume: start, hasResume, skills, i
           </>
         ) : (
           <>
-            {broke && (
-              <div className="card" role="alert" style={{ marginTop: 24, padding: "22px 24px", background: "#FDECEF", color: "#B8132F" }}>
-                <div style={{ fontSize: 18, fontWeight: 700 }}>We couldn&apos;t write the changes for {company}</div>
-                <p style={{ margin: "6px 0 14px", fontSize: 16, lineHeight: 1.5, color: "var(--ink)" }}>Something went wrong on our side while rewriting your resume for this job. It doesn&apos;t mean your resume already fits. Try again: it takes about a minute and doesn&apos;t use a search.</p>
-                <button className="btn lg pri" disabled={redoing} aria-busy={redoing} onClick={redo}>{redoing ? <><Spinner size={16} />Rewriting your resume… about a minute</> : "Try again"}</button>
+            {resume.rewrite_error && !busy && !broke && (
+              <div className="card" role="alert" style={{ marginTop: 24, padding: "16px 22px", background: "#FDECEF", color: "#B8132F", fontSize: 16, lineHeight: 1.5 }}>
+                <b>Couldn&apos;t rewrite it with your answers this time.</b> <span style={{ color: "var(--ink)" }}>Your answers are saved. The changes below are the earlier ones. Tap Rewrite with my answers again in a minute.</span>
               </div>
             )}
 
-            {review && !broke && (
+            {broke && !busy && (
+              <div className="card" role="alert" style={{ marginTop: 24, padding: "22px 24px", background: "#FDECEF", color: "#B8132F" }}>
+                <div style={{ fontSize: 18, fontWeight: 700 }}>We couldn&apos;t write the changes for {company}</div>
+                <p style={{ margin: "6px 0 14px", fontSize: 16, lineHeight: 1.5, color: "var(--ink)" }}>Something went wrong on our side while rewriting your resume for this job. It doesn&apos;t mean your resume already fits. Try again: it takes about a minute and doesn&apos;t use a search.</p>
+                <button className="btn lg pri" onClick={redo}>Try again</button>
+                {resume.failed && resume.failed !== "unknown" && <p className="mute" style={{ margin: "10px 0 0", fontSize: 13 }}>What went wrong: {resume.failed}</p>}
+              </div>
+            )}
+
+            {busy && (
+              <div className="card" role="status" style={{ marginTop: 24, padding: "18px 22px", display: "flex", gap: 14, alignItems: "center", background: "#E7EFFA", color: "#164A88" }}>
+                <Spinner size={20} />
+                <span style={{ fontSize: 16, lineHeight: 1.5 }}><b>{rw!.kind === "answers" ? "Rewriting your resume with your answers…" : "Rewriting your resume for " + company + "…"}</b> About a minute. You can leave this page: it keeps going, and the new changes will be here when you come back.</span>
+              </div>
+            )}
+
+            {review && !broke && !busy && (
               <div className="card" role="status" style={{ marginTop: 24, padding: "18px 22px", display: "flex", gap: 12, alignItems: "flex-start", ...(appliedAt && !dirty ? { background: "var(--green-bg)", color: "#1A6B3C" } : { background: "#E7EFFA", color: "#164A88" }) }}>
                 <span style={{ fontWeight: 700, fontSize: 20, lineHeight: 1 }}>{appliedAt && !dirty ? "✓" : "i"}</span>
                 <span style={{ fontSize: 16, lineHeight: 1.5 }}>
@@ -202,10 +232,10 @@ export function ResumePage({ jobId, company, resume: start, hasResume, skills, i
                   </div>
                 ))}
                 <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                  <button className="btn dark" disabled={!ready.length || rewriting} aria-busy={rewriting} onClick={rewrite} style={!ready.length ? { opacity: .45, cursor: "not-allowed" } : undefined}>
-                    {rewriting ? <><Spinner size={16} />Rewriting your resume…</> : "Rewrite with my answers"}
+                  <button className={ready.length && !busy ? "btn lg pri" : "btn lg off"} disabled={!ready.length || busy} aria-busy={busy} onClick={rewrite}>
+                    {busy ? <><Spinner size={16} />Rewriting your resume…</> : "Rewrite with my answers"}
                   </button>
-                  <span className="mute" style={{ fontSize: 14 }}>{rewriting ? "About 30 seconds." : ready.length ? `${ready.length} ${ready.length === 1 ? "answer" : "answers"} ready. Your answers are saved to your profile.` : "Answer at least one to rewrite."}</span>
+                  <span className="mute" style={{ fontSize: 14 }}>{busy ? "About a minute. You can leave this page." : ready.length ? `${ready.length} ${ready.length === 1 ? "answer" : "answers"} ready. Your answers are saved to your profile.` : "Answer at least one to rewrite."}</span>
                 </div>
               </section>
             )}
@@ -247,7 +277,7 @@ export function ResumePage({ jobId, company, resume: start, hasResume, skills, i
                   <button className="opt" role="radio" aria-checked={clean} onClick={() => setClean(true)}>Final</button>
                 </div>
               </div>
-              {review && !clean && changed > 0 && (
+              {review && !clean && changed > 0 && !busy && (
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", padding: "0 8px 14px" }}>
                   <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                     <span style={{ fontSize: 14, fontWeight: 700 }}>{kept} of {changed} kept</span>
@@ -259,7 +289,12 @@ export function ResumePage({ jobId, company, resume: start, hasResume, skills, i
                   </button>
                 </div>
               )}
-              <div style={{ background: "var(--bg)", borderRadius: 20, padding: "20px 12px" }}>
+              <div style={{ position: "relative", background: "var(--bg)", borderRadius: 20, padding: "20px 12px" }} aria-busy={busy}>
+                {busy && (
+                  <div className="rbusy" role="status">
+                    <div className="rbusy-in"><Spinner size={28} /><b>Rewriting your resume for {company}…</b><span>About a minute. The new changes appear here.</span></div>
+                  </div>
+                )}
                 {clean ? <ResumeDoc lines={diff!.final} /> : <CompareDoc rows={rows} leftTitle="Your resume now" rightTitle={`For ${company}`} onCopy={copy} />}
               </div>
             </section>

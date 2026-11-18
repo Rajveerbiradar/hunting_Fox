@@ -239,3 +239,8 @@ h1, h2, h3 { text-wrap: balance; }
   .rcmp .rcrow:not(.ch) > div:first-child, .rcmp .rchead { display: none; }
   .rcmp .ch { margin: 8px 0; }
 }
+
+/* Loader over the resume while it's being rewritten */
+.rbusy { position: absolute; inset: 0; z-index: 5; border-radius: 20px; background: rgba(242, 244, 247, .78); backdrop-filter: blur(2px); display: flex; justify-content: center; align-items: flex-start; padding-top: 80px; }
+.rbusy-in { position: sticky; top: 120px; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; background: #fff; padding: 22px 28px; border-radius: 20px; corner-shape: squircle; box-shadow: 0 8px 24px rgba(16, 24, 40, .1); font-size: 16px; color: #101828; max-width: 340px; }
+.rbusy-in span { color: #5b6472; font-size: 14px; }

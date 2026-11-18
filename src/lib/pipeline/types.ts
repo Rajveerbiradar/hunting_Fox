@@ -83,6 +83,10 @@ export type ResumePart = {
   company_brief?: { believes: string; building: string; deliver: string };
   /** The AI couldn't write the changes (why, short). The page offers "Try again". */
   failed?: string;
+  /** A rewrite is running in the background (Try again / Rewrite with my answers). Over 5 min = stuck. */
+  rewriting?: { at: string; kind: "answers" | "redo" };
+  /** The last background rewrite failed (why). The old suggestions stay. */
+  rewrite_error?: string;
 };
 
 export type ResumeProfile = {

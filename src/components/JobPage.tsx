@@ -6,6 +6,7 @@ import { useState } from "react";
 import { BackLink, Header, Icon, letterTile } from "./ui";
 import { StatusMenu } from "./StatusMenu";
 import { ProgressPopup } from "./ProgressPopup";
+import { SearchBox } from "./SearchBox";
 import { PROBLEMS } from "@/lib/status";
 
 export function JobPage({ job, report, hasResume, initial }: { job: any; report: any; hasResume: boolean; initial: string }) {
@@ -45,8 +46,9 @@ export function JobPage({ job, report, hasResume, initial }: { job: any; report:
           <h1 className="h2">{problem.title}</h1>
           <p className="mute" style={{ fontSize: 16, lineHeight: 1.5 }}>{problem.text}</p>
           {problem.foot && <p style={{ fontSize: 14, color: "var(--green)", fontWeight: 600 }}>{problem.foot}</p>}
-          <Link href="/" className="btn pri">Paste a different job</Link>
         </div>
+        <h2 className="h2" style={{ margin: "32px 8px 0", fontSize: 18 }}>Try a different job</h2>
+        <SearchBox />
       </main>
     </>
   );
@@ -86,9 +88,9 @@ export function JobPage({ job, report, hasResume, initial }: { job: any; report:
             <p style={{ fontSize: 16, lineHeight: 1.5, color: "#B8132F" }}>We couldn&apos;t confirm {name} is a real company, so we stopped before doing anything else. Here&apos;s what we noticed:</p>
             <ul style={{ margin: 0, paddingLeft: 20, fontSize: 16, lineHeight: 1.6 }}>{warns.map((w: any, i: number) => <li key={i}>{w.text}</li>)}</ul>
             <p style={{ fontSize: 14, fontWeight: 600, color: "var(--green)" }}>Never pay to apply for a job. This didn&apos;t use one of your free searches.</p>
-            <Link href="/" className="btn pri">Go back home</Link>
           </div>
         )}
+        {fake && (<><h2 className="h2" style={{ margin: "32px 8px 0", fontSize: 18 }}>Try a different job</h2><SearchBox /></>)}
 
         <div className="card" style={{ marginTop: 16, padding: 28 }}>
           <div style={{ display: "flex", gap: 20, alignItems: "flex-start", flexWrap: "wrap" }}>

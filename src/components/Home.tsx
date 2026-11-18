@@ -74,7 +74,7 @@ export function Home(p: { signedIn: boolean; initialLink?: string; name?: string
 
   return (
     <>
-      <Header signedIn={p.signedIn} initial={first[0]} showJobs={returning} admin={p.admin} />
+      <Header signedIn={p.signedIn} initial={first[0]} showJobs={p.signedIn} admin={p.admin} />
       <main className="wrap">
         {returning ? (
           <h1 className="h1">Welcome back{first ? `, ${first}` : ""}</h1>

@@ -17,5 +17,5 @@ export default async function Page() {
     const r = Array.isArray(j.reports) ? j.reports[0] : j.reports;
     return { ...j, reports: undefined, verdict: r?.verdict || null, people: Array.isArray(r?.people) ? r.people.length : 0 };
   });
-  return <SearchedJobs jobs={rows} left={a.left} limit={a.limit} initial={(user.email || "?")[0]} />;
+  return <SearchedJobs jobs={rows} left={a.left} limit={a.limit} initial={(user.email || "?")[0]} email={user.email || ""} approved={a.approved} admin={a.admin} ownApify={a.ownApify} />;
 }

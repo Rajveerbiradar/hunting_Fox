@@ -1,7 +1,8 @@
 "use client";
 import Link from "next/link";
 import { useState } from "react";
-import { Header, Icon, LiveStep, Spinner, letterTile, useLiveJobs, useSort } from "./ui";
+import { SearchBox } from "./SearchBox";
+import { Header, LiveStep, Spinner, letterTile, useLiveJobs, useSort } from "./ui";
 import { StatusMenu } from "./StatusMenu";
 
 type Row = { id: string; title: string | null; company: string | null; status: string; step?: number | null; apply_status: string | null; applied_at: string | null; created_at: string; verdict: string | null; people: number };
@@ -28,7 +29,8 @@ function sectionOf(r: Row) {
 }
 const ORDER = ["Tell us what happened", "Still working on it", "Not applied yet", "Waiting to hear", "Heard back"];
 
-export function SearchedJobs({ jobs, left, limit, initial }: { jobs: Row[]; left: number; limit: number; initial: string }) {
+export function SearchedJobs({ jobs, left, limit, initial, email, approved, admin, ownApify }: { jobs: Row[]; left: number; limit: number; initial: string; email: string; approved: boolean; admin: boolean; ownApify: boolean }) {
+
   const [tab, setTab] = useState<keyof typeof TABS>("All");
   const [rows, setRows] = useLiveJobs(jobs);
   const sorter = useSort("myjobs");
@@ -37,24 +39,26 @@ export function SearchedJobs({ jobs, left, limit, initial }: { jobs: Row[]; left
 
   return (
     <>
-      <Header signedIn initial={initial} showJobs={false} />
+      <Header signedIn initial={initial} showJobs={false} admin={admin} />
       <main className="wrap wide">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 12, flexWrap: "wrap" }}>
           <div>
             <h1 className="h1">My jobs</h1>
-            <p className="mute" style={{ margin: "12px 0 0", fontSize: 18 }}>{rows.length} jobs · {left} of {limit} searches left</p>
+            <p className="mute" style={{ margin: "12px 0 0", fontSize: 18 }}>{rows.length} {rows.length === 1 ? "job" : "jobs"} · {ownApify ? "unlimited on your Apify key" : `${left} of ${limit} searches left`}</p>
           </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <Link href="/" className="btn on-grey">{Icon.plus()}New search</Link>
-            {rows.length > 1 && sorter.button}
-          </div>
+          {rows.length > 1 && sorter.button}
         </div>
 
+        {approved ? (
+          <SearchBox email={email} />
+        ) : (
+          <div className="card" style={{ marginTop: 28, padding: "18px 22px", background: "#EEF1F5", fontSize: 16 }}>You can paste a job link here once Rajveer lets you in. <Link href="/" style={{ color: "var(--ink)", fontWeight: 600 }}>See where you are</Link></div>
+        )}
+
         {rows.length === 0 ? (
-          <div className="card" style={{ marginTop: 28, padding: 26 }}>
-            <h2 className="h2" style={{ fontSize: 18 }}>No jobs here yet</h2>
-            <p className="mute" style={{ fontSize: 16, lineHeight: 1.5 }}>When you paste a job link, it shows up here. You can then keep track of every job you apply to: who replied, interviews, and offers.</p>
-            <Link href="/" className="btn pri">Paste a job link</Link>
+          <div className="card" style={{ marginTop: 28, padding: "40px 26px", textAlign: "center" }}>
+            <h2 className="h2" style={{ fontSize: 18, margin: 0 }}>No jobs yet</h2>
+            <p className="mute" style={{ fontSize: 16, lineHeight: 1.5, margin: "8px auto 0", maxWidth: "46ch" }}>Paste a job link above. Every job you search shows up here, so you can keep track of who replied, interviews and offers.</p>
           </div>
         ) : (
           <>

@@ -108,7 +108,7 @@ AI (`src/lib/ai.ts`): one call per task, JSON mode with fallback, providers in o
 
 ## Routes
 
-Student: `/` (Home: paste box, resume, news, ask-for-more), `/sign-in`, `/jobs` (My jobs), `/jobs/[id]` (job page), `/jobs/[id]/resume`, `/jobs/[id]/reach-out`, `/account` (resume, skills, links, education, **Use your own keys**), `/remove-info`, `/terms`, `/privacy`, `/r/[token]` (shared resume).
+Student: `/` (Home: paste box, resume, news, ask-for-more), `/sign-in`, `/jobs` (My jobs: paste box at the top via `SearchBox`, empty state for new students; "My jobs" is in the header for every signed-in student), `/jobs/[id]` (job page), `/jobs/[id]/resume`, `/jobs/[id]/reach-out`, `/account` (resume, skills, links, education, **Use your own keys**), `/remove-info`, `/terms`, `/privacy`, `/r/[token]` (shared resume).
 
 Admin: `/admin` single page with a menu (`#students`, `#requests`, `#jobs`, `#keys`, `#usage`, `#removals`, `#settings`). Server guard `requireAdmin()` on every admin API.
 

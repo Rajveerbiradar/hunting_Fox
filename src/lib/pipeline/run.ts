@@ -243,8 +243,6 @@ async function scan(job: any) {
     ordered.push({ ...people[o.i], why: o.why || people[o.i].why, link: o.link || null });
   });
   people.forEach((p, i) => !seen.has(i) && ordered.push(p));
-  // People with an official email at this company are real leads: right after the poster.
-  ordered.sort((a, b) => Number(!!b.email && !!b.emailFound) - Number(!!a.email && !!a.emailFound));
   // The person who posted the job is the best person to message: always first.
   if (jd.poster?.name) {
     const pn = jd.poster.name.toLowerCase();

@@ -123,7 +123,8 @@ export async function clefRank(cfg: ClefConfig, job: { title: string; key_skills
     }
     const role = (p.title || "").split(/ at | @ /i)[0];
     const why = link ? `${link.detail}, so it's an easy start.` : p.active === "Active" ? `${role || "Works there"}, and active on LinkedIn.` : `${role || "Works there"}.`;
-    return { i, fit: fit + (p.active === "Active" ? 0.05 : 0) + (link ? 0.3 : 0), why, link };
+    // Closeness to the job leads; a real connection and a work email are tie-breakers, not overrides.
+    return { i, fit: fit + (p.active === "Active" ? 0.05 : 0) + (p.email && p.emailFound ? 0.08 : 0) + (link ? 0.15 : 0), why, link };
   });
   rows.sort((x, y) => y.fit - x.fit);
   await jlog("info", "rank", `Clef (${cfg.model}) ranked ${people.length} people: ${rows.map((r) => `${r.i}:${r.fit.toFixed(2)}${r.link ? `+${r.link.type}` : ""}`).join(", ")}`);

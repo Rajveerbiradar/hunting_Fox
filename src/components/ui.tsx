@@ -132,3 +132,30 @@ export function useLiveJobs<T extends LiveRow>(initial: T[]) {
   }, [working]);
   return [rows, setRows] as const;
 }
+
+/**
+ * Newest first / oldest first. One button, top right, with an arrow.
+ * Remembers the choice per list in this browser.
+ */
+export function useSort(key: string) {
+  const [order, setOrder] = useState<"new" | "old">("new");
+  useEffect(() => {
+    try { const v = localStorage.getItem(`hf_sort_${key}`); if (v === "old") setOrder("old"); } catch { /* storage blocked */ }
+  }, [key]);
+  const toggle = () => setOrder((o) => {
+    const n = o === "new" ? "old" : "new";
+    try { localStorage.setItem(`hf_sort_${key}`, n); } catch { /* storage blocked */ }
+    return n;
+  });
+  const sort = <T extends { created_at: string }>(rows: T[]) =>
+    [...rows].sort((a, b) => (order === "new" ? 1 : -1) * (new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
+  const button = (
+    <button type="button" className="btn on-grey" onClick={toggle} aria-label={order === "new" ? "Showing newest first. Switch to oldest first" : "Showing oldest first. Switch to newest first"}>
+      {order === "new" ? "Newest first" : "Oldest first"}
+      <svg aria-hidden width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        {order === "new" ? <><path d="M12 5v14" /><path d="M6 13l6 6 6-6" /></> : <><path d="M12 19V5" /><path d="M6 11l6-6 6 6" /></>}
+      </svg>
+    </button>
+  );
+  return { order, sort, button };
+}

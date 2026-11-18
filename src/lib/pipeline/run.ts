@@ -2,6 +2,7 @@
 import { adminClient } from "@/lib/supabase/clients";
 import { scanMode } from "@/lib/apify";
 import { ownKeys } from "@/lib/ownKeys";
+import { withoutBlocked } from "@/lib/removals";
 import { decide, writer, type Provider } from "@/lib/ai";
 import { sendEmail } from "@/lib/email";
 import { fetchLinkedIn, fetchNaukri, fetchPeople } from "./fetchers";
@@ -101,6 +102,7 @@ async function scan(job: any) {
       await sb.from("company_cache").upsert({ key, company_data: company, people, ranking: null, fetched_at: new Date().toISOString() });
     }
   }
+  people = await withoutBlocked(people).catch(() => people);
   checks.push({ group: "The people we found", text: people.length ? `${people.length} ${people.length === 1 ? "person" : "people"} from public LinkedIn profiles` : "No one with a public profile we could find", result: people.length ? "pass" : "unknown" });
   const withEmail = people.filter((p) => p.email).length;
   if (withEmail) checks.push({ group: "The people we found", text: `Work email addresses for ${withEmail} of them`, result: "pass" });

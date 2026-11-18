@@ -152,3 +152,12 @@ h1, h2, h3 { text-wrap: balance; }
 @media (prefers-reduced-motion: reduce) { .dots i { animation: none; opacity: 0.6; } }
 .task { box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05), 0 8px 24px rgba(16, 24, 40, 0.08); }
 .note { background: var(--sunken); border-radius: 18px; corner-shape: squircle; padding: 14px 16px; }
+
+/* Admin menu: left column on desktop, a scrolling row on a phone */
+.adnav { flex: 1 1 220px; max-width: 240px; display: flex; flex-direction: column; gap: 2px; position: sticky; top: 80px; }
+.adnav button { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px; border: 0; border-radius: 14px; corner-shape: squircle; background: transparent; color: var(--mute); font-size: 16px; font-weight: 600; cursor: pointer; text-align: left; }
+.adnav button:hover { background: #fff; color: var(--ink); }
+.adnav button[aria-current="page"] { background: var(--ink); color: #fff; }
+.adnav .cnt { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--ink); color: #fff; font-size: 12px; font-weight: 700; display: grid; place-items: center; }
+.adnav button[aria-current="page"] .cnt { background: #fff; color: var(--ink); }
+@media (max-width: 860px) { .adnav { max-width: none; flex: 1 1 100%; flex-direction: row; overflow-x: auto; position: static; margin: 0 -16px; padding: 0 16px 4px; } .adnav button { flex: none; } }

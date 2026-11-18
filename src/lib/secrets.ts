@@ -51,3 +51,18 @@ export async function saveSetting(name: string, value: string) {
   else await sb.from("app_secrets").upsert({ name, value_enc: encrypt(value), last4: last4(value), updated_at: new Date().toISOString() });
   cache = null;
 }
+
+/** Plain admin settings (stored with the keys, so they change without a redeploy). */
+export async function appSettings() {
+  const v = await settings();
+  const on = (k: string, def: boolean) => (v[k] === undefined || v[k] === "" ? def : v[k] === "1");
+  return {
+    defaultSearches: Math.max(1, Math.min(500, Number(v.default_searches) || 25)),
+    autoApprove: on("auto_approve", false),
+    allowAskMore: on("allow_ask_more", true),
+    emailsOn: on("emails_on", true),
+    retention30: on("retention_30", false),
+    paused: on("paused", false),
+    extraAdmins: (v.extra_admins || "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean),
+  };
+}

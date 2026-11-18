@@ -25,9 +25,10 @@ export function AskMore({ left, used }: { left: number; used: number }) {
   const [req, setReq] = useState<Req | null | undefined>(undefined);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
+  const [allowed, setAllowed] = useState(true);
 
   useEffect(() => {
-    fetch("/api/requests", { cache: "no-store" }).then((r) => r.json()).then((d) => setReq(d.request || null)).catch(() => setReq(null));
+    fetch("/api/requests", { cache: "no-store" }).then((r) => r.json()).then((d) => { setReq(d.request || null); setAllowed(d.allowed !== false); }).catch(() => setReq(null));
   }, []);
 
   if (req === undefined) return null;
@@ -53,6 +54,7 @@ export function AskMore({ left, used }: { left: number; used: number }) {
   }
 
   if (left > 0) return null;
+  if (!allowed && (!req || req.status === "approved")) return null;
 
   // Not now: on the waiting list.
   if (req && req.status === "declined") {

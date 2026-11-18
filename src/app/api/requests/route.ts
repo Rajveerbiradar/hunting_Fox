@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { adminClient, currentUser } from "@/lib/supabase/clients";
+import { appSettings } from "@/lib/secrets";
 
 /** The student's latest "Ask for more searches" and Rajveer's answer. */
 export async function GET() {
   const user = await currentUser();
   if (!user) return NextResponse.json({ error: "signed_out" }, { status: 401 });
   const { data } = await adminClient().from("search_requests").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(1).maybeSingle();
-  return NextResponse.json({ request: data || null });
+  return NextResponse.json({ request: data || null, allowed: (await appSettings()).allowAskMore });
 }
 
 /** Ask for more searches. One open request at a time. */
@@ -14,6 +15,7 @@ export async function POST(req: Request) {
   const user = await currentUser();
   if (!user) return NextResponse.json({ error: "signed_out" }, { status: 401 });
   const b = await req.json().catch(() => ({}));
+  if (!(await appSettings()).allowAskMore) return NextResponse.json({ error: "off" }, { status: 403 });
   const sb = adminClient();
   const { data: open } = await sb.from("search_requests").select("id").eq("user_id", user.id).eq("status", "waiting").maybeSingle();
   if (open) return NextResponse.json({ ok: true, already: true });

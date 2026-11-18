@@ -26,7 +26,7 @@ export function LinkBox({ signedIn, initial = "", onStarted }: { signedIn: boole
     const d = await r.json().catch(() => ({}));
     setBusy(false);
     if (r.status === 403) return setErr("You're on the waiting list. As soon as you're approved, this link will work.");
-    if (r.status === 402) return setErr("You've used all your searches. Your saved jobs still work. Message Rajveer if you'd like more.");
+    if (r.status === 402) return setErr("You've used all your searches. Your saved jobs still work. Ask for more below, or add your own key in Account.");
     if (!r.ok) return setErr(d.msg || "Something went wrong on our side. Try again in a minute.");
     setLink("");
     if (d.duplicate) router.push(`/jobs/${d.id}`);
@@ -47,7 +47,7 @@ export function LinkBox({ signedIn, initial = "", onStarted }: { signedIn: boole
   return (
     <>
       <form className={`card box${c.kind === "bad" || err ? " bad" : ""}`} style={{ marginTop: 32 }} onSubmit={go}>
-        <span className="tile" style={{ background: "var(--bg)" }}>{Icon.link()}</span>
+        <span className="tile" style={{ background: "var(--tile)" }}>{Icon.link()}</span>
         <label htmlFor="joblink" className="sr">Job link</label>
         <input id="joblink" type="text" inputMode="url" autoComplete="off" placeholder="Paste a LinkedIn or Naukri job link" value={link} onChange={(e) => setLink(e.target.value)} aria-describedby="linkmsg" />
         {c.kind === "empty" && <button type="button" className="chip" onClick={paste}>Paste</button>}

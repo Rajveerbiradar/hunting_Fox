@@ -3,7 +3,7 @@ import { isAdminEmail } from "@/lib/limits";
 
 export async function requireAdmin() {
   const user = await currentUser();
-  return user && isAdminEmail(user.email) ? user : null;
+  return user && (await isAdminEmail(user.email)) ? user : null;
 }
 
 /** Every student with their approval, allowance and usage, plus the Beep numbers. */

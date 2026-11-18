@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useState } from "react";
-import { Header, Icon, LiveStep, Spinner, letterTile, useLiveJobs } from "./ui";
+import { Header, Icon, LiveStep, Spinner, letterTile, useLiveJobs, useSort } from "./ui";
 import { StatusMenu } from "./StatusMenu";
 
 type Row = { id: string; title: string | null; company: string | null; status: string; step?: number | null; apply_status: string | null; applied_at: string | null; created_at: string; verdict: string | null; people: number };
@@ -31,7 +31,8 @@ const ORDER = ["Tell us what happened", "Still working on it", "Not applied yet"
 export function SearchedJobs({ jobs, left, limit, initial }: { jobs: Row[]; left: number; limit: number; initial: string }) {
   const [tab, setTab] = useState<keyof typeof TABS>("All");
   const [rows, setRows] = useLiveJobs(jobs);
-  const visible = rows.filter((r) => ((r.status === "queued" || r.status === "scanning") ? tab === "All" : TABS[tab](r)));
+  const sorter = useSort("myjobs");
+  const visible = sorter.sort(rows).filter((r) => ((r.status === "queued" || r.status === "scanning") ? tab === "All" : TABS[tab](r)));
   const sections = ORDER.map((name) => ({ name, rows: visible.filter((r) => sectionOf(r) === name) })).filter((s) => s.rows.length);
 
   return (
@@ -43,7 +44,10 @@ export function SearchedJobs({ jobs, left, limit, initial }: { jobs: Row[]; left
             <h1 className="h1">My jobs</h1>
             <p className="mute" style={{ margin: "12px 0 0", fontSize: 18 }}>{rows.length} jobs · {left} of {limit} searches left</p>
           </div>
-          <Link href="/" className="btn on-grey">{Icon.plus()}New search</Link>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <Link href="/" className="btn on-grey">{Icon.plus()}New search</Link>
+            {rows.length > 1 && sorter.button}
+          </div>
         </div>
 
         {rows.length === 0 ? (

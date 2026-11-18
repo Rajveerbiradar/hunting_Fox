@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Spinner, letterTile, useToast } from "./ui";
+import { Spinner, letterTile, useSort, useToast } from "./ui";
 
 type Req = {
   id: string; user_id: string; name: string; email: string | null; note: string | null; status: "waiting" | "approved" | "declined";
@@ -23,6 +23,7 @@ export function AdminRequests({ onCount }: { onCount?: (n: number) => void }) {
   const [msg, setMsg] = useState("");
   const [waitlist, setWaitlist] = useState(true);
   const [busy, setBusy] = useState("");
+  const sorter = useSort("admin_requests");
   const toast = useToast();
 
   const load = () => fetch("/api/admin/requests", { cache: "no-store" }).then((r) => r.json()).then((d) => { setRows(d.requests || []); onCount?.((d.requests || []).filter((r: Req) => r.status === "waiting").length); });
@@ -38,13 +39,16 @@ export function AdminRequests({ onCount }: { onCount?: (n: number) => void }) {
   }
 
   if (!rows) return <div className="card row" style={{ marginTop: 16 }}><Spinner size={20} />Loading requests…</div>;
-  const list = rows.filter((r) => (tab === "waiting" ? r.status === "waiting" : r.status !== "waiting"));
+  const list = sorter.sort(rows).filter((r) => (tab === "waiting" ? r.status === "waiting" : r.status !== "waiting"));
 
   return (
     <>
-      <div className="seg" role="tablist" style={{ marginTop: 24 }}>
-        <button role="tab" aria-selected={tab === "waiting"} onClick={() => setTab("waiting")}>Waiting · {rows.filter((r) => r.status === "waiting").length}</button>
-        <button role="tab" aria-selected={tab === "done"} onClick={() => setTab("done")}>Answered</button>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginTop: 24 }}>
+        <div className="seg" role="tablist">
+          <button role="tab" aria-selected={tab === "waiting"} onClick={() => setTab("waiting")}>Waiting · {rows.filter((r) => r.status === "waiting").length}</button>
+          <button role="tab" aria-selected={tab === "done"} onClick={() => setTab("done")}>Answered</button>
+        </div>
+        {list.length > 1 && sorter.button}
       </div>
       <div className="card" style={{ marginTop: 16, overflow: "hidden" }}>
         {!list.length && <div style={{ padding: "24px 20px" }} className="mute">{tab === "waiting" ? "No one is asking right now." : "Nothing here yet."}</div>}

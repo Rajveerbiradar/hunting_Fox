@@ -9,8 +9,8 @@ export const maxDuration = 300;
 
 /**
  * Write one person's LinkedIn note and email, when the student asks for it.
- * { ids: [id], notes?: string }: with notes (60–600 characters, the student's rough words) the AI turns them into a
- * proper message; without notes it writes our suggested message from their profile and the student's resume.
+ * { ids: [id], notes?: string }: with notes (10–600 characters, what only the student knows) the AI blends them with
+ * the person's profile, the job and the resume, notes leading; without notes it writes our suggested message from their profile and the student's resume.
  */
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -39,7 +39,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const b = await req.json().catch(() => ({}));
   const ids: string[] = Array.isArray(b.ids) ? b.ids.slice(0, 1) : [];
   const notes = typeof b.notes === "string" ? b.notes.trim().slice(0, 600) : "";
-  if (notes && notes.length < 60) return NextResponse.json({ error: "too_short" }, { status: 400 });
+  if (notes && notes.length < 10) return NextResponse.json({ error: "too_short" }, { status: 400 });
   const targets = people.filter((p) => ids.includes(p.id));
   if (!targets.length) return NextResponse.json({ error: "no_person" }, { status: 400 });
   const done = await writeMany(id, targets.map((t) => ({ ...t, asked: notes || undefined })), { ...ctx, studentNotes: notes }, profile?.resume_profile || null);

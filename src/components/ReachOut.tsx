@@ -12,13 +12,14 @@ export function ReachOut(p: { jobId: string; company: string; big: boolean; peop
   const [writing, setWriting] = useState<string | null>(null);
   const [composing, setComposing] = useState<Record<string, boolean>>({});
   const [asks, setAsks] = useState<Record<string, string>>(() => Object.fromEntries(p.people.filter((x) => x.asked).map((x) => [x.id, x.asked!])));
-  const MIN = 60, MAX = 600;
+  const MIN = 10, MAX = 600;
 
-  // Nothing is written up front. The student picks a person, then either writes a few rough lines
-  // ("Write my email") or asks for our suggested message. One person at a time, on request.
+  // Nothing is written up front. The student picks a person, adds what only they know (optional), and
+  // "Write my email" blends it with the person's profile, the job and their resume. One person at a time.
   async function write(id: string, withNotes: boolean) {
-    const text = (asks[id] || "").trim();
-    if (withNotes && text.length < MIN) return;
+    const raw = (asks[id] || "").trim();
+    if (withNotes && raw.length > 0 && raw.length < MIN) return;
+    const text = raw.length >= MIN ? raw : "";
     setWriting(id);
     const r = await fetch(`/api/jobs/${p.jobId}/more`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ids: [id], notes: withNotes ? text : "" }) }).catch(() => null);
     const d = r ? await r.json().catch(() => ({})) : {};
@@ -112,17 +113,16 @@ export function ReachOut(p: { jobId: string; company: string; big: boolean; peop
                   <div className="row" style={{ padding: "26px 0 0" }}><Spinner size={20} />Writing {cur.first}&apos;s note and email…</div>
                 ) : !cur.written || composing[cur.id] ? (
                   <div style={{ marginTop: 26, paddingTop: 22, borderTop: "1px solid var(--line)" }}>
-                    <label htmlFor="ask" className="lbl" style={{ display: "block" }}>What do you want to tell {cur.first}?</label>
+                    <label htmlFor="ask" className="lbl" style={{ display: "block" }}>Add what only you know <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400 }}>(optional, but it makes the email much better)</span></label>
                     <textarea id="ask" className="ta" rows={4} maxLength={MAX} style={{ marginTop: 10 }} value={asks[cur.id] || ""} onChange={(e) => setAsks({ ...asks, [cur.id]: e.target.value })}
-                      placeholder="Write it your way, in a few rough lines. We'll turn it into a well-written, professional email." />
+                      placeholder={`Why ${p.company || "this company"}, something you noticed about ${cur.first} or their work, what you're hoping for. Rough lines are fine. We'll combine it with ${cur.first}'s profile, the job and your resume.`} />
                     <div className="mute" style={{ marginTop: 6, fontSize: 14, display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-                      <span>{(asks[cur.id] || "").trim().length < MIN ? `Write at least ${MIN - (asks[cur.id] || "").trim().length} more characters, about 10 words, so we have enough to work with.` : "Good. We'll keep your points and your ask."}</span>
+                      <span>{(() => { const n = (asks[cur.id] || "").trim().length; return n === 0 ? `Empty is fine: we'll write it from ${cur.first}'s profile and your resume.` : n < MIN ? "Write a few more words so we can use it." : `Your points lead the email. We add ${cur.first}'s profile and your resume around them.`; })()}</span>
                       <span>{(asks[cur.id] || "").length} / {MAX}</span>
                     </div>
-                    <div style={{ marginTop: 14, display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 10 }}>
-                      <button className={(asks[cur.id] || "").trim().length >= MIN ? "btn lg pri" : "btn lg off"} disabled={(asks[cur.id] || "").trim().length < MIN} onClick={() => write(cur.id, true)}>Write my email</button>
-                      <button className="btn outline" onClick={() => write(cur.id, false)}>Use our suggested email</button>
-                      <span className="mute" style={{ fontSize: 14 }}>Our suggested email is still written for {cur.first}, from their profile and your resume.</span>
+                    <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                      {(() => { const n = (asks[cur.id] || "").trim().length; const bad = n > 0 && n < MIN; return <button className={bad ? "btn lg off" : "btn lg pri"} disabled={bad} onClick={() => write(cur.id, true)}>Write my email</button>; })()}
+                      {(asks[cur.id] || "").trim().length > 0 && <button className="btn ghost" onClick={() => write(cur.id, false)}>Skip, write it without my input</button>}
                     </div>
                     {cur.written && <button className="btn ghost" style={{ marginTop: 6 }} onClick={() => setComposing({ ...composing, [cur.id]: false })}>Keep the current message</button>}
                   </div>

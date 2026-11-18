@@ -197,7 +197,7 @@ async function scan(job: any) {
     ordered.unshift({ ...poster, link: poster.link || { type: "hiring", detail: "Posted this job" }, why: "Posted this job, so they're the one hiring for it." });
   }
 
-  await setStep(job.id, 4, resume ? `${resume.edits.length} changes${resume.skill_questions.length ? `, and ${resume.skill_questions.length} quick questions for you` : ""}` : "No resume yet, so no resume changes");
+  await setStep(job.id, 4, resume?.failed ? "Couldn't write resume changes (you can try again on the resume page)" : resume ? `${resume.edits.length} changes${resume.skill_questions.length ? `, and ${resume.skill_questions.length} quick questions for you` : ""}` : "No resume yet, so no resume changes");
 
   // 5. The job is ready as soon as the resume changes and the people list are done.
   // Messages are written right after, for everyone at once (8 at a time, top people first);

@@ -26,13 +26,34 @@ export async function makeResume(lines: string[], profile: any, jd: JobData, own
   const confirmed = confirmedSkills(profile || {});
   const saidNo = saidNoSkills(profile || {});
   const facts: Fact[] = Array.isArray(profile?.facts) ? profile.facts : [];
-  const out = await writer<Out>("resume-changes", {
+  const input = {
     resume_lines: lines,
     student_facts: facts.map((f) => `${f.q} → ${f.a}`),
     confirmed_skills: confirmed,
     said_no: saidNo,
     job: { title: jd.title, key_skills: jd.keySkills, description: jd.description.slice(0, 7000) },
-  }, 4000, own).catch(async (e) => { await jlog("warn", "resume", `Resume changes skipped: ${String(e?.message || e).slice(0, 200)}`); return null; });
+  };
+  // A long rewrite can run past the token limit and come back as broken JSON: one more full try before giving up.
+  let failed = "";
+  let out: Out | null = null;
+  for (let t = 1; t <= 2 && !out; t++) {
+    out = await writer<Out>("resume-changes", input, 8000, own).catch(async (e) => {
+      failed = String(e?.message || e).slice(0, 200);
+      await jlog("warn", "resume", `Resume changes try ${t} failed: ${failed}`);
+      return null;
+    });
+    if (out && !(out.edits?.length || out.priorities?.length || out.summary)) { failed = "The AI sent back an empty answer"; await jlog("warn", "resume", `Resume changes try ${t}: empty answer`); out = null; }
+  }
+  if (!out) {
+    // Never pretend the resume already fits: say it failed so the student can try again.
+    await jlog("error", "resume", `Resume changes failed: ${failed}`);
+    return { v: 2, applied: false, decisions: {}, base_lines: lines, edits: [], skill_questions: [], suggestions: [], priorities: [], gaps: [], failed: failed || "unknown" };
+  }
+
+  // The AI sometimes drops a marker, a ** or a space when it copies a line: match on the plain words instead.
+  const plain = (l: string) => l.replace(/^(#{1,3} |[-•] |@ |> )/, "").replace(/\*\*/g, "").replace(/\s+/g, " ").trim().toLowerCase();
+  const byPlain = new Map(lines.map((l) => [plain(l), l] as const));
+  const exact = (o: string) => (lines.includes(o) ? o : byPlain.get(plain(o)) || "");
 
   // What counts as "the student has it": resume text, confirmed skills, and their own answers.
   const known = [lines.join("\n"), ...facts.map((f) => f.a)].join("\n");
@@ -41,8 +62,8 @@ export async function makeResume(lines: string[], profile: any, jd: JobData, own
   // Tools the job names or we're asking about. An edit that brings one in without the student's yes is dropped.
   const vocab = [...new Set([...jd.keySkills, ...(out?.ask || []).map((q) => q.skill)].map((x) => String(x || "").trim()).filter((x) => x.length > 1))];
   const clean = (s: string) => s.replace(/\s*—\s*/g, ", ").replace(/\s+/g, " ").trim();
-  const edits = (out?.edits || []).filter((e) => {
-    if (!e?.old || !e?.new || clean(e.new) === e.old || !lines.includes(e.old)) return false;
+  const edits = (out?.edits || []).map((e) => ({ ...e, old: e?.old ? exact(e.old) : "" })).filter((e) => {
+    if (!e?.old || !e?.new || clean(e.new) === e.old) return false;
     const sneaked = vocab.find((t) => mentions(e.new, t) && !mentions(e.old, t) && !have(t));
     if (sneaked) { void jlog("info", "resume", `Dropped an edit that added "${sneaked}" without asking`); return false; }
     return true;

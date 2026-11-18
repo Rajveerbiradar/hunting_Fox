@@ -4,7 +4,7 @@ import { BackLink, Header, Icon, copyText, useToast } from "./ui";
 import { ResumeUpload } from "./ResumeUpload";
 import { appliedUse, buildDiff } from "@/lib/resumeDiff";
 import { Spinner } from "./ui";
-import { ResumeDoc, type DocMark } from "./ResumeDoc";
+import { CompareDoc, ResumeDoc, type CompareRow, type DocMark } from "./ResumeDoc";
 import { PdfButton } from "./PdfButton";
 import { ADDS_TO_RESUME, SKILL_LEVELS } from "@/lib/status";
 
@@ -15,6 +15,7 @@ type R = {
   v?: 2; applied?: boolean; applied_at?: string; decisions?: Record<string, boolean>;
   priorities?: { need: string; proof: string; strength: "strong" | "weak" | "none" }[];
   gaps?: { id: string; question: string; why: string }[];
+  failed?: string;
 };
 
 export function ResumePage({ jobId, company, resume: start, hasResume, skills, initial, portal }: { jobId: string; company: string; resume: R | null; hasResume: boolean; skills: Skill[]; initial: string; portal: string }) {
@@ -64,6 +65,23 @@ export function ResumePage({ jobId, company, resume: start, hasResume, skills, i
     };
   });
   const changed = review ? keys.length : Object.keys(marks).length;
+  // Left = the resume as it is, right = this job's version, one row per line so changes line up.
+  const asLine = (d?: { kind: string; text: string }) => (!d ? "" : d.kind === "head" ? `## ${d.text}` : d.text);
+  const rows: CompareRow[] = (preview?.right || []).map((r, i) => {
+    const l = preview!.left[i];
+    return { left: asLine(l), right: asLine(r), changed: r.kind === "add" || l?.kind === "del", mark: marks[i] };
+  });
+  // The AI's answer never arrived (or was empty): never show that as "already fits".
+  const broke = review && !!resume && (!!resume.failed || (!resume.edits.length && !resume.priorities?.length && !resume.summary_insert));
+  const [redoing, setRedoing] = useState(false);
+  async function redo() {
+    setRedoing(true);
+    const r = await fetch(`/api/jobs/${jobId}/resume-plan`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "redo" }) }).catch(() => null);
+    const d = r ? await r.json().catch(() => ({})) : {};
+    if (d.resume) { setResume(d.resume); setDecisions({}); setAppliedAt(undefined); toast.show("Done. Review the changes below."); }
+    else toast.show("Still couldn't write it. Try again in a minute.");
+    setRedoing(false);
+  }
 
   async function apply() {
     setApplying(true);
@@ -120,11 +138,19 @@ export function ResumePage({ jobId, company, resume: start, hasResume, skills, i
           </>
         ) : (
           <>
-            {review && (
+            {broke && (
+              <div className="card" role="alert" style={{ marginTop: 24, padding: "22px 24px", background: "#FDECEF", color: "#B8132F" }}>
+                <div style={{ fontSize: 18, fontWeight: 700 }}>We couldn&apos;t write the changes for {company}</div>
+                <p style={{ margin: "6px 0 14px", fontSize: 16, lineHeight: 1.5, color: "var(--ink)" }}>Something went wrong on our side while rewriting your resume for this job. It doesn&apos;t mean your resume already fits. Try again: it takes about a minute and doesn&apos;t use a search.</p>
+                <button className="btn lg pri" disabled={redoing} aria-busy={redoing} onClick={redo}>{redoing ? <><Spinner size={16} />Rewriting your resume… about a minute</> : "Try again"}</button>
+              </div>
+            )}
+
+            {review && !broke && (
               <div className="card" role="status" style={{ marginTop: 24, padding: "18px 22px", display: "flex", gap: 12, alignItems: "flex-start", ...(appliedAt && !dirty ? { background: "var(--green-bg)", color: "#1A6B3C" } : { background: "#E7EFFA", color: "#164A88" }) }}>
                 <span style={{ fontWeight: 700, fontSize: 20, lineHeight: 1 }}>{appliedAt && !dirty ? "✓" : "i"}</span>
                 <span style={{ fontSize: 16, lineHeight: 1.5 }}>
-                  {changed === 0 ? <><b>No changes suggested.</b> Answer the questions below and we&apos;ll rewrite it with what you tell us.</>
+                  {changed === 0 ? <><b>Your resume already speaks this job&apos;s language.</b> {gaps.length ? "Answer the questions below and we'll make it stronger with what you tell us." : "You can download it as it is."}</>
                     : appliedAt && !dirty ? <><b>Applied {kept} of {changed} changes.</b> Final and Download PDF use them. You can still keep or drop any change and apply again.</>
                     : <><b>We suggested {changed} {changed === 1 ? "change" : "changes"} for {company}.</b> Keep or drop each one in your resume below, then tap <b>Apply changes</b>. Nothing changes on your resume until you do.</>}
                 </span>
@@ -198,7 +224,7 @@ export function ResumePage({ jobId, company, resume: start, hasResume, skills, i
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", padding: "0 8px 16px" }}>
                 <div style={{ minWidth: 0 }}>
                   <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Your resume for {company}</h2>
-                  <p className="mute" style={{ margin: "4px 0 0", fontSize: 14 }}>{clean ? (review && !appliedAt ? "Nothing applied yet: this is your resume as it is. The PDF looks exactly like this." : "This is exactly what the PDF looks like.") : review ? `${changed} suggested ${changed === 1 ? "change" : "changes"}, in green, with the old line crossed out under it. Keep or drop each one.` : `${changed} ${changed === 1 ? "line" : "lines"} changed, in green. The old line is crossed out under it.`}</p>
+                  <p className="mute" style={{ margin: "4px 0 0", fontSize: 14 }}>{clean ? (review && !appliedAt ? "Nothing applied yet: this is your resume as it is. The PDF looks exactly like this." : "This is exactly what the PDF looks like.") : review ? `${changed} suggested ${changed === 1 ? "change" : "changes"}. Your resume now on the left, the version for ${company} on the right. Keep or drop each one.` : `${changed} ${changed === 1 ? "line" : "lines"} changed. Your resume now on the left, the version for ${company} on the right.`}</p>
                 </div>
                 <div role="radiogroup" aria-label="View" style={{ display: "flex", gap: 6 }}>
                   <button className="opt" role="radio" aria-checked={!clean} onClick={() => setClean(false)}>Show changes</button>
@@ -218,7 +244,7 @@ export function ResumePage({ jobId, company, resume: start, hasResume, skills, i
                 </div>
               )}
               <div style={{ background: "var(--bg)", borderRadius: 20, padding: "20px 12px" }}>
-                <ResumeDoc lines={clean ? diff!.final : preview!.final} marks={clean ? undefined : marks} onCopy={copy} />
+                {clean ? <ResumeDoc lines={diff!.final} /> : <CompareDoc rows={rows} leftTitle="Your resume now" rightTitle={`For ${company}`} onCopy={copy} />}
               </div>
             </section>
 

@@ -5,11 +5,12 @@ import { ownKeys } from "@/lib/ownKeys";
 import type { ResumePart } from "@/lib/pipeline/types";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 120;
+export const maxDuration = 300;
 
 /**
  * The resume review on /jobs/[id]/resume.
  *  { action: "apply", decisions: { [key]: boolean } } → lock in the kept suggestions (Final + PDF use them).
+ *  { action: "redo" }                               → write the changes again (after a failed try).
  *  { action: "answers", answers: [{ q, a }] }        → save the student's answers to their profile (profiles.facts,
  *                                                       reused for every job) and rewrite the suggestions with them.
  */
@@ -46,7 +47,19 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const lines: string[] = (profile?.resume_text || "").split("\n").filter((l: string) => l.trim());
     const keys = await ownKeys(user.id).catch(() => ({ ai: null }));
     const next = await makeResume(lines, { ...profile, facts }, report!.job_data, keys.ai);
-    if (!next) return NextResponse.json({ error: "ai_failed" }, { status: 503 });
+    if (!next || next.failed) return NextResponse.json({ error: "ai_failed" }, { status: 503 });
+    await sb.from("reports").update({ resume: next }).eq("job_id", id);
+    return NextResponse.json({ resume: next });
+  }
+
+  // The first try failed (or the student wants a fresh take): write the changes again.
+  if (b.action === "redo") {
+    const { data: profile } = await sb.from("profiles").select("*").eq("id", user.id).single();
+    const lines: string[] = (profile?.resume_text || "").split("\n").filter((l: string) => l.trim());
+    if (!lines.length) return NextResponse.json({ error: "no_resume" }, { status: 400 });
+    const keys = await ownKeys(user.id).catch(() => ({ ai: null }));
+    const next = await makeResume(lines, profile, report!.job_data, keys.ai);
+    if (!next || next.failed) return NextResponse.json({ error: "ai_failed", detail: next?.failed }, { status: 503 });
     await sb.from("reports").update({ resume: next }).eq("job_id", id);
     return NextResponse.json({ resume: next });
   }

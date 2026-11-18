@@ -75,6 +75,8 @@ export type ResumePart = {
   priorities?: { need: string; proof: string; strength: "strong" | "weak" | "none" }[];
   /** Questions about experience the resume doesn't show yet. Answers are saved on profiles.facts. */
   gaps?: { id: string; question: string; why: string }[];
+  /** The AI couldn't write the changes (why, short). The page offers "Try again". */
+  failed?: string;
 };
 
 export type ResumeProfile = {

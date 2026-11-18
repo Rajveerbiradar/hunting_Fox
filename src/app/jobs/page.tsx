@@ -10,7 +10,7 @@ export default async function Page() {
   if (!user) redirect("/sign-in");
   const sb = await userClient();
   const [{ data: jobs }, a] = await Promise.all([
-    sb.from("jobs").select("id,title,company,status,apply_status,applied_at,created_at,reports(verdict,people)").order("created_at", { ascending: false }),
+    sb.from("jobs").select("id,title,company,status,step,apply_status,applied_at,created_at,reports(verdict,people)").order("created_at", { ascending: false }),
     access(user.id, user.email),
   ]);
   const rows = (jobs || []).map((j) => {

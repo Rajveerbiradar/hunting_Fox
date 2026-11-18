@@ -10,8 +10,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ l
   if (!user) return <Home signedIn={false} initialLink={link} />;
   const sb = await userClient();
   const [{ data: profile }, { data: jobs }, a] = await Promise.all([
-    sb.from("profiles").select("name,email,resume_profile,resume_added_at").eq("id", user.id).single(),
-    sb.from("jobs").select("id,title,company,status,apply_status,applied_at,created_at").order("created_at", { ascending: false }).limit(30),
+    sb.from("profiles").select("name,email,resume_profile,resume_added_at,decline_message").eq("id", user.id).single(),
+    sb.from("jobs").select("id,title,company,status,step,apply_status,applied_at,created_at").order("created_at", { ascending: false }).limit(30),
     access(user.id, user.email),
   ]);
   return (
@@ -24,8 +24,11 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ l
       jobs={jobs || []}
       left={a.left}
       limit={a.limit}
+      used={a.used}
+      ownApify={a.ownApify}
       approved={a.approved}
       admin={a.admin}
+      declineMessage={profile?.decline_message}
     />
   );
 }

@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { adminClient } from "@/lib/supabase/clients";
 import { scanMode } from "@/lib/apify";
-import { decide, writer } from "@/lib/ai";
+import { ownKeys } from "@/lib/ownKeys";
+import { decide, writer, type Provider } from "@/lib/ai";
 import { sendEmail } from "@/lib/email";
 import { fetchLinkedIn, fetchNaukri, fetchPeople } from "./fetchers";
 import { buildMessages, checkCompany, knownSkills, sizeBand, skillQuestions, teamSummary } from "./rules";
@@ -32,7 +33,7 @@ export async function runJob(jobId: string) {
     const msg = String(e?.message || e);
     await sb.from("jobs").update({
       status: "failed",
-      error: msg.includes("JOB_NOT_FOUND") ? "not_found" : msg.slice(0, 300),
+      error: msg.includes("JOB_NOT_FOUND") ? "not_found" : msg.includes("OWN_KEY_OUT") ? "own_key_out" : msg.slice(0, 300),
       finished_at: new Date().toISOString(),
     }).eq("id", jobId);
     await sb.from("events").insert({ user_id: job.user_id, job_id: jobId, name: "failed" });
@@ -41,14 +42,32 @@ export async function runJob(jobId: string) {
 
 async function scan(job: any) {
   const sb = adminClient();
-  const [{ data: profile }, mode] = await Promise.all([
+  const [{ data: profile }, own] = await Promise.all([
     sb.from("profiles").select("*").eq("id", job.user_id).single(),
-    scanMode(),
+    ownKeys(job.user_id),
   ]);
+  // A student's own Apify key pays for the search, so it doesn't count toward their limit.
+  let apifyKey: string | null = own.apify?.token || null;
+  const mode = apifyKey ? "full" : await scanMode();
+  if (apifyKey !== null) await sb.from("jobs").update({ own_key: true }).eq("id", job.id);
+
+  // Own key ran out mid-search: use their free searches if they said so, else stop.
+  const withOwn = async <T,>(fn: (k: string | null) => Promise<T>): Promise<T> => {
+    try {
+      return await fn(apifyKey);
+    } catch (e: any) {
+      if (!apifyKey || !e?.ownKeyOut) throw e;
+      await sb.from("user_keys").update({ ok: false }).eq("user_id", job.user_id).eq("kind", "apify");
+      if (own.apify?.fallback !== "free") throw new Error("OWN_KEY_OUT");
+      apifyKey = null;
+      await sb.from("jobs").update({ own_key: false }).eq("id", job.id);
+      return fn(null);
+    }
+  };
 
   // 1. Read the job
-  await setStep(job.id, 0, "Opening the link");
-  const { job: jd, company } = job.portal === "naukri" ? await fetchNaukri(job.url) : await fetchLinkedIn(job.url);
+  await setStep(job.id, 0, "Reading the job post");
+  const { job: jd, company } = await withOwn((k) => (job.portal === "naukri" ? fetchNaukri(job.url, k) : fetchLinkedIn(job.url, k)));
   await sb.from("jobs").update({ title: jd.title, company: company.name }).eq("id", job.id);
   await setStep(job.id, 1, `${jd.title} at ${company.name}${jd.location ? `, ${jd.location}` : ""}`);
 
@@ -78,7 +97,7 @@ async function scan(job: any) {
       people = cache.people;
       cachedRanking = cache.ranking?.title === jd.title ? cache.ranking.value : null;
     } else {
-      people = await fetchPeople(company, jd.title, mode);
+      people = await withOwn((k) => fetchPeople(company, jd.title, mode, k));
       await sb.from("company_cache").upsert({ key, company_data: company, people, ranking: null, fetched_at: new Date().toISOString() });
     }
   }
@@ -103,7 +122,7 @@ async function scan(job: any) {
       resume_lines: lines,
       job: { title: jd.title, key_skills: jd.keySkills, description: jd.description.slice(0, 3000) },
       team: teamSummary(people),
-    }).catch(() => ({ edits: [], suggestions: [] }));
+    }, 1200, own.ai).catch(() => ({ edits: [], suggestions: [] }));
     // Anti-invention guard: an edit must replace a line that really exists.
     const edits = (out.edits || []).filter((e) => lines.includes(e.old) && e.new && e.new !== e.old).slice(0, 4);
     return {
@@ -121,7 +140,7 @@ async function scan(job: any) {
       job: { title: jd.title, key_skills: jd.keySkills, company: company.name, size_band: band },
       student,
       people: people.map((p, i) => ({ i, title: p.title, months: p.months, activity: p.active, schools: p.schools, past_companies: p.pastCompanies, headline: p.headline })),
-    }).catch(() => ({ order: people.map((_, i) => ({ i, why: "", link: null })) }));
+    }, own.ai).catch(() => ({ order: people.map((_, i) => ({ i, why: "", link: null })) }));
   })();
 
   const [resume, ranked] = await Promise.all([resumeTask, rankTask]);
@@ -149,7 +168,7 @@ async function scan(job: any) {
     resumeLink: `${SITE()}/r/${report?.share_token}`,
     portfolio: (profile?.links || [])[0]?.url,
   };
-  const written = await Promise.all(top.map((p) => writePerson(p, ctx, rp)));
+  const written = await Promise.all(top.map((p) => writePerson(p, ctx, rp, own.ai)));
   const people_final = [...written, ...ordered.slice(2)];
   const notes = written.filter((p) => p.note).length;
   const emails = written.filter((p) => p.email).length;
@@ -162,7 +181,7 @@ async function scan(job: any) {
     await sendEmail(profile.email, `${company.name} is ready`, `Here's what to do for the ${jd.title} job at ${company.name}:\n${SITE()}/jobs/${job.id}\n\nHunting Fox never sends anything for you.`);
 }
 
-export async function writePerson(p: Person, ctx: Parameters<typeof buildMessages>[1], rp: ResumeProfile | null): Promise<Person> {
+export async function writePerson(p: Person, ctx: Parameters<typeof buildMessages>[1], rp: ResumeProfile | null, ownAi?: Provider | null): Promise<Person> {
   let line: string | undefined;
   if (p.link) {
     try {
@@ -172,7 +191,7 @@ export async function writePerson(p: Person, ctx: Parameters<typeof buildMessage
         company: ctx.company,
         person: { first: p.first, title: p.title },
         link: p.link,
-      }, 120);
+      }, 120, ownAi);
       line = out.line?.trim().slice(0, 140);
     } catch {
       line = undefined;

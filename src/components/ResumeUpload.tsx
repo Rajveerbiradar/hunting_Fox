@@ -44,9 +44,9 @@ export function ResumeUpload({ signedIn, compact, current, onDone }: { signedIn:
       <input ref={input} type="file" accept=".pdf,.md,.txt" hidden onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
       {state === "idle" || state === "error" ? (
         <div className="row" style={{ padding: "16px 16px 16px 18px" }}>
-          <span className="tile" style={{ background: current ? "var(--green-bg)" : "#FDE8EE", color: current ? "var(--green)" : "var(--pink)" }}>{Icon.doc()}</span>
+          <span className="tile" style={{ background: current ? "var(--green-bg)" : "#EEF1F5", color: current ? "var(--green)" : "var(--pink)" }}>{Icon.doc()}</span>
           <div style={{ flex: "1 1 220px", minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
-            <span style={{ fontSize: 17, fontWeight: 700 }}>{current || "Add your resume"}</span>
+            <span style={{ fontSize: 18, fontWeight: 700 }}>{current || "Add your resume"}</span>
             <span className="mute" style={{ fontSize: 14, lineHeight: 1.45 }}>
               {state === "error" ? <span style={{ color: "var(--red)", fontWeight: 600 }}>{err}</span> : current ? "We use it for every new job you paste." : "We need it to show you what to change for each job. You can also add it later. A PDF works."}
             </span>
@@ -59,14 +59,14 @@ export function ResumeUpload({ signedIn, compact, current, onDone }: { signedIn:
         <div className="row" style={{ flexDirection: "column", alignItems: "stretch" }}>
           <div style={{ fontSize: 16, fontWeight: 700 }}>Did we read your resume correctly?</div>
           <div className="mute" style={{ fontSize: 14 }}>Here&apos;s what we read from {file}. Your downloaded resumes will use one simple, clean layout, not your original design.</div>
-          <div style={{ background: "var(--bg)", borderRadius: 18, padding: "16px 18px", fontSize: 15, lineHeight: 1.6, maxHeight: 320, overflow: "auto" }}>
-            {lines.map((l, i) => l.startsWith("## ") ? <div key={i} style={{ fontWeight: 800, marginTop: 10 }}>{l.slice(3)}</div> : <div key={i}>{l}</div>)}
+          <div style={{ background: "var(--bg)", borderRadius: 18, padding: "16px 18px", fontSize: 16, lineHeight: 1.6, maxHeight: 320, overflow: "auto" }}>
+            {lines.map((l, i) => l.startsWith("## ") ? <div key={i} style={{ fontWeight: 700, marginTop: 10 }}>{l.slice(3)}</div> : <div key={i}>{l}</div>)}
           </div>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             <button className="btn pri" onClick={() => confirm(true)}>Yes, use this</button>
             <button className="btn sec" onClick={() => confirm(false)}>Something&apos;s wrong</button>
           </div>
-          <div className="mute" style={{ fontSize: 13 }}>Jobs you already added keep the old resume. You can redo any of them with the new one from that job&apos;s page.</div>
+          <div className="mute" style={{ fontSize: 14 }}>Jobs you already added keep the old resume. You can redo any of them with the new one from that job&apos;s page.</div>
         </div>
       )}
     </div>

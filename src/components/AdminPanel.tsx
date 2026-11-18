@@ -1,9 +1,11 @@
 "use client";
 import { useState } from "react";
-import { Header, letterTile, useToast } from "./ui";
+import { Header, Icon, letterTile, useToast } from "./ui";
 import { AdminKeys } from "./AdminKeys";
+import { AdminRequests } from "./AdminRequests";
+import { signupNotYet } from "@/lib/messages";
 
-type U = { id: string; name: string | null; email: string | null; approved: boolean; search_limit: number; approved_at: string | null; note: string | null; created_at: string; resume_added_at: string | null; used: number };
+type U = { id: string; name: string | null; email: string | null; approved: boolean; declined_at?: string | null; search_limit: number; approved_at: string | null; note: string | null; created_at: string; resume_added_at: string | null; used: number };
 type Data = { users: U[]; stats: { students: number; started: number; finished: number; failed: number; applied: number } };
 
 const DEFAULT_LIMIT = 25;
@@ -17,10 +19,13 @@ export function AdminPanel({ initial, me }: { initial: Data; me: string }) {
   const [users, setUsers] = useState(initial.users);
   const [tab, setTab] = useState<"waiting" | "approved" | "all">(initial.users.some((u) => !u.approved) ? "waiting" : "approved");
   const [limits, setLimits] = useState<Record<string, string>>({});
-  const [section, setSection] = useState<"students" | "keys">("students");
+  const [section, setSection] = useState<"students" | "requests" | "keys">("students");
+  const [reqCount, setReqCount] = useState(0);
+  const [declining, setDeclining] = useState<string | null>(null);
+  const [dmsg, setDmsg] = useState("");
   const toast = useToast();
 
-  async function update(id: string, patch: Partial<U>) {
+  async function update(id: string, patch: Partial<U> & { decline?: boolean; message?: string }) {
     setUsers((x) => x.map((u) => (u.id === id ? { ...u, ...patch } : u)));
     const r = await fetch("/api/admin", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ id, ...patch }) });
     toast.show(r.ok ? "Saved" : "Couldn't save. Try again.");
@@ -39,15 +44,16 @@ export function AdminPanel({ initial, me }: { initial: Data; me: string }) {
           <h1 className="h1">Admin</h1>
           <div className="seg" role="tablist" aria-label="Admin sections">
             <button role="tab" aria-selected={section === "students"} onClick={() => setSection("students")}>Students{waitingCount ? ` · ${waitingCount} waiting` : ""}</button>
+            <button role="tab" aria-selected={section === "requests"} onClick={() => setSection("requests")}>Search requests{reqCount ? ` · ${reqCount}` : ""}</button>
             <button role="tab" aria-selected={section === "keys"} onClick={() => setSection("keys")}>API keys</button>
           </div>
         </div>
-        {section === "keys" ? <AdminKeys /> : (<>
+        {section === "keys" ? <AdminKeys /> : section === "requests" ? <AdminRequests onCount={setReqCount} /> : (<>
         <div style={{ marginTop: 24, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(140px,100%), 1fr))", gap: 12 }}>
           {[["Students who searched", s.students], ["Searches started", s.started], ["Finished", s.finished], ["Failed", s.failed], ["Marked applied", s.applied]].map(([l, n]) => (
             <div key={l as string} className="card" style={{ padding: "16px 18px" }}>
-              <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: "-.02em" }}>{n}</div>
-              <div className="mute" style={{ fontSize: 13, fontWeight: 600 }}>{l}</div>
+              <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: "-.02em" }}>{n}</div>
+              <div className="mute" style={{ fontSize: 14, fontWeight: 600 }}>{l}</div>
             </div>
           ))}
         </div>
@@ -65,33 +71,48 @@ export function AdminPanel({ initial, me }: { initial: Data; me: string }) {
             const limitVal = limits[u.id] ?? String(u.approved ? u.search_limit : DEFAULT_LIMIT);
             return (
               <div key={u.id} className="row" style={{ alignItems: "flex-start" }}>
-                <span className="tile" style={{ width: 44, height: 44, background: t.bg, color: t.fg, fontWeight: 800 }}>{t.letters}</span>
+                <span className="tile" style={{ width: 44, height: 44, background: t.bg, color: t.fg, fontWeight: 700 }}>{t.letters}</span>
                 <div style={{ flex: "1 1 220px", minWidth: 0 }}>
                   <div style={{ fontSize: 16, fontWeight: 700 }}>{u.name || "No name"}</div>
                   <div className="mute" style={{ fontSize: 14, wordBreak: "break-all" }}>{u.email}</div>
-                  <div className="mute" style={{ fontSize: 13, marginTop: 4 }}>
+                  <div className="mute" style={{ fontSize: 14, marginTop: 4 }}>
                     Signed up {ago(u.created_at)}{u.resume_added_at ? " · resume added" : ""}{u.approved ? ` · used ${u.used} of ${u.search_limit}` : ""}
                   </div>
                   <input className="in" style={{ marginTop: 8, width: "100%", minHeight: 36, fontSize: 14 }} placeholder="Private note, e.g. where they came from" defaultValue={u.note || ""} onBlur={(e) => e.target.value !== (u.note || "") && update(u.id, { note: e.target.value })} aria-label={`Note for ${u.email}`} />
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                  <label className="mute" htmlFor={`l-${u.id}`} style={{ fontSize: 13, fontWeight: 600 }}>Searches</label>
+                  <label className="mute" htmlFor={`l-${u.id}`} style={{ fontSize: 14, fontWeight: 600 }}>Searches</label>
                   <input id={`l-${u.id}`} className="in" inputMode="numeric" style={{ width: 76, flex: "none" }} value={limitVal} onChange={(e) => setLimits({ ...limits, [u.id]: e.target.value.replace(/\D/g, "") })} />
                   {u.approved ? (
                     <>
                       <button className="btn sec" disabled={Number(limitVal) === u.search_limit} onClick={() => update(u.id, { search_limit: Number(limitVal) })}>Save</button>
-                      <button className="btn ghost" style={{ color: "var(--red)" }} onClick={() => update(u.id, { approved: false })}>Remove access</button>
+                      <button className="btn danger" onClick={() => update(u.id, { approved: false })}>Remove access</button>
                     </>
                   ) : (
-                    <button className="btn dark" onClick={() => update(u.id, { approved: true, search_limit: Number(limitVal) || DEFAULT_LIMIT })}>Approve</button>
+                    <>
+                      <button className="btn sec" onClick={() => update(u.id, { approved: true, search_limit: Number(limitVal) || DEFAULT_LIMIT })}>{Icon.check(18)}Approve</button>
+                      <button className="btn ghost" onClick={() => { setDeclining(u.id); setDmsg(signupNotYet(u.name)); }}>{u.declined_at ? "Told not yet" : "Not yet"}</button>
+                    </>
                   )}
                 </div>
+                {declining === u.id && (
+                  <div style={{ flexBasis: "100%", display: "flex", flexDirection: "column", gap: 12, padding: 16, background: "var(--sunken)", borderRadius: 18, cornerShape: "squircle" } as React.CSSProperties}>
+                    <div style={{ fontSize: 16, fontWeight: 700 }}>Can&apos;t let {(u.name || "them").split(" ")[0]} in yet</div>
+                    <label htmlFor={`d-${u.id}`} style={{ fontSize: 14, fontWeight: 600 }}>Message (you can edit it)</label>
+                    <textarea id={`d-${u.id}`} className="ta" rows={7} value={dmsg} onChange={(e) => setDmsg(e.target.value)} />
+                    <div className="mute" style={{ fontSize: 14 }}>They see this in Hunting Fox and by email, with your WhatsApp and email under it. Their place on the waiting list is kept.</div>
+                    <div style={{ display: "flex", gap: 10 }}>
+                      <button className="btn pri" onClick={async () => { await update(u.id, { decline: true, message: dmsg }); setUsers((x) => x.map((y) => (y.id === u.id ? { ...y, declined_at: new Date().toISOString() } : y))); setDeclining(null); }}>Send</button>
+                      <button className="btn ghost" onClick={() => setDeclining(null)}>Cancel</button>
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}
         </div>
         </>)}
-        {section === "students" && <p className="mute" style={{ margin: "16px 8px 0", fontSize: 13 }}>Approving gives the student the number of searches in the box. Failed, closed and fake jobs never count. Removing access keeps their saved jobs but stops new searches.</p>}
+        {section === "students" && <p className="mute" style={{ margin: "16px 8px 0", fontSize: 14 }}>Approving gives the student the number of searches in the box. Failed, closed and fake jobs never count. Removing access keeps their saved jobs but stops new searches.</p>}
       </main>
       {toast.el}
     </>

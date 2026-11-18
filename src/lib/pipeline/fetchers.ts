@@ -15,12 +15,12 @@ function sizeMin(text?: string) {
 }
 
 /** LinkedIn: automation_craft/linkedin-job-details-scraper */
-export async function fetchLinkedIn(url: string): Promise<{ job: JobData; company: CompanyData }> {
+export async function fetchLinkedIn(url: string, own?: string | null): Promise<{ job: JobData; company: CompanyData }> {
   const { items } = await runActor<any>("automation_craft/linkedin-job-details-scraper", {
     jobUrls: [url],
     includeCompanyDetails: true,
     includeJobPoster: true,
-  }, { timeoutSec: 90 });
+  }, { timeoutSec: 90, ownToken: own });
   const j = items.find((x) => x.type === "job") || items.find((x) => x.type !== "summary");
   if (!j) throw new Error("JOB_NOT_FOUND");
   const c = j.company || {};
@@ -54,8 +54,8 @@ export async function fetchLinkedIn(url: string): Promise<{ job: JobData; compan
 }
 
 /** Naukri: blackfalcondata/naukri-jobs-feed */
-export async function fetchNaukri(url: string): Promise<{ job: JobData; company: CompanyData }> {
-  const { items } = await runActor<any>("blackfalcondata/naukri-jobs-feed", { startUrls: [url], maxResults: 1 }, { timeoutSec: 60 });
+export async function fetchNaukri(url: string, own?: string | null): Promise<{ job: JobData; company: CompanyData }> {
+  const { items } = await runActor<any>("blackfalcondata/naukri-jobs-feed", { startUrls: [url], maxResults: 1 }, { timeoutSec: 60, ownToken: own });
   const j = items[0];
   if (!j) throw new Error("JOB_NOT_FOUND");
   const ab = j.ambitionBoxDetails?.companyInfo || {};
@@ -141,7 +141,7 @@ function cleanPerson(r: any, i: number, company: string): Person | null {
 }
 
 /** People in a similar role: b2bsearch (domain) first, harvestapi (LinkedIn URL) as fallback. One run per company. */
-export async function fetchPeople(company: CompanyData, jobTitle: string, mode: "full" | "lean"): Promise<Person[]> {
+export async function fetchPeople(company: CompanyData, jobTitle: string, mode: "full" | "lean", own?: string | null): Promise<Person[]> {
   const kw = titleKeywords(jobTitle);
   const want = mode === "full" ? 5 : 3;
   let rows: any[] = [];
@@ -153,7 +153,7 @@ export async function fetchPeople(company: CompanyData, jobTitle: string, mode: 
         titleContains: kw,
         maxRows: want,
         compact: true,
-      }, { timeoutSec: 60, b2bRows: want });
+      }, { timeoutSec: 60, b2bRows: want, ownToken: own });
       rows = items.filter((r) => r._status === "found" || (!r._status && (r.fullName || r.name)));
       await addRows(label, rows.length);
     } catch (e) {
@@ -167,7 +167,7 @@ export async function fetchPeople(company: CompanyData, jobTitle: string, mode: 
         jobTitles: kw.slice(0, 5),
         profileScraperMode: "Full + email search ($12 per 1k)",
         maxItems: want,
-      }, { timeoutSec: 240 });
+      }, { timeoutSec: 240, ownToken: own });
       rows = items.map((r) => ({ ...r, employerMatch: true, email: Array.isArray(r.emails) ? r.emails.find((e: any) => /valid|verified/i.test(e.status))?.email : undefined, emailType: "verified" }));
     } catch (e) {
       console.warn("harvestapi failed", e);

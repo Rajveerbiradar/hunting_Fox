@@ -40,12 +40,12 @@ export function JobPage({ job, report, hasResume, initial }: { job: any; report:
     <>
       <Header signedIn initial={initial} />
       <main className="wrap">
-        <BackLink href="/jobs">Searched jobs</BackLink>
+        <BackLink href="/jobs">My jobs</BackLink>
         <div className="card" style={{ marginTop: 12, padding: 28 }}>
           <h1 className="h2">{problem.title}</h1>
           <p className="mute" style={{ fontSize: 16, lineHeight: 1.5 }}>{problem.text}</p>
-          {problem.foot && <p style={{ fontSize: 13, color: "var(--green)", fontWeight: 600 }}>{problem.foot}</p>}
-          <Link href="/" className="btn dark">Paste a different job</Link>
+          {problem.foot && <p style={{ fontSize: 14, color: "var(--green)", fontWeight: 600 }}>{problem.foot}</p>}
+          <Link href="/" className="btn pri">Paste a different job</Link>
         </div>
       </main>
     </>
@@ -59,8 +59,8 @@ export function JobPage({ job, report, hasResume, initial }: { job: any; report:
   const steps = big
     ? [["Update your resume.", "Takes about 5 minutes."], ["Message 1 or 2 people today.", "Ask them to refer you. Don't apply yet."], ["No reply in 12 hours? Apply yourself.", "Use the same resume you sent them."]]
     : [["Update your resume.", "Takes about 5 minutes."], ["Apply today.", `Tap Apply on ${job.portal === "naukri" ? "Naukri" : "LinkedIn"} at the top.`], ["Then message people.", "Use the same resume you applied with."]];
-  const resumeBlock = { href: `/jobs/${job.id}/resume`, icon: Icon.docEdit(28), bg: "#FDE8EE", fg: "#C8025D", title: "Update your resume", sub: hasResume ? `${resume?.skill_questions?.length ? `Answer ${resume.skill_questions.length} quick question${resume.skill_questions.length > 1 ? "s" : ""}, then download it` : "See the changes, then download it"}` : "Add your resume to see what to change" };
-  const reachBlock = { href: `/jobs/${job.id}/reach-out`, icon: Icon.people(28), bg: "#E8F0FB", fg: "#164A88", title: `Message people at ${name}`, sub: people.length ? `We found ${people.length}. Start with ${Math.min(2, people.length)}.` : "We couldn't find anyone public. See the hiring inbox, if we found one." };
+  const resumeBlock = { href: `/jobs/${job.id}/resume`, icon: Icon.docEdit(28), bg: "var(--tile)", fg: "var(--ink)", title: "Update your resume", sub: hasResume ? `${resume?.skill_questions?.length ? `Answer ${resume.skill_questions.length} quick question${resume.skill_questions.length > 1 ? "s" : ""}, then download it` : "See the changes, then download it"}` : "Add your resume to see what to change" };
+  const reachBlock = { href: `/jobs/${job.id}/reach-out`, icon: Icon.people(28), bg: "var(--tile)", fg: "var(--ink)", title: `Message people at ${name}`, sub: people.length ? `We found ${people.length}. Start with ${Math.min(2, people.length)}.` : "We couldn't find anyone public. See the hiring inbox, if we found one." };
   const blocks = agency
     ? [{ ...resumeBlock, step: "Start here" }]
     : big
@@ -71,7 +71,7 @@ export function JobPage({ job, report, hasResume, initial }: { job: any; report:
     <>
       <Header signedIn initial={initial} />
       <main className="wrap wide">
-        <BackLink href="/jobs">Searched jobs</BackLink>
+        <BackLink href="/jobs">My jobs</BackLink>
 
         {ask && !status && (
           <div className="card" style={{ marginTop: 8, padding: "14px 16px 14px 20px", display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", border: "1.5px solid var(--ink)" }}>
@@ -81,29 +81,29 @@ export function JobPage({ job, report, hasResume, initial }: { job: any; report:
         )}
 
         {fake && (
-          <div className="card" style={{ marginTop: 12, padding: 24, background: "#FDECEC" }}>
-            <h2 className="h2" style={{ color: "#8A1414" }}>This job might not be real</h2>
-            <p style={{ fontSize: 15, lineHeight: 1.5, color: "#8A1414" }}>We couldn&apos;t confirm {name} is a real company, so we stopped before doing anything else. Here&apos;s what we noticed:</p>
-            <ul style={{ margin: 0, paddingLeft: 20, fontSize: 15, lineHeight: 1.6 }}>{warns.map((w: any, i: number) => <li key={i}>{w.text}</li>)}</ul>
-            <p style={{ fontSize: 13, fontWeight: 600, color: "var(--green)" }}>Never pay to apply for a job. This didn&apos;t use one of your free searches.</p>
-            <Link href="/" className="btn dark">Go back home</Link>
+          <div className="card" style={{ marginTop: 12, padding: 24, background: "#FDECEF" }}>
+            <h2 className="h2" style={{ color: "#B8132F" }}>This job might not be real</h2>
+            <p style={{ fontSize: 16, lineHeight: 1.5, color: "#B8132F" }}>We couldn&apos;t confirm {name} is a real company, so we stopped before doing anything else. Here&apos;s what we noticed:</p>
+            <ul style={{ margin: 0, paddingLeft: 20, fontSize: 16, lineHeight: 1.6 }}>{warns.map((w: any, i: number) => <li key={i}>{w.text}</li>)}</ul>
+            <p style={{ fontSize: 14, fontWeight: 600, color: "var(--green)" }}>Never pay to apply for a job. This didn&apos;t use one of your free searches.</p>
+            <Link href="/" className="btn pri">Go back home</Link>
           </div>
         )}
 
         <div className="card" style={{ marginTop: 16, padding: 28 }}>
           <div style={{ display: "flex", gap: 20, alignItems: "flex-start", flexWrap: "wrap" }}>
-            <span className="tile" style={{ width: 72, height: 72, borderRadius: 24, background: t.bg, color: t.fg, fontWeight: 800, fontSize: 28 }}>{t.letters}</span>
+            <span className="tile" style={{ width: 72, height: 72, borderRadius: 24, background: t.bg, color: t.fg, fontWeight: 700, fontSize: 28 }}>{t.letters}</span>
             <div style={{ flex: "1 1 260px", minWidth: 0 }}>
-              <h1 style={{ margin: 0, fontSize: "clamp(24px,4vw,34px)", lineHeight: 1.12, fontWeight: 700, letterSpacing: "-.03em", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{jd.title || job.title}</h1>
-              <div className="mute" style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: "6px 16px", fontSize: 15 }}>
+              <h1 style={{ margin: 0, fontSize: "clamp(30px,4vw,36px)", lineHeight: 1.1, fontWeight: 700, letterSpacing: "-.03em", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{jd.title || job.title}</h1>
+              <div className="mute" style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: "6px 16px", fontSize: 16 }}>
                 {[`${name}${co.sizeText ? ` · ${co.sizeText}` : ""}`, jd.location, jd.postedText && `Posted ${String(jd.postedText).replace(/^posted\s*/i, "")}`, jd.applicantsText && `${jd.applicantsText} · as of ${new Date(report.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}`].filter(Boolean).map((m, i) => <span key={i}>{m}</span>)}
               </div>
             </div>
           </div>
           <div style={{ marginTop: 22, display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
-            {!fake && <a className="btn pri" href={jd.applyUrl || job.url} target="_blank" rel="noopener" onClick={opened}>Apply on {job.portal === "naukri" ? "Naukri" : "LinkedIn"}{Icon.ext()}</a>}
+            {!fake && <a className="btn on-grey" href={jd.applyUrl || job.url} target="_blank" rel="noopener" onClick={opened}>Apply on {job.portal === "naukri" ? "Naukri" : "LinkedIn"}{Icon.ext()}</a>}
             <StatusMenu jobId={job.id} value={status} onChange={setStatus} alignLeft />
-            <button className="btn" style={fake ? { background: "#FDECEC", color: "#8A1414" } : report?.verdict === "unverified" ? { background: "#F2F2F2", color: "var(--mute)" } : { background: "var(--green-bg)", color: "#155C35" }} onClick={() => setCheckOpen(true)}>
+            <button className="btn" style={fake ? { background: "#FDECEF", color: "#B8132F" } : report?.verdict === "unverified" ? { background: "#EEF1F5", color: "var(--mute)" } : { background: "var(--green-bg)", color: "#1A6B3C" }} onClick={() => setCheckOpen(true)}>
               {Icon.shield(18)}{fake ? "May be fake" : report?.verdict === "unverified" ? "Couldn't fully check" : agency ? "Recruitment agency" : "Real company"}{Icon.chev(14)}
             </button>
           </div>
@@ -111,7 +111,7 @@ export function JobPage({ job, report, hasResume, initial }: { job: any; report:
 
         {!fake && (
           <>
-            <section className="card" style={{ marginTop: 28, padding: 28 }}>
+            <section className="card task" style={{ marginTop: 28, padding: 24 }}>
               <h2 className="h2">{agency ? "A recruitment agency posted this job" : big ? "Message people first, then apply" : "Apply first, then message people"}</h2>
               <p className="mute" style={{ margin: "8px 0 0", fontSize: 16, lineHeight: 1.5 }}>
                 {agency ? "They don't name the real company, so we can't find people who work there. You can still update your resume for it."
@@ -122,11 +122,14 @@ export function JobPage({ job, report, hasResume, initial }: { job: any; report:
                 <ol style={{ margin: "20px 0 0", padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 14 }}>
                   {steps.map(([a, b], i) => (
                     <li key={i} style={{ display: "flex", gap: 14, alignItems: "flex-start", fontSize: 16, lineHeight: 1.5 }}>
-                      <span style={{ width: 28, height: 28, flex: "none", borderRadius: 11, background: "var(--bg)", display: "grid", placeItems: "center", fontWeight: 800, fontSize: 14 }}>{i + 1}</span>
+                      <span style={{ width: 28, height: 28, flex: "none", borderRadius: 11, background: "var(--fill)", display: "grid", placeItems: "center", fontWeight: 700, fontSize: 14 }}>{i + 1}</span>
                       <span><b>{a}</b> <span className="mute">{b}</span></span>
                     </li>
                   ))}
                 </ol>
+              )}
+              {blocks[0] && (
+                <Link href={blocks[0].href} className="btn lg pri" style={{ marginTop: 20 }}>Next: {blocks[0].title.charAt(0).toLowerCase() + blocks[0].title.slice(1)}{Icon.arrow()}</Link>
               )}
             </section>
             <div style={{ marginTop: 28, display: "flex", flexDirection: "column", gap: 12 }}>
@@ -134,11 +137,11 @@ export function JobPage({ job, report, hasResume, initial }: { job: any; report:
                 <Link key={b.href} href={b.href} className="card" style={{ display: "flex", alignItems: "center", gap: 18, padding: 24, textDecoration: "none" }}>
                   <span className="tile" style={{ width: 56, height: 56, borderRadius: 20, background: b.bg, color: b.fg }}>{b.icon}</span>
                   <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
-                    <span className="lbl" style={{ color: b.fg }}>{b.step}</span>
-                    <span style={{ fontSize: 20, fontWeight: 700 }}>{b.title}</span>
-                    <span className="mute" style={{ fontSize: 15 }}>{b.sub}</span>
+                    <span className="lbl">{b.step}</span>
+                    <span style={{ fontSize: 18, fontWeight: 700 }}>{b.title}</span>
+                    <span className="mute" style={{ fontSize: 16 }}>{b.sub}</span>
                   </span>
-                  <span style={{ color: "#C7C7CC" }}>{Icon.chev(20)}</span>
+                  <span style={{ color: "#7F8897" }}>{Icon.chev(20)}</span>
                 </Link>
               ))}
             </div>
@@ -157,14 +160,14 @@ export function JobPage({ job, report, hasResume, initial }: { job: any; report:
               <div key={g.g} style={{ marginTop: 22 }}>
                 <div className="lbl">{g.g}</div>
                 {g.items.map((c: any, i: number) => (
-                  <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start", marginTop: 10, fontSize: 15, lineHeight: 1.45 }}>
-                    <span style={{ width: 22, height: 22, flex: "none", borderRadius: 8, display: "grid", placeItems: "center", fontWeight: 800, fontSize: 13, background: c.result === "pass" ? "var(--green-bg)" : c.result === "warn" ? "#FFF4E5" : "#F2F2F2", color: c.result === "pass" ? "var(--green)" : c.result === "warn" ? "#7A4A00" : "var(--mute)" }}>{c.result === "pass" ? "✓" : c.result === "warn" ? "!" : "?"}</span>
+                  <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start", marginTop: 10, fontSize: 16, lineHeight: 1.45 }}>
+                    <span style={{ width: 22, height: 22, flex: "none", borderRadius: 8, display: "grid", placeItems: "center", fontWeight: 700, fontSize: 14, background: c.result === "pass" ? "var(--green-bg)" : c.result === "warn" ? "#EEF1F5" : "#EEF1F5", color: c.result === "pass" ? "var(--green)" : c.result === "warn" ? "#5B6472" : "var(--mute)" }}>{c.result === "pass" ? "✓" : c.result === "warn" ? "!" : "?"}</span>
                     <span>{c.text}</span>
                   </div>
                 ))}
               </div>
             ))}
-            <p className="mute" style={{ margin: "22px 0 0", fontSize: 13 }}>If we can&apos;t check something, we tell you instead of guessing. Names and roles come from public LinkedIn profiles.</p>
+            <p className="mute" style={{ margin: "22px 0 0", fontSize: 14 }}>If we can&apos;t check something, we tell you instead of guessing. Names and roles come from public LinkedIn profiles.</p>
           </div>
         </div>
       )}

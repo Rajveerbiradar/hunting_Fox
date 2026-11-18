@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Header, Icon } from "./ui";
 import { ResumeUpload } from "./ResumeUpload";
+import { OwnKeys } from "./OwnKeys";
 import { browserClient } from "@/lib/supabase/browser";
 import { SKILL_LEVELS } from "@/lib/status";
 
@@ -48,17 +49,17 @@ export function Account({ profile, email, left, limit, approved }: { profile: an
       {onAdd && <button className="btn addb" onClick={onAdd}>{Icon.plus()}{addLabel}</button>}
     </div>
   );
-  const Empty = ({ t, d }: { t: string; d: string }) => <div style={{ padding: "24px 20px" }}><div style={{ fontSize: 16, fontWeight: 700 }}>{t}</div><div className="mute" style={{ fontSize: 15, marginTop: 4 }}>{d}</div></div>;
+  const Empty = ({ t, d }: { t: string; d: string }) => <div style={{ padding: "24px 20px" }}><div style={{ fontSize: 16, fontWeight: 700 }}>{t}</div><div className="mute" style={{ fontSize: 16, marginTop: 4 }}>{d}</div></div>;
   const Remove = ({ label, onClick }: { label: string; onClick: () => void }) => <button aria-label={`Remove ${label}`} onClick={onClick} style={{ width: 32, height: 32, border: 0, background: "transparent", color: "var(--mute)", cursor: "pointer", borderRadius: 10 }}>{Icon.x()}</button>;
-  const formBg = { background: "#FAFAFA", flexDirection: "column" as const, alignItems: "stretch" as const, borderRadius: "0 0 28px 28px" };
+  const formBg = { background: "#F7F8FA", flexDirection: "column" as const, alignItems: "stretch" as const, borderRadius: "0 0 28px 28px" };
 
   return (
     <>
       <Header signedIn initial={name[0]} />
       <main className="wrap">
         <div style={{ margin: "0 8px", display: "flex", alignItems: "center", gap: 16 }}>
-          <span className="av" style={{ width: 64, height: 64, borderRadius: 24, fontSize: 26, fontWeight: 800 }}>{name[0]?.toUpperCase()}</span>
-          <div><h1 style={{ margin: 0, fontSize: 30, fontWeight: 700, letterSpacing: "-.03em" }}>{profile?.name || "Your account"}</h1><div className="mute" style={{ fontSize: 15 }}>{email} · {approved ? `${left} of ${limit} searches left` : "Waiting for approval"}</div></div>
+          <span className="av" style={{ width: 64, height: 64, borderRadius: 24, fontSize: 26, fontWeight: 700 }}>{name[0]?.toUpperCase()}</span>
+          <div><h1 style={{ margin: 0, fontSize: 30, fontWeight: 700, letterSpacing: "-.03em" }}>{profile?.name || "Your account"}</h1><div className="mute" style={{ fontSize: 16 }}>{email} · {approved ? `${left} of ${limit} searches left` : "Waiting for approval"}</div></div>
         </div>
 
         <SectionHead title="Your resume" />
@@ -76,7 +77,7 @@ export function Account({ profile, email, left, limit, approved }: { profile: an
                 {k.from_job && <span title={`You told us about this when we asked for the ${k.from_job} job.`} aria-label={`You told us about this when we asked for the ${k.from_job} job.`} tabIndex={0} style={{ color: "var(--mute)", display: "inline-grid", placeItems: "center", width: 28, height: 28, cursor: "help" }}>{Icon.info()}</span>}
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <span aria-hidden style={{ display: "inline-flex", gap: 3, alignItems: "flex-end" }}>{[1, 2, 3, 4, 5].map((n) => <i key={n} style={{ display: "block", width: 5, height: 6 + n * 3, borderRadius: 2, background: n <= k.level ? "var(--ink)" : "#E5E5EA" }} />)}</span>
+                <span aria-hidden style={{ display: "inline-flex", gap: 3, alignItems: "flex-end" }}>{[1, 2, 3, 4, 5].map((n) => <i key={n} style={{ display: "block", width: 5, height: 6 + n * 3, borderRadius: 2, background: n <= k.level ? "var(--ink)" : "#E4E7EC" }} />)}</span>
                 <label htmlFor={`lv${i}`} className="sr">Level for {k.name}</label>
                 <select id={`lv${i}`} className="sel" value={k.level} onChange={(e) => upSkills(skills.map((x, j) => (j === i ? { ...x, level: Number(e.target.value) } : x)))}>
                   {SKILL_LEVELS.map((l, n) => n > 0 && <option key={n} value={n}>{n} · {l}</option>)}
@@ -100,7 +101,7 @@ export function Account({ profile, email, left, limit, approved }: { profile: an
                 </div>
               </div>
               <div style={{ display: "flex", gap: 10 }}>
-                <button className="btn dark" disabled={!skillQ.trim()} onClick={() => { upSkills([...skills.filter((s) => s.name.toLowerCase() !== skillQ.trim().toLowerCase()), { name: skillQ.trim(), level: newLevel }]); setAddSkill(false); }}>Add skill</button>
+                <button className="btn sec" disabled={!skillQ.trim()} onClick={() => { upSkills([...skills.filter((s) => s.name.toLowerCase() !== skillQ.trim().toLowerCase()), { name: skillQ.trim(), level: newLevel }]); setAddSkill(false); }}>Add skill</button>
                 <button className="btn ghost" onClick={() => setAddSkill(false)}>Cancel</button>
               </div>
             </div>
@@ -125,7 +126,7 @@ export function Account({ profile, email, left, limit, approved }: { profile: an
                 <div style={{ flex: "1 1 240px", minWidth: 0 }}><label htmlFor="lu" style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 6 }}>Link</label><input id="lu" className="in" style={{ width: "100%" }} placeholder="yourname.com" value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} /></div>
               </div>
               <div style={{ display: "flex", gap: 10 }}>
-                <button className="btn dark" disabled={!linkUrl.trim()} onClick={() => { upLinks([...links, { label: linkKind, url: linkUrl.trim() }]); setAddLink(false); }}>Add link</button>
+                <button className="btn sec" disabled={!linkUrl.trim()} onClick={() => { upLinks([...links, { label: linkKind, url: linkUrl.trim() }]); setAddLink(false); }}>Add link</button>
                 <button className="btn ghost" onClick={() => setAddLink(false)}>Cancel</button>
               </div>
             </div>
@@ -138,7 +139,7 @@ export function Account({ profile, email, left, limit, approved }: { profile: an
           {!edu.length && !addEdu && <Empty t="No education yet" d="Add your college, and your school if you like." />}
           {edu.map((e, i) => (
             <div className="row" key={i}>
-              <span className="tile" style={{ width: 40, height: 40, background: "#E8F0FB", color: "#164A88" }}><svg aria-hidden width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M2.5 9L12 4.5 21.5 9 12 13.5z" /><path d="M6.5 11v4.5c0 1.5 2.5 3 5.5 3s5.5-1.5 5.5-3V11" /></svg></span>
+              <span className="tile" style={{ width: 40, height: 40, background: "#E7EFFA", color: "#164A88" }}><svg aria-hidden width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M2.5 9L12 4.5 21.5 9 12 13.5z" /><path d="M6.5 11v4.5c0 1.5 2.5 3 5.5 3s5.5-1.5 5.5-3V11" /></svg></span>
               <div style={{ flex: "1 1 200px", minWidth: 0 }}><div style={{ fontSize: 16, fontWeight: 700 }}>{e.school}</div><div className="mute" style={{ fontSize: 14 }}>{[e.what, [e.from, e.to].filter(Boolean).join(" – ")].filter(Boolean).join(" · ")}</div></div>
               <Remove label={e.school} onClick={() => upEdu(edu.filter((_, j) => j !== i))} />
             </div>
@@ -154,12 +155,19 @@ export function Account({ profile, email, left, limit, approved }: { profile: an
                 <div style={{ flex: "0 1 110px" }}><label htmlFor="et" style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 6 }}>To</label><input id="et" className="in" style={{ width: "100%" }} inputMode="numeric" placeholder="2027" value={eduTo} onChange={(e) => setEduTo(e.target.value)} /></div>
               </div>
               <div style={{ display: "flex", gap: 10 }}>
-                <button className="btn dark" disabled={!eduQ.trim()} onClick={() => { upEdu([{ school: eduQ.trim(), what: eduWhat.trim(), from: eduFrom || null, to: eduTo || null }, ...edu]); setAddEdu(false); }}>Add</button>
+                <button className="btn sec" disabled={!eduQ.trim()} onClick={() => { upEdu([{ school: eduQ.trim(), what: eduWhat.trim(), from: eduFrom || null, to: eduTo || null }, ...edu]); setAddEdu(false); }}>Add</button>
                 <button className="btn ghost" onClick={() => setAddEdu(false)}>Cancel</button>
               </div>
             </div>
           )}
         </div>
+
+        <div id="keys" style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12, margin: "48px 8px 0", scrollMarginTop: 80 }}>
+          <h2 className="h2">Use your own keys</h2>
+          <span className="mute" style={{ fontSize: 14, fontWeight: 600 }}>Optional</span>
+        </div>
+        <p className="mute" style={{ margin: "4px 8px 0", fontSize: 16, lineHeight: 1.5, maxWidth: "62ch" }}>Hunting Fox is a personal project and Rajveer pays for every search. If you add your own keys, your searches run on them instead, so they don&apos;t use his credit and you can keep searching after your free ones run out.</p>
+        <OwnKeys />
 
         {process.env.NEXT_PUBLIC_EMAILS === "on" && (<>
         <SectionHead title="Emails from us" />
@@ -179,7 +187,7 @@ export function Account({ profile, email, left, limit, approved }: { profile: an
             <button className="row" style={{ width: "100%", border: 0, borderTop: "1px solid var(--line)", background: "none", textAlign: "left", fontSize: 16, fontWeight: 700, color: "var(--red)", cursor: "pointer" }} onClick={() => setConfirmDelete(true)}>Delete my account and data</button>
           ) : (
             <div className="row" style={{ borderTop: "1px solid var(--line)" }}>
-              <span style={{ flex: "1 1 240px", fontSize: 15 }}>This deletes your resume, jobs and messages for good.</span>
+              <span style={{ flex: "1 1 240px", fontSize: 16 }}>This deletes your resume, jobs and messages for good.</span>
               <button className="btn" style={{ background: "var(--red)", color: "#fff" }} onClick={del}>Yes, delete everything</button>
               <button className="btn ghost" onClick={() => setConfirmDelete(false)}>Cancel</button>
             </div>

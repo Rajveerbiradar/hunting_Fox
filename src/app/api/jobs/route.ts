@@ -34,7 +34,7 @@ export async function POST(req: Request) {
   }
   const a = await access(user.id, user.email);
   if (!a.approved) return NextResponse.json({ error: "pending" }, { status: 403 });
-  if (a.left <= 0) return NextResponse.json({ error: "limit" }, { status: 402 });
+  if (a.left <= 0 && !a.ownApify) return NextResponse.json({ error: "limit" }, { status: 402 });
 
   const { data: job, error } = await sb
     .from("jobs")

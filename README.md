@@ -19,7 +19,7 @@ The resume is read once at upload (`prompts/resume-profile.md`) and reused for e
 
 ## Setup
 
-1. **Supabase**: create a project, run `supabase/migrations/001_init.sql`, then `002_approval.sql`, then `003_keys.sql`, in the SQL editor. Turn on Google under Authentication → Providers, and add `https://YOUR-SITE/auth/callback` to the redirect URLs.
+1. **Supabase**: create a project, run `supabase/migrations/001_init.sql`, then `002_approval.sql`, `003_keys.sql` and `004_providers_requests.sql`, in that order, in the SQL editor. Turn on Google under Authentication → Providers, and add `https://YOUR-SITE/auth/callback` to the redirect URLs.
 2. **Vercel**: import this repo, add every variable from `.env.example`, deploy.
 3. Set `NEXT_PUBLIC_SITE_URL` to the deployed address and redeploy.
 4. Test with 3 LinkedIn links and 1 Naukri link before sharing.
@@ -34,7 +34,16 @@ Nobody can search until you approve them. Put your Google email in `ADMIN_EMAILS
 
 ## API keys
 
-Paste, replace or remove keys in `/admin` → **API keys**: Apify accounts, the Anthropic key, the writing model (Haiku or Sonnet) and Cloudflare Clef. Each key is checked before it's saved, stored encrypted with `KEYS_SECRET`, and never shown again except its last 4 characters. Env variables still work as a fallback.
+Paste, replace or remove keys in `/admin` → **API keys**:
+
+- **Apify accounts**: credit is read from Apify when you add one, and the total adds up every account. When one runs out, the next takes over.
+- **AI providers** in the OpenAI SDK format (base URL + key + model): Anthropic, OpenAI, OpenRouter, Groq, Cloudflare Workers AI. Pick which one writes and which one ranks people; if one fails, the next working one takes over.
+
+Every key must pass a test before Save unlocks. Keys are stored encrypted with `KEYS_SECRET` and never shown again except their last 4 characters. Env variables still work as a fallback.
+
+Students can add their **own** Apify and AI keys in Account → Use your own keys. Those are only used for their searches, and searches on their own Apify key don't count toward their limit.
+
+**Ask for more searches**: students who run out can ask from the home screen. Answer in `/admin` → Search requests (+10, +25, a custom number, or Say no with an editable message and the waiting list). They see the answer in the app and by email, with your WhatsApp and email.
 
 ## Apify accounts
 

@@ -1,5 +1,5 @@
 import { adminClient } from "@/lib/supabase/clients";
-import { decrypt } from "@/lib/secrets";
+import { decrypt, setting } from "@/lib/secrets";
 
 // Token pool: tokens added in /admin (encrypted in apify_tokens), then any in env APIFY_TOKENS="label:token,...".
 type Tok = { label: string; token: string };
@@ -20,14 +20,14 @@ async function pool(): Promise<Tok[]> {
 }
 
 /** Credit left on one token, straight from Apify. */
-export async function checkToken(token: string): Promise<{ ok: boolean; remaining?: number; error?: string }> {
+export async function checkToken(token: string): Promise<{ ok: boolean; remaining?: number; max?: number; error?: string }> {
   try {
     const r = await fetch(`https://api.apify.com/v2/users/me/limits?token=${token}`, { signal: AbortSignal.timeout(10_000) });
     if (!r.ok) return { ok: false, error: r.status === 401 ? "This token doesn't work. Copy it again from Apify." : `Apify said ${r.status}` };
     const j = await r.json();
     const used = j?.data?.current?.monthlyUsageUsd ?? 0;
     const max = j?.data?.limits?.maxMonthlyUsageUsd ?? 5;
-    return { ok: true, remaining: Math.max(0, max - used) };
+    return { ok: true, remaining: Math.max(0, max - used), max };
   } catch (e) {
     return { ok: false, error: String(e) };
   }
@@ -47,6 +47,7 @@ async function markExhausted(label: string) {
 }
 
 export async function addRows(label: string, rows: number) {
+  if (label === "own") return;
   const sb = adminClient();
   const { data } = await sb.from("apify_tokens").select("rows_used_month").eq("label", label).maybeSingle();
   await sb.from("apify_tokens").upsert({ label, rows_used_month: (data?.rows_used_month || 0) + rows });
@@ -91,8 +92,17 @@ export async function pooledRemainingUsd(): Promise<number> {
   return total;
 }
 
+/** Every account's credit added up: what's left now and what they had when they were added. */
+export async function pooledCredit() {
+  const left = await pooledRemainingUsd();
+  const { data } = await adminClient().from("apify_tokens").select("label,start_usd,remaining_usd,exhausted");
+  const start = (data || []).reduce((a, r) => a + Number(r.start_usd ?? r.remaining_usd ?? 0), 0);
+  return { left, start: Math.max(start, left), accounts: (data || []).length, working: (data || []).filter((r) => !r.exhausted).length };
+}
+
 export async function scanMode(): Promise<"full" | "lean"> {
-  if (process.env.SCAN_MODE === "full" || process.env.SCAN_MODE === "lean") return process.env.SCAN_MODE;
+  const m = await setting("scan_mode", "SCAN_MODE");
+  if (m === "full" || m === "lean") return m;
   return (await pooledRemainingUsd()) < 5 ? "lean" : "full";
 }
 
@@ -103,8 +113,21 @@ export async function scanMode(): Promise<"full" | "lean"> {
 export async function runActor<T = Record<string, unknown>>(
   actor: string,
   input: unknown,
-  opts: { timeoutSec?: number; b2bRows?: number } = {}
+  opts: { timeoutSec?: number; b2bRows?: number; ownToken?: string | null } = {}
 ): Promise<{ items: T[]; label: string }> {
+  // A student's own key: only that key, never the shared pool.
+  if (opts.ownToken) {
+    const id = actor.replace("/", "~");
+    const r = await fetch(`https://api.apify.com/v2/acts/${id}/run-sync-get-dataset-items?token=${opts.ownToken}&timeout=${opts.timeoutSec ?? 120}`, {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input),
+      signal: AbortSignal.timeout(((opts.timeoutSec ?? 120) + 15) * 1000),
+    });
+    if (r.ok) return { items: (await r.json()) as T[], label: "own" };
+    const text = await r.text();
+    const e = new Error(`Own Apify key: ${r.status} ${text.slice(0, 200)}`) as Error & { ownKeyOut?: boolean };
+    e.ownKeyOut = [401, 402, 403].includes(r.status) || /usage|limit|credit|insufficient/i.test(text);
+    throw e;
+  }
   const toks = await pool();
   if (!toks.length) throw new Error("No Apify tokens. Add one in /admin.");
   const state = await tokenState();

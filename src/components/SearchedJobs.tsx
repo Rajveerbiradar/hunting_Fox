@@ -1,10 +1,10 @@
 "use client";
 import Link from "next/link";
 import { useState } from "react";
-import { Header, Icon, Spinner, letterTile } from "./ui";
+import { Header, Icon, LiveStep, Spinner, letterTile, useLiveJobs } from "./ui";
 import { StatusMenu } from "./StatusMenu";
 
-type Row = { id: string; title: string | null; company: string | null; status: string; apply_status: string | null; applied_at: string | null; created_at: string; verdict: string | null; people: number };
+type Row = { id: string; title: string | null; company: string | null; status: string; step?: number | null; apply_status: string | null; applied_at: string | null; created_at: string; verdict: string | null; people: number };
 
 function ago(iso?: string | null) {
   if (!iso) return "";
@@ -30,7 +30,7 @@ const ORDER = ["Tell us what happened", "Still working on it", "Not applied yet"
 
 export function SearchedJobs({ jobs, left, limit, initial }: { jobs: Row[]; left: number; limit: number; initial: string }) {
   const [tab, setTab] = useState<keyof typeof TABS>("All");
-  const [rows, setRows] = useState(jobs);
+  const [rows, setRows] = useLiveJobs(jobs);
   const visible = rows.filter((r) => ((r.status === "queued" || r.status === "scanning") ? tab === "All" : TABS[tab](r)));
   const sections = ORDER.map((name) => ({ name, rows: visible.filter((r) => sectionOf(r) === name) })).filter((s) => s.rows.length);
 
@@ -40,16 +40,16 @@ export function SearchedJobs({ jobs, left, limit, initial }: { jobs: Row[]; left
       <main className="wrap wide">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 12, flexWrap: "wrap" }}>
           <div>
-            <h1 className="h1">Searched jobs</h1>
-            <p className="mute" style={{ margin: "10px 0 0", fontSize: 17 }}>{rows.length} jobs · {left} of {limit} searches left</p>
+            <h1 className="h1">My jobs</h1>
+            <p className="mute" style={{ margin: "12px 0 0", fontSize: 18 }}>{rows.length} jobs · {left} of {limit} searches left</p>
           </div>
           <Link href="/" className="btn on-grey">{Icon.plus()}New search</Link>
         </div>
 
         {rows.length === 0 ? (
           <div className="card" style={{ marginTop: 28, padding: 26 }}>
-            <h2 className="h2" style={{ fontSize: 20 }}>No jobs here yet</h2>
-            <p className="mute" style={{ fontSize: 15, lineHeight: 1.5 }}>When you paste a job link, it shows up here. You can then keep track of every job you apply to: who replied, interviews, and offers.</p>
+            <h2 className="h2" style={{ fontSize: 18 }}>No jobs here yet</h2>
+            <p className="mute" style={{ fontSize: 16, lineHeight: 1.5 }}>When you paste a job link, it shows up here. You can then keep track of every job you apply to: who replied, interviews, and offers.</p>
             <Link href="/" className="btn pri">Paste a job link</Link>
           </div>
         ) : (
@@ -70,17 +70,18 @@ export function SearchedJobs({ jobs, left, limit, initial }: { jobs: Row[]; left
                     const action = working ? null
                       : r.status === "failed" ? { label: "See what happened", kind: "sec" }
                       : bad ? { label: "See why", kind: "sec" }
-                      : r.apply_status === "no_reply" ? { label: "Send a follow-up", kind: "dark", href: `/jobs/${r.id}/reach-out` }
-                      : !r.apply_status ? { label: "Open", kind: "pri" } : { label: "Open", kind: "sec" };
+                      : r.apply_status === "no_reply" ? { label: "Send a follow-up", kind: "sec sm", href: `/jobs/${r.id}/reach-out` }
+                      : null;
                     return (
-                      <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", padding: "20px 22px", borderTop: i ? "1px solid var(--line)" : undefined }}>
-                        <span className="tile" style={{ width: 50, height: 50, background: t.bg, color: t.fg, fontWeight: 800 }}>{t.letters}</span>
+                      <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", padding: "16px 20px", borderTop: i ? "1px solid var(--line)" : undefined }}>
+                        <span className="tile" style={{ width: 48, height: 48, background: t.bg, color: t.fg, fontWeight: 700, fontSize: t.letters.length > 1 ? 16 : 18 }}>{t.letters}</span>
                         <div style={{ flex: "1 1 220px", minWidth: 0, display: "flex", flexDirection: "column", gap: 6 }}>
-                          <div style={{ fontSize: 17, fontWeight: 700 }}>{r.company || "Looking into it"}</div>
+                          <Link href={`/jobs/${r.id}`} style={{ fontSize: 18, fontWeight: 700, textDecoration: "none" }}>{r.company || "Looking into it"}</Link>
                           <div className="mute" style={{ fontSize: 14 }}>{r.title || "Reading the job"}</div>
-                          <div className="mute" style={{ display: "flex", flexWrap: "wrap", gap: "6px 14px", fontSize: 13 }}>
-                            {r.verdict === "genuine" && <span style={{ fontWeight: 700, color: "var(--green)" }}>✓ Real company</span>}
-                            {bad && <span style={{ fontWeight: 700, color: "#B42318" }}>⚠ May be fake</span>}
+                          <div className="mute" style={{ display: "flex", flexWrap: "wrap", gap: "6px 14px", fontSize: 14 }}>
+                            {working && <LiveStep step={r.step} />}
+                            {r.verdict === "genuine" && <span style={{ fontWeight: 600, color: "var(--green)" }}>✓ Real company</span>}
+                            {bad && <span className="tag" style={{ background: "#B8132F", color: "#fff", fontWeight: 700 }}>⚠ May be fake</span>}
                             {r.status === "closed" && <span style={{ fontWeight: 700 }}>Job closed</span>}
                             {r.status === "ready" && <span>{r.people ? `${r.people} ${r.people === 1 ? "person" : "people"} found` : "No people found"}</span>}
                             <span>{r.applied_at ? `Applied ${ago(r.applied_at)}` : `Added ${ago(r.created_at)}`}</span>
@@ -88,7 +89,7 @@ export function SearchedJobs({ jobs, left, limit, initial }: { jobs: Row[]; left
                         </div>
                         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
                           {working ? (
-                            <span className="mute" style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 14, fontWeight: 600 }}><Spinner size={18} />Still working on it</span>
+                            <Spinner size={20} label="Still working on it" />
                           ) : r.status === "ready" ? (
                             <StatusMenu jobId={r.id} value={r.apply_status} onChange={(v) => setRows((x) => x.map((y) => (y.id === r.id ? { ...y, apply_status: v, applied_at: v === "applied" ? new Date().toISOString() : y.applied_at } : y)))} />
                           ) : null}
@@ -100,7 +101,7 @@ export function SearchedJobs({ jobs, left, limit, initial }: { jobs: Row[]; left
                 </div>
               </section>
             ))}
-            <p className="mute" style={{ margin: "28px 8px 0", fontSize: 13 }}>Tap a status to change it.</p>
+            <p className="mute" style={{ margin: "28px 8px 0", fontSize: 14 }}>Tap a status to change it.</p>
           </>
         )}
       </main>

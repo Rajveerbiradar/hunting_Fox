@@ -37,7 +37,7 @@ export function ProgressPopup({ jobId, email, onClose }: { jobId: string; email?
 
   const step = job?.step ?? 0;
   const done = job?.status === "ready";
-  const problem = job && ["failed", "closed", "fake"].includes(job.status) ? PROBLEMS[job.error === "not_found" ? "not_found" : job.status] : null;
+  const problem = job && ["failed", "closed", "fake"].includes(job.status) ? PROBLEMS[job.error === "not_found" ? "not_found" : job.error === "own_key_out" ? "own_key_out" : job.status] : null;
   const company = job?.company || "this job";
   const secs = [50, 40, 30, 15, 5][Math.min(step, 4)];
 
@@ -46,13 +46,13 @@ export function ProgressPopup({ jobId, email, onClose }: { jobId: string; email?
       <div className="pop" role="dialog" aria-modal="true" aria-labelledby="poptitle">
         {problem ? (
           <>
-            <span className="tile" style={{ background: "#FDECEC", color: "#B42318", fontWeight: 800, fontSize: 22 }}>!</span>
+            <span className="tile" style={{ background: "#FDECEF", color: "#B8132F", fontWeight: 700, fontSize: 24 }}>!</span>
             <h2 id="poptitle" className="h2" style={{ marginTop: 16 }}>{problem.title}</h2>
-            <p className="mute" style={{ fontSize: 15, lineHeight: 1.5 }}>{problem.text}</p>
-            {problem.foot && <p style={{ fontSize: 13, color: "var(--green)", fontWeight: 600 }}>{problem.foot}</p>}
+            <p className="mute" style={{ fontSize: 16, lineHeight: 1.5 }}>{problem.text}</p>
+            {problem.foot && <p style={{ fontSize: 14, color: "var(--green)", fontWeight: 600 }}>{problem.foot}</p>}
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 16, flexWrap: "wrap" }}>
               {job?.status === "fake" && <Link href={`/jobs/${jobId}`} className="btn sec">See why</Link>}
-              <button className="btn dark" onClick={onClose}>Go back home</button>
+              <button className="btn pri" onClick={onClose}>Go back home</button>
             </div>
           </>
         ) : (
@@ -76,7 +76,7 @@ export function ProgressPopup({ jobId, email, onClose }: { jobId: string; email?
                     <span style={{ width: 24, height: 24, flex: "none", display: "grid", placeItems: "center", marginTop: 1 }}>
                       {d ? <svg aria-hidden width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1E7A47" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9.5" /><path d="M8 12.3l2.8 2.8L16.2 9.5" /></svg>
                         : a ? <Spinner size={20} />
-                        : <svg aria-hidden width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#AEAEB2" strokeWidth="1.6"><circle cx="12" cy="12" r="9.5" strokeDasharray="2.5 3" /></svg>}
+                        : <svg aria-hidden width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="1.6"><circle cx="12" cy="12" r="9.5" strokeDasharray="2.5 3" /></svg>}
                     </span>
                     <div style={{ minWidth: 0, flex: 1 }}>
                       <div style={{ fontSize: 16, lineHeight: 1.35, fontWeight: a ? 700 : 400, color: d || a ? "var(--ink)" : "var(--mute2)" }}>{s.label}</div>
@@ -93,7 +93,7 @@ export function ProgressPopup({ jobId, email, onClose }: { jobId: string; email?
             ) : (
               <>
                 <p className="mute" style={{ margin: "16px 0 0", fontSize: 14, lineHeight: 1.5 }}>
-                  About {secs} seconds left. You can close this. We&apos;ll keep going{email ? <> and you&apos;ll find it in Searched jobs</> : null}.
+                  About {secs} seconds left. You can close this. We&apos;ll keep going{email ? <> and you&apos;ll find it in My jobs</> : null}.
                 </p>
                 <div style={{ marginTop: 18, display: "flex", justifyContent: "flex-end" }}>
                   <button className="btn lg sec" onClick={onClose}>Close and keep going</button>

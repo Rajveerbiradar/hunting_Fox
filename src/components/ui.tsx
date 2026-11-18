@@ -1,8 +1,9 @@
 "use client";
 import Link from "next/link";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { STEPS } from "@/lib/status";
 
-export function Spinner({ size = 20, color = "#1D1D1F", label }: { size?: number; color?: string; label?: string }) {
+export function Spinner({ size = 20, color = "#101828", label }: { size?: number; color?: string; label?: string }) {
   const big = size >= 32;
   const n = big ? 12 : 8;
   const step = 360 / n;
@@ -20,7 +21,8 @@ export function Spinner({ size = 20, color = "#1D1D1F", label }: { size?: number
 }
 
 export const Icon = {
-  fox: (s = 22) => <svg aria-hidden width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4.5l4.2 4h7.6L20 4.5v7.2a8 8 0 0 1-16 0z" /><path d="M9 13.2v.01M15 13.2v.01" /><path d="M10.6 17.2l1.4 1 1.4-1" /></svg>,
+  // eslint-disable-next-line @next/next/no-img-element
+  fox: (s = 22) => <img src="/fox-white.png" alt="" width={s} height={s} />,
   check: (s = 20) => <svg aria-hidden width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>,
   arrow: (s = 18) => <svg aria-hidden width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14" /><path d="M13 6l6 6-6 6" /></svg>,
   back: (s = 18) => <svg aria-hidden width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 6l-6 6 6 6" /></svg>,
@@ -45,15 +47,15 @@ export function Header({ signedIn, initial, home = "/", showJobs = true, admin }
   return (
     <header className="hd">
       <div className="hdi">
-        <Link href={home} className="logo"><span className="lm">{Icon.fox()}</span>hunting fox</Link>
+        <Link href={home} className="logo" aria-label="Hunting Fox home"><span className="lm">{Icon.fox(24)}</span><span className="wm">hunting fox</span></Link>
         {signedIn ? (
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             {admin && <Link href="/admin" className="btn on-grey">Admin</Link>}
-            {showJobs && <Link href="/jobs" className="btn on-grey" aria-label="Searched jobs">{Icon.list()}<span className="hide-sm">Searched jobs</span></Link>}
+            {showJobs && <Link href="/jobs" className="btn on-grey">{Icon.list(20)}My jobs</Link>}
             <Link href="/account" className="av" aria-label="Your account">{(initial || "?").toUpperCase()}</Link>
           </div>
         ) : (
-          <Link href="/sign-in" style={{ fontSize: 15, fontWeight: 700, textDecoration: "none", padding: "10px 4px" }}>Sign in</Link>
+          <Link href="/sign-in" style={{ fontSize: 16, fontWeight: 600, textDecoration: "none", padding: "10px 4px" }}>Sign in</Link>
         )}
       </div>
     </header>
@@ -85,10 +87,48 @@ export async function copyText(text: string) {
   }
 }
 
+/** Every company and person tile is neutral: the only colour in a row is its status. */
 export function letterTile(name: string) {
-  const palette = [["#FDE8EE", "#C8025D"], ["#E8F0FB", "#164A88"], ["#E8F5EC", "#155C35"], ["#FFF1DC", "#8A5300"], ["#F1EAFE", "#5B2E9E"], ["#E3F4F4", "#0B5D5E"]];
-  const words = (name || "?").split(/\s+/).filter(Boolean);
-  const letters = (words[0]?.[0] || "?") + (words.length > 1 ? words[1][0] : "");
-  const h = [...(name || "")].reduce((a, c) => a + c.charCodeAt(0), 0) % palette.length;
-  return { letters: letters.toUpperCase(), bg: palette[h][0], fg: palette[h][1] };
+  const clean = (name || "?").replace(/\(.*?\)/g, "").trim();
+  const caps = clean.match(/[A-Z]/g) || [];
+  const words = clean.split(/\s+/).filter(Boolean);
+  // "FarmDidi" → FD, "Northwind Analytics" → NA, "Venxr" → V
+  const letters = caps.length >= 2 ? caps[0] + caps[1] : words.length > 1 ? words[0][0] + words[1][0] : (words[0]?.[0] || "?");
+  return { letters: letters.toUpperCase(), bg: "var(--tile)", fg: "var(--tile-ink)" };
+}
+
+/** What the server is doing for this job right now, with three blinking dots. */
+export function LiveStep({ step, style }: { step?: number | null; style?: React.CSSProperties }) {
+  const text = STEPS[Math.min(Math.max(step ?? 0, 0), STEPS.length - 1)].label;
+  return (
+    <span className="live" role="status" aria-live="polite" style={style}>
+      {text}
+      <span className="dots" aria-hidden><i /><i /><i /></span>
+    </span>
+  );
+}
+
+type LiveRow = { id: string; status: string; step?: number | null; company?: string | null; title?: string | null };
+const isWorking = (r: LiveRow) => r.status === "queued" || r.status === "scanning";
+
+/** Keeps rows in step with the server while any job is still being worked on. */
+export function useLiveJobs<T extends LiveRow>(initial: T[]) {
+  const [rows, setRows] = useState(initial);
+  const working = rows.some(isWorking);
+  useEffect(() => {
+    if (!working) return;
+    let alive = true;
+    const t = setInterval(async () => {
+      const r = await fetch("/api/jobs", { cache: "no-store" }).catch(() => null);
+      const d = r && r.ok ? await r.json() : null;
+      if (!alive || !d?.jobs) return;
+      const fresh = new Map<string, LiveRow>(d.jobs.map((j: LiveRow) => [j.id, j]));
+      setRows((x) => x.map((row) => {
+        const f = fresh.get(row.id);
+        return f ? { ...row, status: f.status, step: f.step, company: f.company ?? row.company, title: f.title ?? row.title } : row;
+      }));
+    }, 2500);
+    return () => { alive = false; clearInterval(t); };
+  }, [working]);
+  return [rows, setRows] as const;
 }

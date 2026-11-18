@@ -25,17 +25,17 @@ export function StatusMenu({ jobId, value, onChange, alignLeft }: { jobId: strin
   const s = statusOf(cur);
   return (
     <div ref={ref} style={{ position: "relative" }}>
-      <button className="btn" aria-expanded={open} onClick={() => setOpen(!open)} style={{ background: s?.bg || "#fff", color: s?.fg || "var(--ink)", border: s ? 0 : "1px solid #D1D1D6" }}>
+      <button className="btn" aria-expanded={open} onClick={() => setOpen(!open)} style={{ background: s?.bg || "#fff", color: s?.fg || "var(--ink)", border: s ? 0 : "1px solid #D5DAE1" }}>
         {s ? `${s.icon} ${s.label}` : "Did you apply?"}{Icon.down()}
       </button>
       {open && (
         <div className="menu" role="menu" style={alignLeft ? { left: 0, right: "auto" } : undefined}>
-          <div style={{ padding: "10px 12px 6px", fontSize: 13, fontWeight: 700, color: "var(--mute)" }}>Where are you with this job?</div>
+          <div style={{ padding: "10px 12px 6px", fontSize: 14, fontWeight: 700, color: "var(--mute)" }}>Where are you with this job?</div>
           {APPLY_STATUSES.map((o) => (
             <button key={o.key} className="mi" role="menuitemradio" aria-checked={cur === o.key} onClick={() => pick(o.key)}>
               <span style={{ width: 22, textAlign: "center" }}>{o.icon}</span>
               <span style={{ flex: 1 }}>{o.label}</span>
-              {cur === o.key && <span style={{ color: "var(--pink)", fontWeight: 800 }}>✓</span>}
+              {cur === o.key && <span style={{ color: "var(--pink)", fontWeight: 700 }}>✓</span>}
             </button>
           ))}
         </div>

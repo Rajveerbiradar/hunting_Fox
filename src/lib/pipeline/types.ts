@@ -57,6 +57,10 @@ export type Person = {
   written?: boolean;
   /** The rough lines the student wrote for this person's message, if they wrote any. */
   asked?: string;
+  /** Being written in the background since `at` (reach-out page). */
+  writing?: { at: string };
+  /** The last on-demand write failed (why). */
+  write_error?: string;
 };
 
 export type ResumePart = {

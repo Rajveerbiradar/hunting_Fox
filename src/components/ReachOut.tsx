@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PdfButton } from "./PdfButton";
 import { Header, Icon, Spinner, copyText, letterTile, useToast } from "./ui";
 import type { Person } from "@/lib/pipeline/types";
@@ -9,11 +9,32 @@ const enc = encodeURIComponent;
 export function ReachOut(p: { jobId: string; company: string; big: boolean; people: Person[]; hiringEmail?: string; sentTo: string[]; initial: string; missingName: boolean; finishedAt?: string | null }) {
   const [people, setPeople] = useState(p.people);
   const [sel, setSel] = useState(people[0]?.id);
-  const [writing, setWriting] = useState<string | null>(null);
   const [composing, setComposing] = useState<Record<string, boolean>>({});
   const [asks, setAsks] = useState<Record<string, string>>(() => Object.fromEntries(p.people.filter((x) => x.asked).map((x) => [x.id, x.asked!])));
   const MIN = 10, MAX = 600;
-  const [failed, setFailed] = useState<Record<string, string>>({});
+  // A message is being written (on the server) while `writing` is set and under 3 minutes old. Several can run at once.
+  const isWriting = (x?: Person) => !!x?.writing && Date.now() - new Date(x.writing.at).getTime() < 180_000;
+  const anyWriting = people.some(isWriting);
+  useEffect(() => {
+    if (!anyWriting) return;
+    let alive = true;
+    const t = setInterval(async () => {
+      const r = await fetch(`/api/jobs/${p.jobId}/more`, { cache: "no-store" }).catch(() => null);
+      const d = r && r.ok ? await r.json().catch(() => null) : null;
+      if (!alive || !d?.people) return;
+      setPeople((old) => {
+        // Someone just finished: close their composer, or say it failed.
+        (d.people as Person[]).forEach((n) => {
+          const o = old.find((x) => x.id === n.id);
+          if (!isWriting(o) || isWriting(n)) return;
+          if (n.write_error) { setComposing((c) => ({ ...c, [n.id]: true })); toast.show(`Couldn't write ${n.first}'s message`); }
+          else { setComposing((c) => ({ ...c, [n.id]: false })); setNotes((m) => { const c = { ...m }; delete c[n.id]; return c; }); setBodies((m) => { const c = { ...m }; delete c[n.id]; return c; }); toast.show(`${n.first}'s message is ready`); }
+        });
+        return d.people;
+      });
+    }, 3000);
+    return () => { alive = false; clearInterval(t); };
+  }, [anyWriting, p.jobId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Nothing is written up front. The student picks a person, adds what only they know (optional), and
   // "Write my email" blends it with the person's profile, the job and their resume. One person at a time.
@@ -21,21 +42,15 @@ export function ReachOut(p: { jobId: string; company: string; big: boolean; peop
     const raw = (asks[id] || "").trim();
     if (withNotes && raw.length > 0 && raw.length < MIN) return;
     const text = raw.length >= MIN ? raw : "";
-    setWriting(id);
-    setFailed((f) => { const c = { ...f }; delete c[id]; return c; });
+    // Show "Writing…" at once; the server takes it from here.
+    setPeople((ps) => ps.map((x) => (x.id === id ? { ...x, writing: { at: new Date().toISOString() }, write_error: undefined } : x)));
     const r = await fetch(`/api/jobs/${p.jobId}/more`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ids: [id], notes: withNotes ? text : "" }) }).catch(() => null);
     const d = r ? await r.json().catch(() => ({})) : {};
-    if (r?.ok && d.people) {
-      setPeople(d.people);
-      setComposing((c) => ({ ...c, [id]: false }));
-      setNotes((n) => { const c = { ...n }; delete c[id]; return c; });
-      setBodies((b2) => { const c = { ...b2 }; delete c[id]; return c; });
-    } else {
-      // Nothing was written: say so (with the reason) and keep what the student typed.
-      setFailed((f) => ({ ...f, [id]: d.detail || "No answer from the AI" }));
+    if (r?.ok && d.people) setPeople(d.people);
+    else {
+      setPeople((ps) => ps.map((x) => (x.id === id ? { ...x, writing: undefined, write_error: "Couldn't start. Check your connection and try again." } : x)));
       setComposing((c) => ({ ...c, [id]: true }));
     }
-    setWriting(null);
   }
   const [sent, setSent] = useState<string[]>(p.sentTo);
   const [notes, setNotes] = useState<Record<string, string>>({});
@@ -64,7 +79,7 @@ export function ReachOut(p: { jobId: string; company: string; big: boolean; peop
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
           <span className="tag" style={x.active === "Active" ? { background: "var(--green-bg)", color: "#1A6B3C" } : { background: "#EEF1F5", color: "var(--mute)" }}>{x.active}</span>
           {x.email && x.emailFound && <span className="tag" style={{ background: "var(--green-bg)", color: "#1A6B3C" }}>✓ Work email</span>}
-          {writing === x.id ? <span className="tag" style={{ background: "#EEF1F5", color: "var(--mute)", gap: 6 }}><Spinner size={12} />Writing</span> : x.written ? <span className="tag" style={{ background: "#EEF1F5", color: "var(--ink)" }}>Message ready</span> : null}
+          {isWriting(x) ? <span className="tag" style={{ background: "#EEF1F5", color: "var(--mute)", gap: 6 }}><Spinner size={12} />Writing</span> : x.written ? <span className="tag" style={{ background: "#EEF1F5", color: "var(--ink)" }}>Message ready</span> : null}
           {sent.includes(x.id) && <span className="tag" style={{ background: "#E7EFFA", color: "#164A88" }}>✓ Sent</span>}
         </div>
       </button>
@@ -114,14 +129,17 @@ export function ReachOut(p: { jobId: string; company: string; big: boolean; peop
                 </div>
                 {cur.profileUrl && <p className="mute" style={{ margin: "8px 0 0", fontSize: 14 }}>If their profile looks hidden to you, the LinkedIn link still opens it once you&apos;re signed in.</p>}
 
-                {writing === cur.id ? (
-                  <div className="row" style={{ padding: "26px 0 0" }}><Spinner size={20} />Writing {cur.first}&apos;s note and email…</div>
+                {isWriting(cur) ? (
+                  <div style={{ padding: "26px 0 0" }}>
+                    <div className="row"><Spinner size={20} />Writing {cur.first}&apos;s note and email…</div>
+                    <p className="mute" style={{ margin: "8px 0 0", fontSize: 14 }}>Usually under a minute. You can pick someone else and write theirs at the same time, or leave this page: it keeps going.</p>
+                  </div>
                 ) : !cur.written || composing[cur.id] ? (
                   <div style={{ marginTop: 26, paddingTop: 22, borderTop: "1px solid var(--line)" }}>
-                    {failed[cur.id] && (
+                    {cur.write_error && (
                       <div role="alert" style={{ marginBottom: 16, padding: "14px 18px", borderRadius: 16, background: "#FDECEF", color: "#B8132F", fontSize: 16, lineHeight: 1.5 }}>
                         <b>We couldn&apos;t write {cur.first}&apos;s message this time.</b> <span style={{ color: "var(--ink)" }}>Your words are still below. Tap Write my email to try again.</span>
-                        <div className="mute" style={{ fontSize: 13, marginTop: 4 }}>What went wrong: {failed[cur.id]}</div>
+                        <div className="mute" style={{ fontSize: 13, marginTop: 4 }}>What went wrong: {cur.write_error}</div>
                       </div>
                     )}
                     <label htmlFor="ask" className="lbl" style={{ display: "block" }}>Add what only you know <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400 }}>(optional, but it makes the email much better)</span></label>

@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { companyInput } from "@/lib/pipeline/resume";
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { adminClient, currentUser } from "@/lib/supabase/clients";
 import { access } from "@/lib/limits";
 import { writePerson } from "@/lib/pipeline/run";
@@ -49,26 +49,55 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!targets.length) return NextResponse.json({ error: "no_person" }, { status: 400 });
   const target = { ...targets[0], asked: notes || undefined };
   const keys = await ownKeys(user.id).catch(() => ({ ai: null }));
-  // One person, asked for by the student: the real AI message or a clear error. Never the plain template.
-  // Runs inside the job's log context, so every try (and why it failed) shows in admin → Jobs → Log.
-  const t0 = Date.now();
-  const result = await jobCtx.run({ jobId: id, started: t0 }, async () => {
+  // Marked on the server first, then written in the background: the student can pick other people (each
+  // one writes at the same time) or leave the page, and the page picks the result up when it's saved.
+  const at = new Date().toISOString();
+  await savePerson(id, target.id, (x) => ({ ...x, asked: notes || undefined, writing: { at }, write_error: undefined }));
+  after(() => jobCtx.run({ jobId: id, started: Date.now() }, async () => {
+    const t0 = Date.now();
     let timer: ReturnType<typeof setTimeout> | undefined;
     const late = new Promise<never>((_, rej) => { timer = setTimeout(() => rej(new Error("took over 150 seconds")), 150_000); });
     try {
+      // The real AI message or a clear error. Never the plain template.
       const w = await Promise.race([writePerson(target, { ...ctx, studentNotes: notes }, profile?.resume_profile || null, keys.ai, true), late]);
       await jlog("info", "messages", `Wrote ${target.first}'s message${notes ? " with the student's notes" : ""} in ${Math.round((Date.now() - t0) / 1000)}s`);
-      return { ok: true as const, person: w };
+      await savePerson(id, target.id, () => ({ ...w, asked: notes || undefined, writing: undefined, write_error: undefined }));
     } catch (e: any) {
-      await jlog("error", "messages", `Couldn't write ${target.first}'s message: ${String(e?.message || e).slice(0, 300)}`);
-      return { ok: false as const, reason: String(e?.message || e).slice(0, 160) };
+      const reason = String(e?.message || e).slice(0, 160);
+      await jlog("error", "messages", `Couldn't write ${target.first}'s message: ${reason}`);
+      await savePerson(id, target.id, (x) => ({ ...x, writing: undefined, write_error: reason }));
     } finally { clearTimeout(timer); }
-  });
-  // The student's notes are kept either way, so "Try again" / "Write it again" start from them.
-  const { data: r } = await sb.from("reports").select("people").eq("job_id", id).single();
-  const list = (r?.people || []).map((x: Person) => (x.id !== target.id ? x : result.ok ? { ...result.person, asked: notes || undefined } : { ...x, asked: notes || undefined }));
-  await sb.from("reports").update({ people: list }).eq("job_id", id);
-  if (!result.ok) return NextResponse.json({ error: "ai_failed", detail: result.reason, people: list }, { status: 503 });
+  }));
   const { data: fresh } = await sb.from("reports").select("people").eq("job_id", id).single();
-  return NextResponse.json({ people: fresh?.people || people });
+  return NextResponse.json({ people: fresh?.people || people }, { status: 202 });
+}
+
+/** The people list as it is now (the reach-out page polls this while messages are being written). */
+export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const user = await currentUser();
+  if (!user) return NextResponse.json({ error: "signed_out" }, { status: 401 });
+  const sb = adminClient();
+  const { data: job } = await sb.from("jobs").select("user_id").eq("id", id).single();
+  if (!job || job.user_id !== user.id) return NextResponse.json({ error: "not_found" }, { status: 404 });
+  const { data: r } = await sb.from("reports").select("people").eq("job_id", id).single();
+  return NextResponse.json({ people: r?.people || [] });
+}
+
+/**
+ * Change one person in reports.people. Several messages can finish at the same moment, so after writing,
+ * read back and redo if another save replaced this one (up to 4 tries).
+ */
+async function savePerson(jobId: string, personId: string, change: (x: Person) => Person) {
+  const sb = adminClient();
+  for (let t = 0; t < 4; t++) {
+    const { data: r } = await sb.from("reports").select("people").eq("job_id", jobId).single();
+    const list: Person[] = r?.people || [];
+    const next = list.map((x) => (x.id === personId ? change(x) : x));
+    const mine = JSON.stringify(next.find((x) => x.id === personId));
+    await sb.from("reports").update({ people: next }).eq("job_id", jobId);
+    await new Promise((res) => setTimeout(res, 150 + Math.random() * 250));
+    const { data: back } = await sb.from("reports").select("people").eq("job_id", jobId).single();
+    if (JSON.stringify((back?.people || []).find((x: Person) => x.id === personId)) === mine) return;
+  }
 }

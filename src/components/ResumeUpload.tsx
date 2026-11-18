@@ -8,20 +8,25 @@ import { ResumeDoc } from "./ResumeDoc";
 const AI_PROMPT = `Write my resume in this exact plain-text format, using only facts I give you. Ask me questions first if you need more (education, internships, projects, skills, links). Don't invent anything.
 
 # Full Name
-@ email · phone · city · LinkedIn link
+> What I do in a few words, like: Android Developer | UI/UX Designer
+@ email · phone · city · LinkedIn · GitHub · website
 ## Summary
 Two lines about what I do.
 ## Experience
 ### Role, Company | Mon YYYY – Mon YYYY
-- What I did and the result, with a number if I gave one
+- What I did and the result, with **numbers** and **main tools** in double stars
 ## Projects
 ### Project name | Mon YYYY
 - What it does, what I built, what tools I used
 ## Education
 ### Degree, College | YYYY – YYYY
 ## Skills
-Languages: ...
-Tools: ...
+**Languages:** ...
+**Tools:** ...
+## Achievements
+- Awards or competitions, if any
+
+Leave out any part I don't have.
 
 When it's done, give me only the resume in that format, nothing else.`;
 

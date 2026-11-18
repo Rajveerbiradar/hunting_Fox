@@ -60,7 +60,7 @@ export function JobPage({ job, report, hasResume, initial }: { job: any; report:
     ? [["Update your resume.", "Takes about 5 minutes."], ["Message 1 or 2 people today.", "Ask them to refer you. Don't apply yet."], ["No reply in 12 hours? Apply yourself.", "Use the same resume you sent them."]]
     : [["Update your resume.", "Takes about 5 minutes."], ["Apply today.", `Tap Apply on ${job.portal === "naukri" ? "Naukri" : "LinkedIn"} at the top.`], ["Then message people.", "Use the same resume you applied with."]];
   const resumeBlock = { href: `/jobs/${job.id}/resume`, icon: Icon.docEdit(28), bg: "var(--tile)", fg: "var(--ink)", title: "Update your resume", sub: hasResume ? `${resume?.skill_questions?.length ? `Answer ${resume.skill_questions.length} quick question${resume.skill_questions.length > 1 ? "s" : ""}, then download it` : "See the changes, then download it"}` : "Add your resume to see what to change" };
-  const reachBlock = { href: `/jobs/${job.id}/reach-out`, icon: Icon.people(28), bg: "var(--tile)", fg: "var(--ink)", title: `Message people at ${name}`, sub: people.length ? `We found ${people.length}. Start with ${Math.min(2, people.length)}.` : "We couldn't find anyone public. See the hiring inbox, if we found one." };
+  const reachBlock = { href: `/jobs/${job.id}/reach-out`, icon: Icon.people(28), bg: "var(--tile)", fg: "var(--ink)", title: `Message people at ${name}`, sub: people.length ? `We found ${people.length}. Start with ${Math.min(2, people.length)}.` : jd.hiringEmail ? "We couldn't find anyone public, but the job post has a hiring email." : "We couldn't find anyone public who works here, so there's no one to message.", off: !people.length && !jd.hiringEmail };
   const blocks = agency
     ? [{ ...resumeBlock, step: "Start here" }]
     : big
@@ -82,7 +82,7 @@ export function JobPage({ job, report, hasResume, initial }: { job: any; report:
 
         {fake && (
           <div className="card" style={{ marginTop: 12, padding: 24, background: "#FDECEF" }}>
-            <h2 className="h2" style={{ color: "#B8132F" }}>This job might not be real</h2>
+            <h2 className="h2" style={{ color: "#B8132F" }}>{job.error === "no_people" ? "We couldn't confirm this company is real" : "This job might not be real"}</h2>
             <p style={{ fontSize: 16, lineHeight: 1.5, color: "#B8132F" }}>We couldn&apos;t confirm {name} is a real company, so we stopped before doing anything else. Here&apos;s what we noticed:</p>
             <ul style={{ margin: 0, paddingLeft: 20, fontSize: 16, lineHeight: 1.6 }}>{warns.map((w: any, i: number) => <li key={i}>{w.text}</li>)}</ul>
             <p style={{ fontSize: 14, fontWeight: 600, color: "var(--green)" }}>Never pay to apply for a job. This didn&apos;t use one of your free searches.</p>
@@ -133,7 +133,16 @@ export function JobPage({ job, report, hasResume, initial }: { job: any; report:
               )}
             </section>
             <div style={{ marginTop: 28, display: "flex", flexDirection: "column", gap: 12 }}>
-              {blocks.map((b) => (
+              {blocks.map((b: any) => b.off ? (
+                <div key={b.href} className="card" aria-disabled style={{ display: "flex", alignItems: "center", gap: 18, padding: 24, background: "var(--sunken)", color: "var(--mute)" }}>
+                  <span className="tile" style={{ width: 56, height: 56, borderRadius: 20, background: "#EEF1F5", color: "var(--mute)" }}>{b.icon}</span>
+                  <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
+                    <span className="lbl">{b.step} · Not available</span>
+                    <span style={{ fontSize: 18, fontWeight: 700 }}>{b.title}</span>
+                    <span style={{ fontSize: 16 }}>{b.sub}</span>
+                  </span>
+                </div>
+              ) : (
                 <Link key={b.href} href={b.href} className="card" style={{ display: "flex", alignItems: "center", gap: 18, padding: 24, textDecoration: "none" }}>
                   <span className="tile" style={{ width: 56, height: 56, borderRadius: 20, background: b.bg, color: b.fg }}>{b.icon}</span>
                   <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>

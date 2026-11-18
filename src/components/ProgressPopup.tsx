@@ -39,7 +39,7 @@ export function ProgressPopup({ jobId, email, onClose }: { jobId: string | null;
 
   const step = job?.step ?? 0;
   const done = job?.status === "ready";
-  const problem = job && ["failed", "closed", "fake"].includes(job.status) ? PROBLEMS[job.error === "not_found" ? "not_found" : job.error === "own_key_out" ? "own_key_out" : job.status] : null;
+  const problem = job && ["failed", "closed", "fake"].includes(job.status) ? PROBLEMS[job.error === "not_found" ? "not_found" : job.error === "own_key_out" ? "own_key_out" : job.error === "no_people" ? "no_people" : job.status] : null;
   const company = job?.company || "this job";
 
   return (

@@ -66,6 +66,12 @@ export function ResumePage({ jobId, company, resume, hasResume, skills, initial,
           </>
         ) : (
           <>
+            {changed === 0 && (
+              <div className="card" role="status" style={{ marginTop: 24, padding: "18px 22px", background: "var(--green-bg)", color: "#1A6B3C", display: "flex", gap: 12, alignItems: "flex-start" }}>
+                <span style={{ fontWeight: 700, fontSize: 20, lineHeight: 1 }}>✓</span>
+                <span style={{ fontSize: 16, lineHeight: 1.5 }}><b>Your resume already fits this job.</b> We didn&apos;t need to change any lines{qs.length ? ", but answer the questions below in case a skill can be added" : ""}. You can download it as it is.</span>
+              </div>
+            )}
             {(resume.keywords?.length ?? 0) > 0 && (() => {
               const kws = resume.keywords!.map((k) => ({ ...k, ok: k.in_resume || diff!.addedSkills.some((a) => a.toLowerCase() === k.term.toLowerCase()) }));
               const got = kws.filter((k) => k.ok).length;
@@ -120,7 +126,6 @@ export function ResumePage({ jobId, company, resume, hasResume, skills, initial,
                 <ResumeDoc lines={diff!.final} marks={clean ? undefined : marks} onCopy={copy} />
               </div>
             </section>
-            {resume.edits.length === 0 && !diff!.addedSkills.length && <p className="mute" style={{ margin: "12px 8px" }}>Your resume already fits this job well, so we didn&apos;t change any lines.</p>}
 
             {resume.suggestions?.length > 0 && (
               <section className="card" style={{ marginTop: 16, padding: 24 }}>

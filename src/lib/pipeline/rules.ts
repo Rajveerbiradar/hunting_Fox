@@ -9,7 +9,8 @@ export function checkCompany(job: JobData, company: CompanyData) {
   if (company.linkedinUrl) checks.push({ group: "The company", text: `Has a LinkedIn company page${company.sizeText ? ` (${company.sizeText})` : ""}`, result: "pass" });
   else checks.push({ group: "The company", text: "No LinkedIn company page found", result: "warn" });
 
-  if (company.website) checks.push({ group: "The company", text: `Website ${company.domain || company.website} is listed`, result: "pass" });
+  // Anyone can type a website into a LinkedIn page, so a listed website alone proves nothing.
+  if (company.website) checks.push({ group: "The company", text: `Their LinkedIn page lists the website ${company.domain || company.website}. Anyone can list a website, so this alone doesn't prove it's theirs`, result: "unknown" });
   else checks.push({ group: "The company", text: "No website listed", result: "unknown" });
 
   if (company.founded) {

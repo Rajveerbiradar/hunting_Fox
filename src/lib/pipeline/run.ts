@@ -114,6 +114,17 @@ async function scan(job: any) {
   }
   people = await withoutBlocked(people).catch(() => people);
   checks.push({ group: "The people we found", text: people.length ? `${people.length} ${people.length === 1 ? "person" : "people"} from public LinkedIn profiles` : "No one with a public profile we could find", result: people.length ? "pass" : "unknown" });
+  // Nobody public works there and nobody we can see posted the job: we can't confirm the company is real,
+  // and there's no one to message. Stop here (doesn't use a search), before any resume work.
+  if (verdict !== "agency" && !people.length && !jd.poster?.name) {
+    const size = company.sizeText ? ` Their LinkedIn page says ${company.sizeText}, but` : "";
+    checks.push({ group: "The people we found", text: `${size}${size ? " we" : "We"} couldn't find a single person with a public profile who works there, and we couldn't see who posted the job`.trim(), result: "warn" });
+    await jlog("warn", "check", `Stopped: 0 people found and no poster${company.sizeText ? ` (page says ${company.sizeText})` : ""}`);
+    await sb.from("reports").update({ checks, verdict: "fake" }).eq("job_id", job.id);
+    await sb.from("jobs").update({ status: "fake", error: "no_people", step: 5, finished_at: new Date().toISOString() }).eq("id", job.id);
+    return;
+  }
+  if (people.length) checks.push({ group: "The company", text: `Real people with public LinkedIn profiles work there`, result: "pass" });
   const withEmail = people.filter((p) => p.email).length;
   if (withEmail) checks.push({ group: "The people we found", text: `Work email addresses for ${withEmail} of them`, result: "pass" });
   await setStep(job.id, 3, people.length ? `Found ${people.length} ${people.length === 1 ? "person" : "people"}, most active first` : "We couldn't find anyone public here");

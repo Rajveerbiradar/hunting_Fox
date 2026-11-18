@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { adminClient, currentUser } from "@/lib/supabase/clients";
 import { writer } from "@/lib/ai";
 import type { ResumeProfile } from "@/lib/pipeline/types";
+import { toLines, toProfile, type StructuredResume } from "@/lib/resumeFormat";
 import { access } from "@/lib/limits";
 
 export const maxDuration = 60;
@@ -37,14 +38,17 @@ export async function POST(req: Request) {
   if (raw.length < 80) return NextResponse.json({ error: "unreadable" }, { status: 400 });
 
   let profile: ResumeProfile;
+  let lines: string[];
   try {
-    profile = await writer<ResumeProfile>("resume-profile", { resume_text: raw.slice(0, 12000) }, 2500);
+    const structured = await writer<StructuredResume>("resume-profile", { resume_text: raw.slice(0, 15000) }, 4000);
+    lines = toLines(structured);
+    profile = toProfile(structured);
+    if (lines.length < 3) throw new Error("The AI returned an empty resume");
   } catch (e) {
     const msg = String((e as Error)?.message || e);
     console.error("[resume] AI failed:", msg);
     return NextResponse.json({ error: /No AI provider/i.test(msg) ? "no_ai" : "ai_failed", detail: msg.slice(0, 200) }, { status: 503 });
   }
-  const lines = (profile.lines || raw.split("\n")).map((l) => l.trim()).filter(Boolean);
 
   const sb = adminClient();
   const path = `${user.id}/${Date.now()}-${file.name.replace(/[^\w.-]/g, "_")}`;
@@ -52,7 +56,7 @@ export async function POST(req: Request) {
   await sb.from("profiles").update({
     pending_resume_path: path,
     pending_resume_text: lines.join("\n"),
-    pending_resume_profile: { ...profile, lines: undefined, file_name: file.name },
+    pending_resume_profile: { ...profile, file_name: file.name },
   }).eq("id", user.id);
   return NextResponse.json({ file_name: file.name, lines, profile, missing: (profile.missing || []).slice(0, 5) });
 }

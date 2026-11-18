@@ -36,17 +36,17 @@ export function buildDiff(r: ResumePart, levels: Record<string, number>) {
     if (e) {
       next = e.new;
       // Keep the template marker of the old line ("- ", "### ") if the AI dropped it.
-      const marker = l.match(/^(### |- |• |@ |# )/)?.[0];
-      if (marker && !next.startsWith(marker)) next = marker + next.replace(/^(#{1,3} |[-•] |@ )/, "");
+      const marker = l.match(/^(### |- |• |@ |> |# )/)?.[0];
+      if (marker && !next.startsWith(marker)) next = marker + next.replace(/^(#{1,3} |[-•] |@ |> )/, "");
       reworded = true; reason = e.reason;
     }
     const skillsHere = i === si;
     if (skillsHere && added.length) {
       // "- Tools: Figma, Excel" → "- Tools: Photoshop, Figma, Excel": new skills go after the bullet and label.
-      const pre = next.match(/^([-•] )?([^:,]{1,30}:\s*)?/)?.[0] || "";
+      const pre = next.match(/^([-•] )?(\*\*[^*:]{1,30}:\*\*\s*|[^:,*]{1,30}:\s*)?/)?.[0] || "";
       next = `${pre}${added.join(", ")}, ${next.slice(pre.length)}`;
     }
-    if (e && next.replace(/^(#{1,3} |[-•] |@ )/, "") === "") {
+    if (e && next.replace(/^(#{1,3} |[-•] |@ |> )/, "") === "") {
       // Line folded into the new summary: removed. Placeholders keep left/right/final on the same index.
       left.push({ kind: "del", text: l }); right.push({ kind: "ctx", text: "" }); unified.push({ kind: "del", text: l }); final.push("");
       return;

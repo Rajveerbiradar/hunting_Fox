@@ -206,3 +206,6 @@ h1, h2, h3 { text-wrap: balance; }
   .rdoc .rold, .rdoc .rwhy { display: none; }
 }
 @media print { main:has(> .rdoc), main:has(> div > .rdoc) { padding: 0 !important; background: #fff !important; min-height: 0 !important; } }
+.rdoc .rh { margin: 4px 0 0; text-align: center; font-size: 15px; font-weight: 600; color: #101828; }
+.rdoc .re .rl { color: #101828; font-size: 14px; white-space: normal; }
+.rdoc .re .rl i { font-style: normal; color: #5b6472; }

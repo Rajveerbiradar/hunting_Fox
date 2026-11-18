@@ -10,7 +10,7 @@ import type { ReactNode } from "react";
 //   - Bullet
 //   Anything else is a plain paragraph. **bold** works inside any line.
 
-export type DocMark = { old?: string; reason?: string; skills?: boolean; extra?: ReactNode };
+export type DocMark = { old?: string; reason?: string; skills?: boolean; extra?: ReactNode; off?: boolean };
 
 /** **bold** → <b>. Nothing else is parsed, so text stays exactly as written. */
 function inline(t: string) {
@@ -55,7 +55,7 @@ export function ResumeDoc({ lines, marks, onCopy }: { lines: string[]; marks?: R
         else el = <p>{inline(l)}</p>;
         if (!m) return <div key={i}>{el}</div>;
         return (
-          <div key={i} className="rmark">
+          <div key={i} className={m.off ? "rmark off" : "rmark"}>
             {el}
             {m.old && <p className="rold">{plainLine(m.old)}</p>}
             {m.reason && <p className="rwhy">{m.reason}</p>}

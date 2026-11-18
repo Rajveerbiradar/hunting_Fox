@@ -19,7 +19,7 @@ The resume is read once at upload (`prompts/resume-profile.md`) and reused for e
 
 ## Setup
 
-1. **Supabase**: create a project, run `supabase/migrations/001_init.sql`, then `002_approval.sql`, `003_keys.sql`, `004_providers_requests.sql`, `005_admin.sql` and `006_job_logs.sql`, in that order, in the SQL editor. Turn on Google under Authentication → Providers, and add `https://YOUR-SITE/auth/callback` to the redirect URLs.
+1. **Supabase**: create a project, run `supabase/migrations/001_init.sql`, then `002_approval.sql`, `003_keys.sql`, `004_providers_requests.sql`, `005_admin.sql`, `006_job_logs.sql` and `007_facts.sql`, in that order, in the SQL editor. Turn on Google under Authentication → Providers, and add `https://YOUR-SITE/auth/callback` to the redirect URLs.
 2. **Vercel**: import this repo, add every variable from `.env.example`, deploy.
 3. Set `NEXT_PUBLIC_SITE_URL` to the deployed address and redeploy.
 4. Test with 3 LinkedIn links and 1 Naukri link before sharing.

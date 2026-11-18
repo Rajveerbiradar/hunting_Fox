@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { adminClient } from "@/lib/supabase/clients";
-import { buildDiff } from "@/lib/resumeDiff";
+import { finalLines } from "@/lib/resumeDiff";
 import { ResumeSheet } from "@/components/ResumeSheet";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +16,7 @@ export default async function Page({ params }: { params: Promise<{ token: string
   const { data: job } = await sb.from("jobs").select("user_id").eq("id", report.job_id).single();
   const { data: profile } = await sb.from("profiles").select("skills,resume_text").eq("id", job!.user_id).single();
   const levels = Object.fromEntries((profile?.skills || []).map((s: { name: string; level: number }) => [s.name.toLowerCase(), s.level]));
-  const lines = report.resume ? buildDiff(report.resume, levels).final : (profile?.resume_text || "").split("\n");
+  const lines = report.resume ? finalLines(report.resume, levels) : (profile?.resume_text || "").split("\n");
   if (!lines.filter(Boolean).length) {
     return (
       <main className="wrap" style={{ maxWidth: 520, paddingTop: 96 }}>

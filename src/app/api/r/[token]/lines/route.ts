@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { adminClient } from "@/lib/supabase/clients";
-import { buildDiff } from "@/lib/resumeDiff";
+import { finalLines } from "@/lib/resumeDiff";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +14,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ token: 
   const { data: job } = await sb.from("jobs").select("user_id").eq("id", report.job_id).single();
   const { data: profile } = await sb.from("profiles").select("name,skills,resume_text,resume_profile").eq("id", job!.user_id).single();
   const levels = Object.fromEntries((profile?.skills || []).map((s: { name: string; level: number }) => [s.name.toLowerCase(), s.level]));
-  const lines = report.resume ? buildDiff(report.resume, levels).final : (profile?.resume_text || "").split("\n");
+  const lines = report.resume ? finalLines(report.resume, levels) : (profile?.resume_text || "").split("\n");
   return NextResponse.json({ lines: lines.filter((l: string) => l.trim()), name: profile?.resume_profile?.name || profile?.name || "" });
 }

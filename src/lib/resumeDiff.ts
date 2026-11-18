@@ -1,7 +1,21 @@
 import { ADDS_TO_RESUME } from "./status";
 
-export type DiffLine = { kind: "ctx" | "del" | "add" | "head"; text: string; reworded?: boolean; reason?: string; skills?: boolean };
-type ResumePart = { base_lines: string[]; edits: { old: string; new: string; reason: string }[]; skill_questions: { skill: string; why: string }[]; summary_insert?: { text: string; reason: string } };
+/** `key` = which suggestion this line belongs to (edit index, its group, or "s" for an inserted summary). */
+export type DiffLine = { kind: "ctx" | "del" | "add" | "head"; text: string; reworded?: boolean; reason?: string; skills?: boolean; key?: string };
+type ResumePart = { base_lines: string[]; edits: { old: string; new: string; reason: string; group?: string }[]; skill_questions: { skill: string; why: string }[]; summary_insert?: { text: string; reason: string }; v?: number; applied?: boolean; decisions?: Record<string, boolean> };
+
+/** The id a keep/drop decision is stored under. */
+export const editKey = (e: { group?: string }, i: number) => e.group || String(i);
+
+/**
+ * Which suggestions reach Final and the PDF. v2 resumes: only after "Apply changes", and only the kept ones.
+ * Older resumes (made before the review step) keep every change, as they always did.
+ */
+export function appliedUse(r: ResumePart): (key: string) => boolean {
+  if (r.v !== 2) return () => true;
+  if (!r.applied) return () => false;
+  return (k) => r.decisions?.[k] !== false;
+}
 
 const isHead = (l: string) => l.startsWith("## ");
 
@@ -17,9 +31,9 @@ function skillsLineIndex(lines: string[]) {
  * Build before/after/unified lines from the saved edits and the student's skill answers.
  * Only skills answered at level 2+ ("Used in a project") are added.
  */
-export function buildDiff(r: ResumePart, levels: Record<string, number>) {
+export function buildDiff(r: ResumePart, levels: Record<string, number>, use: (key: string) => boolean = () => true) {
   const added = (r.skill_questions || []).map((q) => q.skill).filter((s) => ADDS_TO_RESUME(levels[s.toLowerCase()] ?? -1));
-  const edits = new Map((r.edits || []).map((e) => [e.old, e]));
+  const edits = new Map((r.edits || []).map((e, i) => [e.old, { ...e, key: editKey(e, i) }] as const).filter(([, e]) => use(e.key)));
   const si = skillsLineIndex(r.base_lines);
   const contact = r.base_lines.findIndex((l) => l.startsWith("@ "));
   const insertAfter = contact >= 0 && contact < 4 ? contact : 0;
@@ -31,14 +45,14 @@ export function buildDiff(r: ResumePart, levels: Record<string, number>) {
       return;
     }
     let next = l;
-    let reworded = false, reason: string | undefined;
+    let reworded = false, reason: string | undefined, key: string | undefined;
     const e = edits.get(l);
     if (e) {
       next = e.new;
       // Keep the template marker of the old line ("- ", "### ") if the AI dropped it.
       const marker = l.match(/^(### |- |• |@ |> |# )/)?.[0];
       if (marker && !next.startsWith(marker)) next = marker + next.replace(/^(#{1,3} |[-•] |@ |> )/, "");
-      reworded = true; reason = e.reason;
+      reworded = true; reason = e.reason; key = e.key;
     }
     const skillsHere = i === si;
     if (skillsHere && added.length) {
@@ -53,8 +67,8 @@ export function buildDiff(r: ResumePart, levels: Record<string, number>) {
     }
     if (next !== l) {
       left.push({ kind: "del", text: l });
-      right.push({ kind: "add", text: next, reworded, reason, skills: skillsHere });
-      unified.push({ kind: "del", text: l }, { kind: "add", text: next, reworded, reason, skills: skillsHere });
+      right.push({ kind: "add", text: next, reworded, reason, skills: skillsHere, key });
+      unified.push({ kind: "del", text: l }, { kind: "add", text: next, reworded, reason, skills: skillsHere, key });
     } else {
       left.push({ kind: "ctx", text: l });
       right.push({ kind: "ctx", text: l, skills: skillsHere });
@@ -62,9 +76,9 @@ export function buildDiff(r: ResumePart, levels: Record<string, number>) {
     }
     final.push(next);
     // No summary section: the job's summary goes right after the contact line (or the name).
-    if (r.summary_insert && i === insertAfter) {
+    if (r.summary_insert && i === insertAfter && use("s")) {
       const h = { kind: "head" as const, text: "Summary" };
-      const a = { kind: "add" as const, text: r.summary_insert.text, reworded: false, reason: r.summary_insert.reason };
+      const a = { kind: "add" as const, text: r.summary_insert.text, reworded: false, reason: r.summary_insert.reason, key: "s" };
       left.push({ kind: "ctx", text: "" }, { kind: "ctx", text: "" }); right.push(h, a); unified.push(h, a); final.push("## Summary", r.summary_insert.text);
     }
   });
@@ -75,4 +89,9 @@ export function buildDiff(r: ResumePart, levels: Record<string, number>) {
     right.push(h, a); unified.push(h, a); final.push("## Skills", added.join(", "));
   }
   return { left, right, unified, final, addedSkills: added };
+}
+
+/** The resume as it goes into Final and the PDF: applied suggestions only (plus confirmed skills). */
+export function finalLines(r: ResumePart, levels: Record<string, number>) {
+  return buildDiff(r, levels, appliedUse(r)).final.filter((l) => l.trim());
 }

@@ -9,7 +9,8 @@ import { clefConfig, clefRank } from "@/lib/clef";
 import { setting } from "@/lib/secrets";
 import { sendEmail } from "@/lib/email";
 import { fetchLinkedIn, fetchNaukri, fetchPeople } from "./fetchers";
-import { buildMessages, checkCompany, confirmedSkills, knownSkills, mentions, saidNoSkills, sameRole, sameRoleSummary, sizeBand, skillQuestions } from "./rules";
+import { buildMessages, checkCompany, knownSkills, sizeBand } from "./rules";
+import { makeResume } from "./resume";
 import type { Person, ResumePart, ResumeProfile } from "./types";
 
 const SITE = () => (process.env.NEXT_PUBLIC_SITE_URL || "").replace(/\/$/, "");
@@ -97,6 +98,11 @@ async function scan(job: any) {
   const warns = checks.filter((c) => c.result === "warn").length;
   await setStep(job.id, 2, verdict === "agency" ? "A recruitment agency posted this job, so we'll skip finding people" : warns ? `Looks real, with ${warns} thing${warns > 1 ? "s" : ""} to know` : "Their LinkedIn page, website and the person who posted it all check out");
 
+  // The resume starts now, in parallel with finding people: it only needs the job and the student's resume.
+  const rp: ResumeProfile | null = profile?.resume_profile || null;
+  const lines: string[] = (profile?.resume_text || "").split("\n").filter((l: string) => l.trim());
+  const resumeTask: Promise<ResumePart | null> = makeResume(lines, profile, jd, own.ai).catch(() => null);
+
   // 3. People (cached per company for 7 days, shared across students)
   let people: Person[] = [];
   let cachedRanking: Ranked | null = null;
@@ -140,76 +146,13 @@ async function scan(job: any) {
   if (withEmail) checks.push({ group: "The people we found", text: `Work email addresses for ${withEmail} of them`, result: "pass" });
   await setStep(job.id, 3, people.length ? `Found ${people.length} ${people.length === 1 ? "person" : "people"}, most active first` : "We couldn't find anyone public here");
 
-  // 4. In parallel: resume changes (writer) and people ranking (decision model)
-  const rp: ResumeProfile | null = profile?.resume_profile || null;
-  const lines: string[] = (profile?.resume_text || "").split("\n").filter((l: string) => l.trim());
+  // 4. Rank people (the resume has been running since step 2)
   const student = {
     headline: rp?.headline,
     skills: knownSkills(profile || {}),
     education: (profile?.education?.length ? profile.education : rp?.education || []).map((e: any) => e.school),
     past_companies: [],
   };
-
-  // Resume changes: the job post first (exact ATS words), same-role people only as a hint.
-  // Nothing new goes in without the student's yes: unconfirmed skills become questions, never edits.
-  const resumeTask = (async (): Promise<ResumePart | null> => {
-    if (!lines.length) return null;
-    const confirmed = confirmedSkills(profile || {});
-    const saidNo = saidNoSkills(profile || {});
-    const peers = sameRole(jd.title, people);
-    await jlog("info", "resume", `Same role as "${jd.title}": ${peers.length} of ${people.length} people`);
-    type Out = { keywords?: string[]; summary?: string; summary_reason?: string; edits?: ResumePart["edits"]; ask?: ResumePart["skill_questions"]; suggestions?: ResumePart["suggestions"] };
-    const out = await writer<Out>("resume-changes", {
-      resume_lines: lines,
-      confirmed_skills: confirmed,
-      said_no: saidNo,
-      job: { title: jd.title, key_skills: jd.keySkills, description: jd.description.slice(0, 6000) },
-      same_role: sameRoleSummary(peers),
-    }, 2000, own.ai).catch(async (e) => { await jlog("warn", "resume", `Resume changes skipped: ${String(e?.message || e).slice(0, 200)}`); return null; });
-
-    const resumeText = lines.join("\n");
-    const have = (t: string) => mentions(resumeText, t) || confirmed.some((c) => c.trim().toLowerCase() === t.trim().toLowerCase());
-    const no = new Set(saidNo.map((x) => x.trim().toLowerCase()));
-
-    // Every skill-like word we know about for this job. An edit that brings in one the student hasn't got is dropped.
-    const vocab = [...new Set([...(out?.keywords || []), ...jd.keySkills, ...peers.flatMap((p) => p.skills), ...(out?.ask || []).map((q) => q.skill)].map((x) => String(x || "").trim()).filter((x) => x.length > 1))];
-    const edits = (out?.edits || []).filter((e) => {
-      if (!e?.old || !e?.new || e.new === e.old || !lines.includes(e.old)) return false;
-      const sneaked = vocab.find((t) => mentions(e.new, t) && !mentions(e.old, t) && !have(t));
-      if (sneaked) { void jlog("info", "resume", `Dropped an edit that added "${sneaked}" without asking`); return false; }
-      return true;
-    }).slice(0, 5);
-
-    // The summary, written for this job. Replaces the resume's summary lines, or is added if there isn't one.
-    let summary_insert: ResumePart["summary_insert"];
-    const sum = (out?.summary || "").replace(/\s*—\s*/g, ", ").replace(/\s+/g, " ").trim();
-    const sneakedSum = sum && vocab.find((t) => mentions(sum, t) && !have(t));
-    if (sneakedSum) void jlog("info", "resume", `Dropped the new summary: it added "${sneakedSum}" without asking`);
-    if (sum && sum.split(" ").length >= 20 && !sneakedSum) {
-      const reason = out?.summary_reason || "Written for this job from what's already on your resume";
-      const h = lines.findIndex((l) => /^## (professional )?(summary|profile|about( me)?|objective|career objective)\b/i.test(l));
-      if (h >= 0) {
-        const mine: string[] = [];
-        for (let i = h + 1; i < lines.length && !lines[i].startsWith("## "); i++) mine.push(lines[i]);
-        const kept = edits.filter((e) => !mine.includes(e.old));
-        edits.length = 0;
-        edits.push(...(mine.length ? [{ old: mine[0], new: sum, reason }, ...mine.slice(1).map((o) => ({ old: o, new: "", reason: "" }))] : []), ...kept);
-        if (!mine.length) summary_insert = { text: sum, reason };
-      } else summary_insert = { text: sum, reason };
-    }
-
-    const asked = new Set<string>();
-    const skill_questions = (out ? out.ask || [] : skillQuestions(jd, confirmed, saidNo))
-      .filter((q) => q?.skill && !have(q.skill) && !no.has(q.skill.trim().toLowerCase()))
-      .filter((q) => { const k = q.skill.trim().toLowerCase(); if (asked.has(k)) return false; asked.add(k); return true; })
-      .slice(0, 5)
-      .map((q) => ({ skill: q.skill.trim(), why: q.why || "The job post asks for it." }));
-
-    const keywords = (out?.keywords?.length ? out.keywords : jd.keySkills).slice(0, 12).map((t) => String(t).trim()).filter(Boolean)
-      .map((term) => ({ term, in_resume: have(term) || edits.some((e) => mentions(e.new, term)) || mentions(sum, term) }));
-
-    return { base_lines: lines, edits, skill_questions, suggestions: (out?.suggestions || []).slice(0, 3), keywords, summary_insert };
-  })();
 
   const rankTask = (async (): Promise<Ranked> => {
     if (people.length <= 1) return { order: people.map((_, i) => ({ i, why: "", link: null })) };

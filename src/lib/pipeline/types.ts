@@ -57,13 +57,24 @@ export type Person = {
 
 export type ResumePart = {
   base_lines: string[];
-  edits: { old: string; new: string; reason: string }[];
+  /** `group` ties several edits to one keep/drop decision (the summary and the lines folded into it). */
+  edits: { old: string; new: string; reason: string; group?: string }[];
   skill_questions: { skill: string; why: string }[];
   suggestions: { title: string; why: string }[];
   /** The job's exact screening words and whether this copy of the resume has each one. */
   keywords?: { term: string; in_resume: boolean }[];
   /** No summary section in the resume: this one is added after the contact line. */
   summary_insert?: { text: string; reason: string };
+  /** v2: changes are suggestions until the student applies them. */
+  v?: 2;
+  applied?: boolean;
+  applied_at?: string;
+  /** Edit index (or "s" for the inserted summary) → kept (true) or dropped (false). Missing = kept. */
+  decisions?: Record<string, boolean>;
+  /** What this job really wants, and the student's proof for each. */
+  priorities?: { need: string; proof: string; strength: "strong" | "weak" | "none" }[];
+  /** Questions about experience the resume doesn't show yet. Answers are saved on profiles.facts. */
+  gaps?: { id: string; question: string; why: string }[];
 };
 
 export type ResumeProfile = {

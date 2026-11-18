@@ -204,10 +204,12 @@ export function AdminKeys() {
           <h2 className="h2" style={{ margin: "40px 8px 0" }}>Which provider does what</h2>
           <p className="mute" style={{ margin: "4px 8px 0", fontSize: 14 }}>If the one you pick fails, the next working provider in the list above takes over. Changes take effect within 30 seconds.</p>
           <div className="card" style={{ marginTop: 12 }}>
-            {([["writer_provider", "Writing resume changes and messages", "Needs a good writer. Haiku or GPT-5 mini are cheap and good enough.", data.writer], ["ranker_provider", "Ranking people", "Clef is built for this: it scores each person and spots real connections. Falls back to the writing model if it fails.", data.ranker]] as const).map(([name, title, sub, val]) => (
+            {([["writer_provider", "Writing resume changes and messages", "Only the AI you pick here writes. If it fails, the student sees why; nothing else takes over. Sonnet writes best, Haiku is faster and cheaper.", data.writer], ["ranker_provider", "Ranking people", "Clef is built for this: it scores each person and spots real connections. Falls back to the writing model if it fails.", data.ranker]] as const).map(([name, title, sub, val]) => (
               <div className="row" key={name}>
                 <label htmlFor={name} style={{ flex: "1 1 220px", minWidth: 0 }}><span style={{ display: "block", fontSize: 16, fontWeight: 700 }}>{title}</span><span className="mute" style={{ display: "block", fontSize: 14, marginTop: 2 }}>{sub}</span></label>
-                <select id={name} className="sel" value={val || data.ai[0]?.id || ""} onChange={(e) => act({ type: "route", name, value: e.target.value }, name, "Saved")}>
+                <select id={name} className="sel" value={val || ""} onChange={(e) => act({ type: "route", name, value: e.target.value }, name, "Saved")}>
+                  {/* Shown as it really is: before, an unset choice displayed the first AI as if picked, so picking it saved nothing. */}
+                  <option value="">Not picked: try each AI in order</option>
                   {name === "ranker_provider" && data.clef?.set && <option value="clef">Clef (Cloudflare) · {data.clef.model}</option>}
                   {data.ai.map((a) => <option key={a.id} value={a.id}>{a.name} · {a.model}</option>)}
                 </select>

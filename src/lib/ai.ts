@@ -100,18 +100,23 @@ async function markProvider(id: string, ok: boolean, err?: string) {
   await adminClient().from("ai_providers").update({ ok, last_error: err?.slice(0, 300) || null, checked_at: new Date().toISOString() }).eq("id", id);
 }
 
-/** Run a task on the chosen provider first, then every other one in order. */
+/**
+ * Run a task. When admin picked a provider for it (Admin → API keys → Writing / Ranking), ONLY that one is used:
+ * it never quietly falls back to another model (a free DeepSeek writing in place of the Sonnet you chose).
+ * With nothing picked, every provider is tried in order. A student's own key always goes first.
+ */
 async function run<T>(task: "writer" | "ranker", promptName: string, input: unknown, maxTokens: number, own?: Provider | null): Promise<T> {
   const list = await providers();
   const pick = await setting(task === "writer" ? "writer_provider" : "ranker_provider", "");
+  const chosen = list.filter((p) => p.id === pick);
   const ordered = [
     ...(own ? [own] : []),
-    ...list.filter((p) => p.id === pick),
-    ...list.filter((p) => p.id !== pick),
+    ...(chosen.length ? chosen : list),
   ];
   if (!ordered.length) { await jlog("error", "ai", "No AI provider. Add one in /admin → API keys."); throw new Error("No AI provider. Add one in /admin → API keys."); }
   let last: unknown;
   let lastWhere = "";
+  const tried: string[] = [];
   for (const p of ordered) {
     // Same provider, up to 3 tries, but only when it's busy or broken right now (network, 408, 429, 5xx)
     // or replied with something that isn't JSON. A wrong key, missing model or no credit moves on at once.
@@ -128,6 +133,7 @@ async function run<T>(task: "writer" | "ranker", promptName: string, input: unkn
       } catch (e) {
         last = e;
         lastWhere = `${p.name} (${p.model}), ${((Date.now() - t0) / 1000).toFixed(0)}s`;
+        tried.push(`${p.id === "own" ? "your own key: " : ""}${lastWhere}: ${String((e as Error)?.message || e).slice(0, 90)}`);
         const status = (e as { status?: number }).status;
         const msg = String((e as { message?: string })?.message || e);
         await jlog("warn", "ai", `${promptName} on ${p.name} (${p.model}) failed after ${((Date.now() - t0) / 1000).toFixed(1)}s${status ? ` (${status})` : ""}: ${msg.slice(0, 300)}`);
@@ -141,7 +147,8 @@ async function run<T>(task: "writer" | "ranker", promptName: string, input: unkn
       }
     }
   }
-  throw new Error(lastWhere ? `${lastWhere}: ${String((last as Error)?.message || last).slice(0, 140)}` : String((last as Error)?.message || last));
+  // Every attempt, in order, so the student (and the log) can see exactly which AI was asked and why it failed.
+  throw new Error(tried.length ? `Tried ${[...new Set(tried)].join(" · then ")}` : String((last as Error)?.message || last));
 }
 
 /** Writing tasks: resume profile, resume changes, personal lines. */

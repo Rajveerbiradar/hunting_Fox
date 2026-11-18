@@ -25,8 +25,26 @@ type Question =
 
 type Answer = { type: string; noul?: number; choice?: string; score?: number; probabilities?: Record<string, number>; confidence?: number };
 
-/** One call to Clef. Throws with a readable message on any failure. */
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** Clef with up to 3 tries on network, 408, 429 and 5xx. A bad token or wrong account fails at once. */
 export async function clefAsk(cfg: ClefConfig, state: unknown, questions: Record<string, Question>): Promise<Record<string, Answer>> {
+  let last: unknown;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    if (attempt > 1) { await sleep(attempt === 2 ? 1000 : 3000); await jlog("info", "rank", `Retrying Clef (try ${attempt} of 3)`); }
+    try {
+      return await clefOnce(cfg, state, questions);
+    } catch (e) {
+      last = e;
+      const status = (e as { status?: number }).status;
+      if (!(status === undefined || status === 408 || status === 429 || status >= 500)) throw e;
+    }
+  }
+  throw last;
+}
+
+/** One call to Clef. Throws with a readable message on any failure. */
+async function clefOnce(cfg: ClefConfig, state: unknown, questions: Record<string, Question>): Promise<Record<string, Answer>> {
   const r = await fetch(`https://api.cloudflare.com/client/v4/accounts/${cfg.accountId}/ai/run/@cf/cloudflare/${cfg.model}`, {
     method: "POST",
     headers: { authorization: `Bearer ${cfg.token}`, "content-type": "application/json" },

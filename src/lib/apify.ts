@@ -111,6 +111,8 @@ export async function scanMode(): Promise<"full" | "lean"> {
  * Run an actor synchronously and return its dataset items.
  * Rotates to the next token on credit or usage-limit errors.
  */
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 export async function runActor<T = Record<string, unknown>>(
   actor: string,
   input: unknown,
@@ -144,39 +146,45 @@ export async function runActor<T = Record<string, unknown>>(
   let lastErr = "";
   for (const t of order) {
     const url = `https://api.apify.com/v2/acts/${id}/run-sync-get-dataset-items?token=${t.token}&timeout=${opts.timeoutSec ?? 120}`;
-    const t0 = Date.now();
-    await jlog("info", "apify", `${actor} on account "${t.label}"`);
-    let r: Response;
-    try {
-      r = await fetch(url, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(input),
-        signal: AbortSignal.timeout(((opts.timeoutSec ?? 120) + 15) * 1000),
-      });
-    } catch (e) {
-      lastErr = String(e);
-      await jlog("warn", "apify", `${actor} on "${t.label}" network error after ${Date.now() - t0} ms: ${lastErr.slice(0, 200)}`);
-      // A timeout means the run may still be going and costing money: don't start it again on another account.
-      if (/TimeoutError|aborted/i.test(lastErr)) throw new Error(`Apify ${actor} timed out`);
-      continue; // network hiccup: try the next token
+    // Same account, up to 3 tries, but only for "busy" or "broken right now" answers (network, 408, 429, 5xx).
+    let moveOn = false;
+    for (let attempt = 1; attempt <= 3 && !moveOn; attempt++) {
+      if (attempt > 1) { await sleep(attempt === 2 ? 1500 : 4000); await jlog("info", "apify", `Retrying ${actor} on "${t.label}" (try ${attempt} of 3)`); }
+      const t0 = Date.now();
+      if (attempt === 1) await jlog("info", "apify", `${actor} on account "${t.label}"`);
+      let r: Response;
+      try {
+        r = await fetch(url, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(input),
+          signal: AbortSignal.timeout(((opts.timeoutSec ?? 120) + 15) * 1000),
+        });
+      } catch (e) {
+        lastErr = String(e);
+        await jlog("warn", "apify", `${actor} on "${t.label}" network error after ${Date.now() - t0} ms: ${lastErr.slice(0, 200)}`);
+        // A timeout means the run may still be going and costing money: never start it again, here or on another account.
+        if (/TimeoutError|aborted/i.test(lastErr)) throw new Error(`Apify ${actor} timed out`);
+        continue; // network hiccup: same account again
+      }
+      if (r.ok) {
+        const items = (await r.json()) as T[];
+        await jlog("info", "apify", `${actor} on "${t.label}" OK · ${Array.isArray(items) ? items.length : 0} items · ${Date.now() - t0} ms`);
+        return { items, label: t.label };
+      }
+      const text = await r.text();
+      lastErr = `${t.label}: ${r.status} ${text.slice(0, 200)}`;
+      await jlog("warn", "apify", `${actor} failed · ${lastErr}`);
+      // Out of credit, over the limit, or a bad/revoked key: retrying won't help. Park it and use the next account.
+      if ([401, 402, 403].includes(r.status) || /usage|limit|credit|insufficient|token/i.test(text)) {
+        await markExhausted(t.label);
+        moveOn = true;
+        break;
+      }
+      // Wrong input won't work on any account.
+      if (r.status === 400 && !/limit|credit/i.test(text)) throw new Error(lastErr);
+      // 408 / 429 / 5xx: busy or broken right now. Loop tries the same account again.
     }
-    if (r.ok) {
-      const items = (await r.json()) as T[];
-      await jlog("info", "apify", `${actor} on "${t.label}" OK · ${Array.isArray(items) ? items.length : 0} items · ${Date.now() - t0} ms`);
-      return { items, label: t.label };
-    }
-    const text = await r.text();
-    lastErr = `${t.label}: ${r.status} ${text.slice(0, 200)}`;
-    await jlog("warn", "apify", `${actor} failed · ${lastErr}`);
-    // Out of credit, over the limit, or a bad/revoked token: park this account and move on.
-    if ([401, 402, 403].includes(r.status) || /usage|limit|credit|insufficient|token/i.test(text)) {
-      await markExhausted(t.label);
-      continue;
-    }
-    // Wrong input won't work on any account.
-    if (r.status === 400 && !/limit|credit/i.test(text)) throw new Error(lastErr);
-    // 408 / 429 / 5xx: busy or broken right now, try the next account without parking this one.
   }
   throw new Error(`All Apify tokens failed: ${lastErr}`);
 }

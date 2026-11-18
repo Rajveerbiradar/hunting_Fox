@@ -21,7 +21,7 @@ export default function Page() {
         ) : (
           <form onSubmit={send} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <label htmlFor="rm" style={{ fontSize: 14, fontWeight: 600 }}>Your LinkedIn profile link or work email</label>
-            <input id="rm" className="in" value={contact} onChange={(e) => setContact(e.target.value)} placeholder="linkedin.com/in/…" />
+            <input id="rm" className="in" style={{ flex: "none" }} value={contact} onChange={(e) => setContact(e.target.value)} placeholder="linkedin.com/in/…" />
             <button className="btn dark" disabled={contact.trim().length < 5} style={{ alignSelf: "flex-start" }}>Remove me</button>
           </form>
         )}

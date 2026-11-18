@@ -129,7 +129,7 @@ export function JobPage({ job, report, hasResume, initial }: { job: any; report:
                 </ol>
               )}
               {blocks[0] && (
-                <Link href={blocks[0].href} className="btn lg pri" style={{ marginTop: 20 }}>Next: {blocks[0].title.charAt(0).toLowerCase() + blocks[0].title.slice(1)}{Icon.arrow()}</Link>
+                <Link href={blocks[0].href} className="btn lg outline" style={{ marginTop: 20 }}>Next: {blocks[0].title.charAt(0).toLowerCase() + blocks[0].title.slice(1)}{Icon.arrow()}</Link>
               )}
             </section>
             <div style={{ marginTop: 28, display: "flex", flexDirection: "column", gap: 12 }}>

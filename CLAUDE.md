@@ -124,7 +124,9 @@ Design source: the "Hunting Fox v2" canvas artifact. Tokens are in `src/app/glob
 - Status: success `#1a6b3c/#e5f3e9`, danger `#b8132f/#fdecef`, info `#164a88/#e7effa`, waiting/neutral `#5b6472/#eef1f5`, warning (real warnings only) `#4f3e00/#ffefb0` with ⚠.
 - Type: display clamp(36,6vw,48) · h1 clamp(30,4vw,36) · h2 24 · title 18 · body 16 · caption 14 · tag 13 · label 12 caps.
 - Buttons: 36 / 44 / 52 tall; 44 minimum on touch.
-- Every loading action shows a spinner immediately (see `LinkBox`, sign-in button, `ProgressPopup` opening before the server answers).
+- Every loading action shows a spinner immediately. `PressFeedback` (mounted in the root layout) does this for **every** button automatically: any `fetch` started within 400 ms of a click puts `data-busy` on that button (spinner, no double taps) until it answers; buttons with their own state set `aria-busy` to opt out (`LinkBox`, sign-in). Link clicks show a thin top bar; every route has a `loading.tsx` skeleton (`PageLoading`).
+- Retries: Apify, AI providers and Clef retry the **same** key up to 3 tries (1–4 s waits) on network/408/429/5xx before moving on; never on bad keys, no credit, or an Apify timeout.
+- Vercel functions run in Mumbai (`regions: ["bom1"]` in vercel.json), next to Supabase.
 - Lists have the Newest/Oldest toggle (`useSort` in `src/components/ui.tsx`).
 
 ## Copy rules

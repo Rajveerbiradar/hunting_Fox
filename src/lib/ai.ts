@@ -33,6 +33,8 @@ export async function providers(): Promise<Provider[]> {
   return out;
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 const clients = new Map<string, OpenAI>();
 function client(p: { baseURL: string; apiKey: string }) {
   const k = p.baseURL + "|" + p.apiKey;
@@ -97,16 +99,25 @@ async function run<T>(task: "writer" | "ranker", promptName: string, input: unkn
   if (!ordered.length) { await jlog("error", "ai", "No AI provider. Add one in /admin → API keys."); throw new Error("No AI provider. Add one in /admin → API keys."); }
   let last: unknown;
   for (const p of ordered) {
-    try {
-      const text = await chat(p, prompt(promptName), JSON.stringify(input), maxTokens);
-      const out = parseJson<T>(text);
-      await jlog("info", "ai", `${promptName} on ${p.name} (${p.model}) OK`);
-      if (p.id !== "own") void markProvider(p.id, true);
-      return out;
-    } catch (e) {
-      last = e;
-      await jlog("warn", "ai", `${promptName} on ${p.name} (${p.model}) failed: ${String((e as { message?: string })?.message || e).slice(0, 300)}`);
-      void markProvider(p.id, false, String(e));
+    // Same provider, up to 3 tries, but only when it's busy or broken right now (network, 408, 429, 5xx)
+    // or replied with something that isn't JSON. A wrong key, missing model or no credit moves on at once.
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      if (attempt > 1) { await sleep(attempt === 2 ? 1000 : 3000); await jlog("info", "ai", `Retrying ${promptName} on ${p.name} (try ${attempt} of 3)`); }
+      try {
+        const text = await chat(p, prompt(promptName), JSON.stringify(input), maxTokens);
+        const out = parseJson<T>(text);
+        await jlog("info", "ai", `${promptName} on ${p.name} (${p.model}) OK`);
+        if (p.id !== "own") void markProvider(p.id, true);
+        return out;
+      } catch (e) {
+        last = e;
+        const status = (e as { status?: number }).status;
+        const msg = String((e as { message?: string })?.message || e);
+        await jlog("warn", "ai", `${promptName} on ${p.name} (${p.model}) failed${status ? ` (${status})` : ""}: ${msg.slice(0, 300)}`);
+        const worthRetry = status === undefined || status === 408 || status === 429 || status >= 500;
+        if (!worthRetry || /quota|insufficient|credit|billing/i.test(msg)) break;
+        if (attempt === 3) void markProvider(p.id, false, msg);
+      }
     }
   }
   throw last instanceof Error ? last : new Error(String(last));

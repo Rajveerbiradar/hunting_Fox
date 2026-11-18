@@ -349,7 +349,7 @@ export async function writePerson(p: Person, ctx: MsgCtx, rp: ResumeProfile | nu
       },
       person: { first: p.first, title: p.title, months_at_company: p.months, headline: p.headline, about: p.about?.slice(0, 1200), skills: p.skills?.slice(0, 15), schools: p.schools, past_companies: p.pastCompanies, activity: p.active },
       connection: p.link || null,
-      has_resume_link: !!ctx.resumeLink,
+      has_resume: !!ctx.resumeLink,
     }, 1400, ownAi);
     let note = (out.note || "").trim();
     const subject = (out.subject || "").trim().replace(/\s*—\s*/g, ", ").slice(0, 90);
@@ -358,11 +358,16 @@ export async function writePerson(p: Person, ctx: MsgCtx, rp: ResumeProfile | nu
     // The note never carries a link (a bare link from a stranger looks like spam). Keep it within LinkedIn's 200.
     note = note.replace(/https?:\/\/\S+/g, "").replace(/\s*—\s*/g, ", ").replace(/\s+/g, " ").trim();
     if (note.length > 200) note = note.slice(0, 199).replace(/\s+\S*$/, "").replace(/[,;:]$/, "") + ".";
-    // The email gets the resume link on its own labelled line, never a bare link.
-    body = body.replace(/https?:\/\/\S*\/r\/\S+/g, "").replace(/\s*—\s*/g, ", ");
-    const resumeLine = ctx.resumeLink ? `My resume: ${ctx.resumeLink}` : "";
-    if (/\[RESUME\]/.test(body)) body = body.replace(/\[RESUME\]/g, resumeLine);
-    else if (resumeLine) body = body.replace(/\n*(Thank you for your time,)/, `\n\n${resumeLine}\n\n$1`);
+    // The resume is attached by the student. Never "happy to send" / "will send": say it's attached.
+    body = body.replace(/https?:\/\/\S*\/r\/\S+/g, "").replace(/\[RESUME\]/g, "").replace(/\s*—\s*/g, ", ");
+    body = body.replace(/[^.\n]*\b(happy to (send|share)|(can|will|could) (send|share)|let me know if you('d| would)? like)[^.\n]*(my )?(resume|cv)[^.\n]*\.?/gi, "I've attached my resume.");
+    if (!/attach/i.test(body)) body = body.replace(/\n\n([^\n]*(thank|thanks|regards|best)[^\n]*,?\s*\n[^\n]+)\s*$/i, "\n\nI've attached my resume.\n\n$1");
+    // The online copy goes on its own labelled line just before the sign-off.
+    if (ctx.resumeLink && !body.includes(ctx.resumeLink)) {
+      const at = body.search(/\n\n[^\n]*(thank|thanks|regards|best|cheers)[^\n]*,?\s*\n[^\n]+\s*$/i);
+      const line = `My resume online: ${ctx.resumeLink}`;
+      body = at > 0 ? `${body.slice(0, at)}\n\n${line}${body.slice(at)}` : `${body}\n\n${line}`;
+    }
     body = body.replace(/\n{3,}/g, "\n\n").trim();
     return { ...p, line: undefined, note, subject: subject || `${ctx.role} at ${ctx.company}`, body, written: true };
   } catch (e: any) {

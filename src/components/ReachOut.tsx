@@ -150,7 +150,7 @@ export function ReachOut(p: { jobId: string; company: string; big: boolean; peop
                             <a className="btn sec" href={`mailto:${cur.email}?subject=${enc(cur.subject || "")}&body=${enc(body)}`}>Other mail app</a>
                             <button className="btn sec" onClick={() => copy(`Subject: ${cur.subject}\n\n${body}`, "Email copied")}>Copy email</button>
                           </div>
-                          <p className="mute" style={{ margin: "10px 0 0", fontSize: 14 }}>Attach the PDF from &quot;Update your resume&quot; before you send it.</p>
+                          <p style={{ margin: "12px 0 0", fontSize: 14, lineHeight: 1.5, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}><b>Attach your resume PDF before you send.</b><span className="mute">The email says it&apos;s attached.</span><a href={`/jobs/${p.jobId}/resume/print`} target="_blank" rel="noopener" style={{ fontWeight: 600 }}>Download the PDF for {p.company}</a></p>
                         </>
                       ) : (
                         <p className="mute" style={{ margin: "12px 0 0", fontSize: 16 }}>We couldn&apos;t find a work email for {cur.first}. Send the LinkedIn note instead.</p>

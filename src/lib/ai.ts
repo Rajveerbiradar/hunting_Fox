@@ -61,11 +61,11 @@ export function parseJson<T>(text: string): T {
 }
 
 /** One chat call. Asks for JSON mode; providers that don't support it are asked again without it. */
-async function chat(p: Provider, system: string, user: string, maxTokens: number) {
+async function chat(p: Provider, system: string, user: string, maxTokens: number, temperature = 0.3) {
   const base = {
     model: p.model,
     max_tokens: maxTokens,
-    temperature: 0.3,
+    temperature,
     messages: [
       { role: "system" as const, content: system },
       { role: "user" as const, content: user },
@@ -104,7 +104,8 @@ async function run<T>(task: "writer" | "ranker", promptName: string, input: unkn
     for (let attempt = 1; attempt <= 3; attempt++) {
       if (attempt > 1) { await sleep(attempt === 2 ? 1000 : 3000); await jlog("info", "ai", `Retrying ${promptName} on ${p.name} (try ${attempt} of 3)`); }
       try {
-        const text = await chat(p, prompt(promptName), JSON.stringify(input), maxTokens);
+        // Messages need variety and a human voice; everything else stays steady.
+        const text = await chat(p, prompt(promptName), JSON.stringify(input), maxTokens, promptName === "write-messages" ? 0.7 : 0.3);
         const out = parseJson<T>(text);
         await jlog("info", "ai", `${promptName} on ${p.name} (${p.model}) OK`);
         if (p.id !== "own") void markProvider(p.id, true);

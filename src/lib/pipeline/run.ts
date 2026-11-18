@@ -9,7 +9,7 @@ import { clefConfig, clefRank } from "@/lib/clef";
 import { setting } from "@/lib/secrets";
 import { sendEmail } from "@/lib/email";
 import { fetchLinkedIn, fetchNaukri, fetchPeople } from "./fetchers";
-import { buildMessages, checkCompany, knownSkills, sizeBand } from "./rules";
+import { checkCompany, knownSkills, sizeBand } from "./rules";
 import { companyInput, makeResume } from "./resume";
 import type { Person, ResumePart, ResumeProfile } from "./types";
 
@@ -227,49 +227,8 @@ async function scan(job: any) {
   void ctx;
 }
 
-const PARALLEL = 8;
-const PER_PERSON_MS = 90_000;
-
-/**
- * Write messages for many people at once: PARALLEL at a time, in list order (best first).
- * Each finished person is saved straight away, so the page shows it without waiting for the rest.
- * A person that takes longer than PER_PERSON_MS gets the plain version so nobody waits forever.
- * Never throws.
- */
-export async function writeMany(jobId: string, targets: Person[], ctx: MsgCtx, rp: ResumeProfile | null, ownAi?: Provider | null) {
-  if (!targets.length) return [];
-  const t0 = Date.now();
-  const sb = adminClient();
-  let chain: Promise<unknown> = Promise.resolve();
-  // Saves run one after another, each re-reading the list and replacing only this person.
-  const save = (p: Person) => (chain = chain.then(async () => {
-    const { data } = await sb.from("reports").select("people").eq("job_id", jobId).single();
-    const list: Person[] = (data?.people || []).map((x: Person) => (x.id === p.id ? p : x));
-    await sb.from("reports").update({ people: list }).eq("job_id", jobId);
-  }).catch((e) => jlog("warn", "messages", `Couldn't save ${p.first}'s message: ${String(e?.message || e).slice(0, 160)}`)));
-  const queue = [...targets];
-  const out: Person[] = [];
-  const worker = async () => {
-    while (queue.length) {
-      const p = queue.shift()!;
-      let timer: ReturnType<typeof setTimeout> | undefined;
-      const late = new Promise<Person>((res) => { timer = setTimeout(() => {
-        void jlog("warn", "messages", `${p.first} took over ${PER_PERSON_MS / 1000}s, using the plain version`);
-        res({ ...p, line: undefined, ...buildMessages({ ...p, line: undefined }, ctx), written: true });
-      }, PER_PERSON_MS); });
-      const w = await Promise.race([writePerson(p, ctx, rp, ownAi), late]).catch(() => ({ ...p, ...buildMessages({ ...p, line: undefined }, ctx), written: true }));
-      clearTimeout(timer);
-      out.push(w);
-      await save(w);
-    }
-  };
-  await Promise.all(Array.from({ length: Math.min(PARALLEL, targets.length) }, worker));
-  await chain;
-  await jlog("info", "messages", `Wrote ${out.length} ${out.length === 1 ? "message" : "messages"} in ${Math.round((Date.now() - t0) / 1000)}s (${PARALLEL} at a time)`);
-  return out;
-}
-
-export type MsgCtx = Parameters<typeof buildMessages>[1] & {
+export type MsgCtx = {
+  role: string; company: string; big: boolean; studentName: string; headline?: string; resumeLink: string; portfolio?: string;
   student?: { skills?: string[]; projects?: { title: string; detail: string }[]; education?: string[]; resume?: string[] };
   /** What the student wants to say to this person, in their own rough words. Empty = our suggested message. */
   studentNotes?: string;
@@ -282,7 +241,7 @@ export type MsgCtx = Parameters<typeof buildMessages>[1] & {
  * Write one person's LinkedIn note and email with AI, from their profile and the student's real details.
  * Falls back to the plain template only if every AI provider fails.
  */
-export async function writePerson(p: Person, ctx: MsgCtx, rp: ResumeProfile | null, ownAi?: Provider | null, strict = false): Promise<Person> {
+export async function writePerson(p: Person, ctx: MsgCtx, rp: ResumeProfile | null, ownAi?: Provider | null): Promise<Person> {
   try {
     const out = await writer<{ note: string; subject: string; body: string }>("write-messages", {
       job: { title: ctx.role, company: ctx.company, key_skills: ctx.job?.key_skills?.slice(0, 12), description: ctx.job?.description?.slice(0, 4000), ask: ctx.big ? "referral" : "pass_on" },
@@ -321,10 +280,8 @@ export async function writePerson(p: Person, ctx: MsgCtx, rp: ResumeProfile | nu
     body = body.replace(/\n{3,}/g, "\n\n").trim();
     return { ...p, line: undefined, note, subject: subject || `${ctx.role} at ${ctx.company}`, body, written: true };
   } catch (e: any) {
-    // When the student asked for this one message, never hand them the template: say it failed instead.
-    if (strict) { await jlog("error", "messages", `AI couldn't write for ${p.first}: ${String(e?.message || e).slice(0, 300)}`); throw e; }
-    await jlog("warn", "messages", `AI couldn't write for ${p.first}, using the plain version: ${String(e?.message || e).slice(0, 200)}`);
-    const m = buildMessages({ ...p, line: undefined }, ctx);
-    return { ...p, line: undefined, ...m, written: true };
+    // There is no template to fall back to: a failed message is reported to the student, never faked.
+    await jlog("error", "messages", `AI couldn't write for ${p.first}: ${String(e?.message || e).slice(0, 300)}`);
+    throw e;
   }
 }

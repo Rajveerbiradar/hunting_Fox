@@ -59,7 +59,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const late = new Promise<never>((_, rej) => { timer = setTimeout(() => rej(new Error("took over 150 seconds")), 150_000); });
     try {
       // The real AI message or a clear error. Never the plain template.
-      const w = await Promise.race([writePerson(target, { ...ctx, studentNotes: notes }, profile?.resume_profile || null, keys.ai, true), late]);
+      const w = await Promise.race([writePerson(target, { ...ctx, studentNotes: notes }, profile?.resume_profile || null, keys.ai), late]);
       await jlog("info", "messages", `Wrote ${target.first}'s message${notes ? " with the student's notes" : ""} in ${Math.round((Date.now() - t0) / 1000)}s`);
       await savePerson(id, target.id, () => ({ ...w, asked: notes || undefined, writing: undefined, write_error: undefined }));
     } catch (e: any) {

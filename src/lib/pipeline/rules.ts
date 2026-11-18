@@ -94,55 +94,6 @@ export function mentions(text: string, term: string) {
   return new RegExp(`(^|[^a-z0-9])${esc}($|[^a-z0-9])`, "i").test(text.toLowerCase());
 }
 
-/** The fixed message template. AI only supplies `line` when there's a real connection. */
-/** The student's strongest real fact from the resume, for the plain backup message: first role or project entry. */
-function proofFrom(resume?: string[]) {
-  const e = (resume || []).find((l) => l.startsWith("### "));
-  if (e) return e.slice(4).split(" | ")[0].trim();
-  const b = (resume || []).find((l) => /^[-•] /.test(l));
-  return b ? b.replace(/^[-•] /, "").replace(/\*\*/g, "").trim() : "";
-}
-
-/** The plain backup, only used when every AI provider fails. Still says who the student is and what they've done. */
-export function buildMessages(
-  p: Person,
-  ctx: { role: string; company: string; big: boolean; studentName: string; headline?: string; resumeLink: string; portfolio?: string; student?: { resume?: string[] } }
-) {
-  const first = p.first;
-  const me = ctx.studentName ? ctx.studentName.split(" ")[0] : "";
-  const what = ctx.headline ? ctx.headline.replace(/^(a|an)\s+/i, "") : "";
-  const art = what ? (/^[aeiou]/i.test(what) ? "an " : "a ") + what : "";
-  const who = me ? `I'm ${me}${art ? `, ${art}` : ""}.` : art ? `I'm ${art}.` : "I'm a student.";
-  const proof = proofFrom(ctx.student?.resume);
-  const proofLine = proof ? `Most recently: ${proof}.` : "";
-  const role = ctx.big ? `I'm applying for the ${ctx.role} role at ${ctx.company}.` : `I applied for the ${ctx.role} role at ${ctx.company}.`;
-  const ask = ctx.big ? "If you think I'd be a fit, would you be open to referring me?" : "Could you point me to the right person on the team?";
-  const fit = (parts: string[]) => parts.filter(Boolean).join(" ");
-  let note = fit([`Hi ${first},`, who, proofLine, role, ask]);
-  if (note.length > 200) note = fit([`Hi ${first},`, who, role, ask]);
-  if (note.length > 200) note = fit([`Hi ${first},`, who, `Applying for ${ctx.role}.`, ask]);
-  if (note.length > 200) note = note.slice(0, 199).replace(/\s+\S*$/, "") + ".";
-
-  const subject = `${ctx.role} at ${ctx.company}${me ? `, from ${me}` : ""}`.slice(0, 70);
-  const body = [
-    `Hi ${first},`,
-    "",
-    fit([who, proofLine]),
-    "",
-    fit([role, `I'm writing to you because you work at ${ctx.company}${p.title ? ` as ${p.title.split(/ at | @ /i)[0]}` : ""}.`]),
-    "",
-    `${ask} Completely fine if not.`,
-    "",
-    "I've attached my resume.",
-    ctx.resumeLink ? `My resume online: ${ctx.resumeLink}` : "",
-    ctx.portfolio ? `My work: ${ctx.portfolio}` : "",
-    "",
-    "Thank you for your time,",
-    ctx.studentName,
-  ].filter((l, i, a) => !(l === "" && a[i - 1] === "")).join("\n");
-  return { note, subject, body };
-}
-
 /** Skills the student said they've used at project level or more, plus what their resume lists. */
 export function confirmedSkills(profile: { skills?: { name: string; level: number }[] | null; resume_profile?: ResumeProfile | null }) {
   return [...(profile.skills || []).filter((s) => s.level >= 2).map((s) => s.name), ...(profile.resume_profile?.skills || [])];

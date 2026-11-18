@@ -60,6 +60,8 @@ export type ResumePart = {
   suggestions: { title: string; why: string }[];
   /** The job's exact screening words and whether this copy of the resume has each one. */
   keywords?: { term: string; in_resume: boolean }[];
+  /** No summary section in the resume: this one is added after the contact line. */
+  summary_insert?: { text: string; reason: string };
 };
 
 export type ResumeProfile = {

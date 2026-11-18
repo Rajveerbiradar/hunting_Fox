@@ -136,7 +136,7 @@ async function scan(job: any) {
     const saidNo = saidNoSkills(profile || {});
     const peers = sameRole(jd.title, people);
     await jlog("info", "resume", `Same role as "${jd.title}": ${peers.length} of ${people.length} people`);
-    type Out = { keywords?: string[]; edits?: ResumePart["edits"]; ask?: ResumePart["skill_questions"]; suggestions?: ResumePart["suggestions"] };
+    type Out = { keywords?: string[]; summary?: string; summary_reason?: string; edits?: ResumePart["edits"]; ask?: ResumePart["skill_questions"]; suggestions?: ResumePart["suggestions"] };
     const out = await writer<Out>("resume-changes", {
       resume_lines: lines,
       confirmed_skills: confirmed,
@@ -158,6 +158,24 @@ async function scan(job: any) {
       return true;
     }).slice(0, 5);
 
+    // The summary, written for this job. Replaces the resume's summary lines, or is added if there isn't one.
+    let summary_insert: ResumePart["summary_insert"];
+    const sum = (out?.summary || "").replace(/\s*—\s*/g, ", ").replace(/\s+/g, " ").trim();
+    const sneakedSum = sum && vocab.find((t) => mentions(sum, t) && !have(t));
+    if (sneakedSum) void jlog("info", "resume", `Dropped the new summary: it added "${sneakedSum}" without asking`);
+    if (sum && sum.split(" ").length >= 20 && !sneakedSum) {
+      const reason = out?.summary_reason || "Written for this job from what's already on your resume";
+      const h = lines.findIndex((l) => /^## (professional )?(summary|profile|about( me)?|objective|career objective)\b/i.test(l));
+      if (h >= 0) {
+        const mine: string[] = [];
+        for (let i = h + 1; i < lines.length && !lines[i].startsWith("## "); i++) mine.push(lines[i]);
+        const kept = edits.filter((e) => !mine.includes(e.old));
+        edits.length = 0;
+        edits.push(...(mine.length ? [{ old: mine[0], new: sum, reason }, ...mine.slice(1).map((o) => ({ old: o, new: "", reason: "" }))] : []), ...kept);
+        if (!mine.length) summary_insert = { text: sum, reason };
+      } else summary_insert = { text: sum, reason };
+    }
+
     const asked = new Set<string>();
     const skill_questions = (out ? out.ask || [] : skillQuestions(jd, confirmed, saidNo))
       .filter((q) => q?.skill && !have(q.skill) && !no.has(q.skill.trim().toLowerCase()))
@@ -166,9 +184,9 @@ async function scan(job: any) {
       .map((q) => ({ skill: q.skill.trim(), why: q.why || "The job post asks for it." }));
 
     const keywords = (out?.keywords?.length ? out.keywords : jd.keySkills).slice(0, 12).map((t) => String(t).trim()).filter(Boolean)
-      .map((term) => ({ term, in_resume: have(term) || edits.some((e) => mentions(e.new, term)) }));
+      .map((term) => ({ term, in_resume: have(term) || edits.some((e) => mentions(e.new, term)) || mentions(sum, term) }));
 
-    return { base_lines: lines, edits, skill_questions, suggestions: (out?.suggestions || []).slice(0, 3), keywords };
+    return { base_lines: lines, edits, skill_questions, suggestions: (out?.suggestions || []).slice(0, 3), keywords, summary_insert };
   })();
 
   const rankTask = (async (): Promise<Ranked> => {
@@ -228,7 +246,7 @@ async function scan(job: any) {
     headline: rp?.headline,
     resumeLink: hasResume ? `${SITE()}/r/${report?.share_token}` : "",
     portfolio: (profile?.links || [])[0]?.url,
-    student: { skills: student.skills, projects: rp?.projects, education: student.education },
+    student: { skills: student.skills, projects: rp?.projects, education: student.education, resume: lines },
     job: { key_skills: jd.keySkills, description: jd.description },
   };
   const pending = ordered.map((p) => ({ ...p, written: false, note: undefined, subject: undefined, body: undefined }));
@@ -242,7 +260,7 @@ async function scan(job: any) {
 }
 
 const PARALLEL = 8;
-const PER_PERSON_MS = 45_000;
+const PER_PERSON_MS = 90_000;
 
 /**
  * Write messages for many people at once: PARALLEL at a time, in list order (best first).
@@ -284,7 +302,7 @@ export async function writeMany(jobId: string, targets: Person[], ctx: MsgCtx, r
 }
 
 export type MsgCtx = Parameters<typeof buildMessages>[1] & {
-  student?: { skills?: string[]; projects?: { title: string; detail: string }[]; education?: string[] };
+  student?: { skills?: string[]; projects?: { title: string; detail: string }[]; education?: string[]; resume?: string[] };
   job?: { key_skills?: string[]; description?: string };
 };
 
@@ -295,33 +313,33 @@ export type MsgCtx = Parameters<typeof buildMessages>[1] & {
 export async function writePerson(p: Person, ctx: MsgCtx, rp: ResumeProfile | null, ownAi?: Provider | null): Promise<Person> {
   try {
     const out = await writer<{ note: string; subject: string; body: string }>("write-messages", {
-      job: { title: ctx.role, company: ctx.company, key_skills: ctx.job?.key_skills?.slice(0, 12), description: ctx.job?.description?.slice(0, 1200), ask: ctx.big ? "referral" : "pass_on" },
+      job: { title: ctx.role, company: ctx.company, key_skills: ctx.job?.key_skills?.slice(0, 12), description: ctx.job?.description?.slice(0, 2500), ask: ctx.big ? "referral" : "pass_on" },
       student: {
         name: ctx.studentName,
         headline: ctx.headline || rp?.headline,
-        skills: (ctx.student?.skills || rp?.skills || []).slice(0, 25),
-        projects: (ctx.student?.projects || rp?.projects || []).slice(0, 4),
         education: ctx.student?.education || (rp?.education || []).map((e) => e.school),
+        skills: (ctx.student?.skills || rp?.skills || []).slice(0, 25),
         portfolio: ctx.portfolio || null,
+        resume: (ctx.student?.resume || []).join("\n").slice(0, 5000) || null,
+        projects: ctx.student?.resume?.length ? undefined : (ctx.student?.projects || rp?.projects || []).slice(0, 4),
       },
-      person: { first: p.first, title: p.title, months_at_company: p.months, headline: p.headline, about: p.about, skills: p.skills?.slice(0, 15), schools: p.schools, past_companies: p.pastCompanies, activity: p.active },
+      person: { first: p.first, title: p.title, months_at_company: p.months, headline: p.headline, about: p.about?.slice(0, 1200), skills: p.skills?.slice(0, 15), schools: p.schools, past_companies: p.pastCompanies, activity: p.active },
       connection: p.link || null,
-      resume_link: ctx.resumeLink || null,
-    }, 900, ownAi);
+      has_resume_link: !!ctx.resumeLink,
+    }, 1400, ownAi);
     let note = (out.note || "").trim();
-    const subject = (out.subject || "").trim().slice(0, 90);
+    const subject = (out.subject || "").trim().replace(/\s*—\s*/g, ", ").slice(0, 90);
     let body = (out.body || "").trim();
     if (!note || !body) throw new Error("empty message");
-    // The model wrote a link that isn't ours, or forgot ours: fix it. Keep the note within LinkedIn's 200.
-    note = note.replace(/https?:\/\/\S+/g, "").replace(/\s+/g, " ").trim();
-    if (ctx.resumeLink) {
-      const room = 200 - ctx.resumeLink.length - 1;
-      if (note.length > room) note = note.slice(0, room).replace(/[\s,;:]+\S*$/, "").replace(/[,;:]$/, "") + ".";
-      note = `${note} ${ctx.resumeLink}`;
-    } else if (note.length > 200) {
-      note = note.slice(0, 199).replace(/\s+\S*$/, "") + ".";
-    }
-    if (!ctx.resumeLink) body = body.replace(/https?:\/\/\S*\/r\/\S+/g, "").trim();
+    // The note never carries a link (a bare link from a stranger looks like spam). Keep it within LinkedIn's 200.
+    note = note.replace(/https?:\/\/\S+/g, "").replace(/\s*—\s*/g, ", ").replace(/\s+/g, " ").trim();
+    if (note.length > 200) note = note.slice(0, 199).replace(/\s+\S*$/, "").replace(/[,;:]$/, "") + ".";
+    // The email gets the resume link on its own labelled line, never a bare link.
+    body = body.replace(/https?:\/\/\S*\/r\/\S+/g, "").replace(/\s*—\s*/g, ", ");
+    const resumeLine = ctx.resumeLink ? `My resume: ${ctx.resumeLink}` : "";
+    if (/\[RESUME\]/.test(body)) body = body.replace(/\[RESUME\]/g, resumeLine);
+    else if (resumeLine) body = body.replace(/\n*(Thank you for your time,)/, `\n\n${resumeLine}\n\n$1`);
+    body = body.replace(/\n{3,}/g, "\n\n").trim();
     return { ...p, line: undefined, note, subject: subject || `${ctx.role} at ${ctx.company}`, body, written: true };
   } catch (e: any) {
     await jlog("warn", "messages", `AI couldn't write for ${p.first}, using the plain version: ${String(e?.message || e).slice(0, 200)}`);

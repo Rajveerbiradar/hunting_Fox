@@ -1,7 +1,7 @@
 import { ADDS_TO_RESUME } from "./status";
 
 export type DiffLine = { kind: "ctx" | "del" | "add" | "head"; text: string; reworded?: boolean; reason?: string; skills?: boolean };
-type ResumePart = { base_lines: string[]; edits: { old: string; new: string; reason: string }[]; skill_questions: { skill: string; why: string }[] };
+type ResumePart = { base_lines: string[]; edits: { old: string; new: string; reason: string }[]; skill_questions: { skill: string; why: string }[]; summary_insert?: { text: string; reason: string } };
 
 const isHead = (l: string) => l.startsWith("## ");
 
@@ -21,6 +21,8 @@ export function buildDiff(r: ResumePart, levels: Record<string, number>) {
   const added = (r.skill_questions || []).map((q) => q.skill).filter((s) => ADDS_TO_RESUME(levels[s.toLowerCase()] ?? -1));
   const edits = new Map((r.edits || []).map((e) => [e.old, e]));
   const si = skillsLineIndex(r.base_lines);
+  const contact = r.base_lines.findIndex((l) => l.startsWith("@ "));
+  const insertAfter = contact >= 0 && contact < 4 ? contact : 0;
   const left: DiffLine[] = [], right: DiffLine[] = [], unified: DiffLine[] = [], final: string[] = [];
   r.base_lines.forEach((l, i) => {
     if (isHead(l)) {
@@ -44,6 +46,11 @@ export function buildDiff(r: ResumePart, levels: Record<string, number>) {
       const pre = next.match(/^([-•] )?([^:,]{1,30}:\s*)?/)?.[0] || "";
       next = `${pre}${added.join(", ")}, ${next.slice(pre.length)}`;
     }
+    if (e && next.replace(/^(#{1,3} |[-•] |@ )/, "") === "") {
+      // Line folded into the new summary: removed. Placeholders keep left/right/final on the same index.
+      left.push({ kind: "del", text: l }); right.push({ kind: "ctx", text: "" }); unified.push({ kind: "del", text: l }); final.push("");
+      return;
+    }
     if (next !== l) {
       left.push({ kind: "del", text: l });
       right.push({ kind: "add", text: next, reworded, reason, skills: skillsHere });
@@ -54,6 +61,12 @@ export function buildDiff(r: ResumePart, levels: Record<string, number>) {
       unified.push({ kind: "ctx", text: l, skills: skillsHere });
     }
     final.push(next);
+    // No summary section: the job's summary goes right after the contact line (or the name).
+    if (r.summary_insert && i === insertAfter) {
+      const h = { kind: "head" as const, text: "Summary" };
+      const a = { kind: "add" as const, text: r.summary_insert.text, reworded: false, reason: r.summary_insert.reason };
+      left.push({ kind: "ctx", text: "" }, { kind: "ctx", text: "" }); right.push(h, a); unified.push(h, a); final.push("## Summary", r.summary_insert.text);
+    }
   });
   // No skills section in the resume: add one at the end.
   if (si < 0 && added.length) {

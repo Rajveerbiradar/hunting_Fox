@@ -94,30 +94,50 @@ export function mentions(text: string, term: string) {
 }
 
 /** The fixed message template. AI only supplies `line` when there's a real connection. */
+/** The student's strongest real fact from the resume, for the plain backup message: first role or project entry. */
+function proofFrom(resume?: string[]) {
+  const e = (resume || []).find((l) => l.startsWith("### "));
+  if (e) return e.slice(4).split(" | ")[0].trim();
+  const b = (resume || []).find((l) => /^[-•] /.test(l));
+  return b ? b.replace(/^[-•] /, "").replace(/\*\*/g, "").trim() : "";
+}
+
+/** The plain backup, only used when every AI provider fails. Still says who the student is and what they've done. */
 export function buildMessages(
   p: Person,
-  ctx: { role: string; company: string; big: boolean; studentName: string; headline?: string; resumeLink: string; portfolio?: string }
+  ctx: { role: string; company: string; big: boolean; studentName: string; headline?: string; resumeLink: string; portfolio?: string; student?: { resume?: string[] } }
 ) {
   const first = p.first;
-  const opener = `I'm ${ctx.headline ? `a ${ctx.headline.replace(/^(a|an)\s+/i, "")}` : "a student"}, applying for the ${ctx.role} role at ${ctx.company}.`;
-  const ask = ctx.big ? "If you think I'd be a fit, would you be open to referring me? Thank you." : "If you think I'd be a fit, could you point me to the right person? Thank you.";
-  const parts = [`Hi ${first},`, opener, p.line, ask, ctx.resumeLink].filter(Boolean) as string[];
-  let note = parts.join(" ");
-  if (note.length > 200) note = [`Hi ${first},`, opener, ask, ctx.resumeLink].join(" ");
-  if (note.length > 200) note = [`Hi ${first},`, ctx.big ? `I'm applying to ${ctx.company}.` : `I applied to ${ctx.company}.`, ask, ctx.resumeLink].join(" ");
+  const me = ctx.studentName ? ctx.studentName.split(" ")[0] : "";
+  const what = ctx.headline ? ctx.headline.replace(/^(a|an)\s+/i, "") : "";
+  const art = what ? (/^[aeiou]/i.test(what) ? "an " : "a ") + what : "";
+  const who = me ? `I'm ${me}${art ? `, ${art}` : ""}.` : art ? `I'm ${art}.` : "I'm a student.";
+  const proof = proofFrom(ctx.student?.resume);
+  const proofLine = proof ? `Most recently: ${proof}.` : "";
+  const role = ctx.big ? `I'm applying for the ${ctx.role} role at ${ctx.company}.` : `I applied for the ${ctx.role} role at ${ctx.company}.`;
+  const ask = ctx.big ? "If you think I'd be a fit, would you be open to referring me?" : "Could you point me to the right person on the team?";
+  const fit = (parts: string[]) => parts.filter(Boolean).join(" ");
+  let note = fit([`Hi ${first},`, who, proofLine, role, ask]);
+  if (note.length > 200) note = fit([`Hi ${first},`, who, role, ask]);
+  if (note.length > 200) note = fit([`Hi ${first},`, who, `Applying for ${ctx.role}.`, ask]);
+  if (note.length > 200) note = note.slice(0, 199).replace(/\s+\S*$/, "") + ".";
 
-  const cap = (s?: string) => (s ? s[0].toUpperCase() + s.slice(1) : "");
-  const subject = ctx.headline ? `${ctx.role} at ${ctx.company}: ${cap(ctx.headline)}` : `Application for ${ctx.role} at ${ctx.company}`;
+  const subject = `${ctx.role} at ${ctx.company}${me ? `, from ${me}` : ""}`.slice(0, 70);
   const body = [
     `Hi ${first},`,
     "",
-    [opener, p.line].filter(Boolean).join(" "),
+    fit([who, proofLine]),
     "",
-    [ask, ctx.resumeLink ? `My resume is here: ${ctx.resumeLink}` : "I can send my resume whenever it helps.", ctx.portfolio ? `My work: ${ctx.portfolio}` : ""].filter(Boolean).join(" "),
+    fit([role, `I'm writing to you because you work at ${ctx.company}${p.title ? ` as ${p.title.split(/ at | @ /i)[0]}` : ""}.`]),
+    "",
+    `${ask} Completely fine if not.`,
+    "",
+    ctx.resumeLink ? `My resume: ${ctx.resumeLink}` : "I'm happy to send my resume if it helps.",
+    ctx.portfolio ? `My work: ${ctx.portfolio}` : "",
     "",
     "Thank you for your time,",
     ctx.studentName,
-  ].join("\n");
+  ].filter((l, i, a) => !(l === "" && a[i - 1] === "")).join("\n");
   return { note, subject, body };
 }
 

@@ -33,7 +33,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     resumeLink: profile?.resume_text || profile?.resume_profile ? `${(process.env.NEXT_PUBLIC_SITE_URL || "").replace(/\/$/, "")}/r/${report?.share_token}` : "",
     portfolio: (profile?.links || [])[0]?.url,
     job: { key_skills: report?.job_data?.keySkills, description: report?.job_data?.description },
-    student: { skills: knownSkills(profile || {}), projects: profile?.resume_profile?.projects, education: (profile?.education?.length ? profile.education : profile?.resume_profile?.education || []).map((e: { school: string }) => e.school) },
+    student: { skills: knownSkills(profile || {}), projects: profile?.resume_profile?.projects, resume: (profile?.resume_text || "").split("\n").filter((l: string) => l.trim()), education: (profile?.education?.length ? profile.education : profile?.resume_profile?.education || []).map((e: { school: string }) => e.school) },
   };
   const { ids } = await req.json().catch(() => ({ ids: null }));
   const targets = Array.isArray(ids) ? people.filter((p) => ids.includes(p.id)) : people.filter((p) => !p.written);

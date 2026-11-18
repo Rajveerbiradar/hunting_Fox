@@ -74,6 +74,7 @@ export function ReachOut(p: { jobId: string; company: string; big: boolean; peop
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
           <span className="tag" style={x.active === "Active" ? { background: "var(--green-bg)", color: "#1A6B3C" } : { background: "#EEF1F5", color: "var(--mute)" }}>{x.active}</span>
+          {x.email && x.emailFound && <span className="tag" style={{ background: "var(--green-bg)", color: "#1A6B3C" }}>✓ Work email</span>}
           {!x.written && <span className="tag" style={{ background: "#EEF1F5", color: "var(--mute)", gap: 6 }}><Spinner size={12} />Writing</span>}
           {sent.includes(x.id) && <span className="tag" style={{ background: "#E7EFFA", color: "#164A88" }}>✓ Sent</span>}
         </div>
@@ -137,7 +138,7 @@ export function ReachOut(p: { jobId: string; company: string; big: boolean; peop
                         <>
                           <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                             <span style={{ fontSize: 18, fontWeight: 700, userSelect: "all" }}>{cur.email}</span>
-                            <span className="tag" style={cur.emailFound ? { background: "var(--green-bg)", color: "#1A6B3C" } : { background: "#EEF1F5", color: "#5B6472" }}>{cur.emailFound ? "Found online" : "Our best guess, may bounce"}</span>
+                            <span className="tag" style={cur.emailFound ? { background: "var(--green-bg)", color: "#1A6B3C" } : { background: "#EEF1F5", color: "#5B6472" }}>{cur.emailFound ? `Their work email at ${p.company}` : "Our best guess, may bounce"}</span>
                             <button className="btn sec" style={{ minHeight: 36, fontSize: 14 }} onClick={() => copy(cur.email!, "Address copied")}>Copy address</button>
                           </div>
                           <div className="mute" style={{ marginTop: 14, fontSize: 14 }}>Subject</div>

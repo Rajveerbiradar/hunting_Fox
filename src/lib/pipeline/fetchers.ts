@@ -137,7 +137,9 @@ function cleanPerson(r: any, i: number, company: string): Person | null {
     .map((s: any) => str(s.name || s).trim())
     .filter(Boolean)
     .slice(0, 25);
-  const email = r.employerMatch === true ? str(r.email || (Array.isArray(r.emails) && r.emails[0]?.email)) : "";
+  // Only an address at the company they work at now counts: that's an official email (a real lead).
+  const work = Array.isArray(r.workEmails) ? r.workEmails.map(str).filter(Boolean) : [];
+  const email = r.employerMatch === true ? str((r.emailType === "work" && r.email) || work[0] || (Array.isArray(r.emails) && r.emails[0]?.email)) : "";
   return {
     id: "p" + i,
     name,
@@ -152,35 +154,44 @@ function cleanPerson(r: any, i: number, company: string): Person | null {
     skills,
     profileUrl: str(r.profileUrl || r.linkedinUrl || r.url) || undefined,
     email: email || undefined,
-    emailFound: email ? /verified|valid|found/i.test(str(r.emailType || r.emails?.[0]?.status)) : undefined,
+    emailFound: email ? /work|verified|valid|found/i.test(str(r.emailType || r.emails?.[0]?.status)) : undefined,
   };
 }
 
-/** People in a similar role: b2bsearch (domain) first, harvestapi (LinkedIn URL) as fallback. One run per company. */
+/**
+ * People to message. Two b2bsearch runs at the same time (both by website domain):
+ *  1. people in the job's role (title filter),
+ *  2. anyone there with an official work email at this company (a real lead, goes on top).
+ * If both find nobody: anyone at the company (small startups often have 1–3 people, none in this role).
+ * Last resort: harvestapi by LinkedIn page URL.
+ */
 export async function fetchPeople(company: CompanyData, jobTitle: string, mode: "full" | "lean", own?: string | null): Promise<Person[]> {
   const kw = titleKeywords(jobTitle);
   const want = mode === "full" ? 5 : 3;
+  const b2b = async (input: Record<string, unknown>, rows: number, what: string) => {
+    try {
+      const { items, label } = await runActor<any>("b2bsearch/company-employees", { companies: [company.domain], profileDetail: "contacts", compact: true, maxRows: rows, ...input }, { timeoutSec: 60, b2bRows: rows, ownToken: own });
+      const found = items.filter((r) => r._status === "found" || (!r._status && (r.fullName || r.name)));
+      await addRows(label, found.length);
+      return found;
+    } catch (e) {
+      console.warn(`b2bsearch (${what}) failed`, e);
+      return [];
+    }
+  };
   let rows: any[] = [];
   if (company.domain) {
-    try {
-      const { items, label } = await runActor<any>("b2bsearch/company-employees", {
-        companies: [company.domain],
-        profileDetail: mode === "full" ? "contacts" : "roster",
-        titleContains: kw,
-        maxRows: want,
-        compact: true,
-      }, { timeoutSec: 60, b2bRows: want, ownToken: own });
-      rows = items.filter((r) => r._status === "found" || (!r._status && (r.fullName || r.name)));
-      await addRows(label, rows.length);
-    } catch (e) {
-      console.warn("b2bsearch failed", e);
-    }
+    const [role, leads] = await Promise.all([
+      kw.length ? b2b({ titleContains: kw }, want, "role") : Promise.resolve([]),
+      b2b({ mustHave: ["currentWorkEmail"] }, mode === "full" ? 3 : 2, "work email"),
+    ]);
+    rows = [...leads.map((r) => ({ ...r, _lead: true })), ...role];
+    if (!rows.length) rows = await b2b({}, want, "anyone");
   }
   if (!rows.length && company.linkedinUrl && mode === "full") {
     try {
       const { items } = await runActor<any>("harvestapi/linkedin-company-employees", {
         companies: [company.linkedinUrl],
-        jobTitles: kw.slice(0, 5),
         profileScraperMode: "Full + email search ($12 per 1k)",
         maxItems: want,
       }, { timeoutSec: 240, ownToken: own });
@@ -189,6 +200,9 @@ export async function fetchPeople(company: CompanyData, jobTitle: string, mode: 
       console.warn("harvestapi failed", e);
     }
   }
+  // Same person from both runs: keep one (the lead copy, which has the email).
+  const seen = new Set<string>();
+  rows = rows.filter((r) => { const k = str(r.profileUrl || r.slug || r.fullName).toLowerCase(); if (!k || seen.has(k)) return false; seen.add(k); return true; });
   return rows
     .filter((r) => !r.lowSignal || rows.length <= 2)
     .map((r, i) => cleanPerson(r, i, company.name))

@@ -100,11 +100,13 @@ async function scan(job: any) {
   // 3. People (cached per company for 7 days, shared across students)
   let people: Person[] = [];
   let cachedRanking: Ranked | null = null;
-  const key = company.domain || company.linkedinUrl;
+  // Per company AND role: a designer search and a developer search at the same company want different people.
+  const base = company.domain || company.linkedinUrl;
+  const key = base ? `${base}#${jd.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 60)}` : undefined;
   if (verdict !== "agency" && key) {
     const { data: cache } = await sb.from("company_cache").select("*").eq("key", key).maybeSingle();
     const fresh = cache && Date.now() - new Date(cache.fetched_at).getTime() < CACHE_DAYS * 86400_000;
-    if (fresh && Array.isArray(cache.people)) {
+    if (fresh && Array.isArray(cache.people) && cache.people.length) {
       people = cache.people;
       cachedRanking = cache.ranking?.title === jd.title ? cache.ranking.value : null;
     } else {
@@ -114,16 +116,25 @@ async function scan(job: any) {
   }
   people = await withoutBlocked(people).catch(() => people);
   checks.push({ group: "The people we found", text: people.length ? `${people.length} ${people.length === 1 ? "person" : "people"} from public LinkedIn profiles` : "No one with a public profile we could find", result: people.length ? "pass" : "unknown" });
-  // Nobody public works there and nobody we can see posted the job: we can't confirm the company is real,
-  // and there's no one to message. Stop here (doesn't use a search), before any resume work.
+  // Nobody public works there and nobody we can see posted the job. A big mismatch (page says 51+ people,
+  // we find none) is a strong fake sign: stop (no resume work, doesn't use a search). A small company
+  // can be real with no public staff, so warn and carry on.
+  let finalVerdict = verdict;
   if (verdict !== "agency" && !people.length && !jd.poster?.name) {
-    const size = company.sizeText ? ` Their LinkedIn page says ${company.sizeText}, but` : "";
-    checks.push({ group: "The people we found", text: `${size}${size ? " we" : "We"} couldn't find a single person with a public profile who works there, and we couldn't see who posted the job`.trim(), result: "warn" });
-    await jlog("warn", "check", `Stopped: 0 people found and no poster${company.sizeText ? ` (page says ${company.sizeText})` : ""}`);
-    await sb.from("reports").update({ checks, verdict: "fake" }).eq("job_id", job.id);
-    await sb.from("jobs").update({ status: "fake", error: "no_people", step: 5, finished_at: new Date().toISOString() }).eq("id", job.id);
-    return;
+    const size = company.sizeText ? `Their LinkedIn page says ${company.sizeText}, but we` : "We";
+    checks.push({ group: "The people we found", text: `${size} couldn't find a single person with a public profile who works there, and we couldn't see who posted the job`, result: "warn" });
+    if ((company.sizeMin ?? 0) >= 51) {
+      await jlog("warn", "check", `Stopped: 0 people found and no poster, page says ${company.sizeText}`);
+      await sb.from("reports").update({ checks, verdict: "fake" }).eq("job_id", job.id);
+      await sb.from("jobs").update({ status: "fake", error: "no_people", step: 5, finished_at: new Date().toISOString() }).eq("id", job.id);
+      return;
+    }
+    finalVerdict = "unverified";
+  } else if (verdict !== "agency" && people.length <= 1 && !jd.poster?.name) {
+    checks.push({ group: "The people we found", text: `Only ${people.length === 1 ? "one person says they work" : "no one says they work"} there, and we couldn't see who posted the job. Small startups can look like this, but fake jobs do too. Never pay a fee, and check them on Google before you share your details`, result: "warn" });
+    finalVerdict = "unverified";
   }
+  if (finalVerdict !== verdict) await sb.from("reports").update({ verdict: finalVerdict }).eq("job_id", job.id);
   if (people.length) checks.push({ group: "The company", text: `Real people with public LinkedIn profiles work there`, result: "pass" });
   const withEmail = people.filter((p) => p.email).length;
   if (withEmail) checks.push({ group: "The people we found", text: `Work email addresses for ${withEmail} of them`, result: "pass" });
@@ -232,6 +243,8 @@ async function scan(job: any) {
     ordered.push({ ...people[o.i], why: o.why || people[o.i].why, link: o.link || null });
   });
   people.forEach((p, i) => !seen.has(i) && ordered.push(p));
+  // People with an official email at this company are real leads: right after the poster.
+  ordered.sort((a, b) => Number(!!b.email && !!b.emailFound) - Number(!!a.email && !!a.emailFound));
   // The person who posted the job is the best person to message: always first.
   if (jd.poster?.name) {
     const pn = jd.poster.name.toLowerCase();

@@ -177,19 +177,33 @@ async function scan(job: any) {
     ordered.push({ ...people[o.i], why: o.why || people[o.i].why, link: o.link || null });
   });
   people.forEach((p, i) => !seen.has(i) && ordered.push(p));
+  // The person who posted the job is the best person to message: always first.
+  if (jd.poster?.name) {
+    const pn = jd.poster.name.toLowerCase();
+    const at = ordered.findIndex((p) => p.name.toLowerCase() === pn);
+    const poster: Person = at >= 0 ? ordered.splice(at, 1)[0] : {
+      id: "poster", name: jd.poster.name, first: jd.poster.name.split(" ")[0], title: jd.poster.title || "Posted this job",
+      active: "Active", headline: jd.poster.title, schools: [], pastCompanies: [], skills: [], profileUrl: jd.poster.url,
+    };
+    ordered.unshift({ ...poster, link: poster.link || { type: "hiring", detail: "Posted this job" }, why: "Posted this job, so they're the one hiring for it." });
+  }
 
   await setStep(job.id, 4, resume ? `${resume.edits.length} changes${resume.skill_questions.length ? `, and ${resume.skill_questions.length} quick questions for you` : ""}` : "No resume yet, so no resume changes");
 
-  // 5. Messages: only the top 2 now. Template by code; AI line only with a real connection.
+  // 5. Messages: the top 2 now (the rest when the student asks), written by AI from each person's profile.
+  // The resume link goes in only if the student has a resume.
   const top = ordered.slice(0, 2);
-  const ctx = {
+  const hasResume = !!(rp || profile?.resume_text);
+  const ctx: MsgCtx = {
     role: jd.title,
     company: company.name,
     big: band === "big",
     studentName: profile?.name || rp?.name || "",
     headline: rp?.headline,
-    resumeLink: `${SITE()}/r/${report?.share_token}`,
+    resumeLink: hasResume ? `${SITE()}/r/${report?.share_token}` : "",
     portfolio: (profile?.links || [])[0]?.url,
+    student: { skills: student.skills, projects: rp?.projects, education: student.education },
+    job: { key_skills: jd.keySkills, description: jd.description },
   };
   const written = await Promise.all(top.map((p) => writePerson(p, ctx, rp, own.ai)));
   const people_final = [...written, ...ordered.slice(2)];
@@ -204,22 +218,49 @@ async function scan(job: any) {
     await sendEmail(profile.email, `${company.name} is ready`, `Here's what to do for the ${jd.title} job at ${company.name}:\n${SITE()}/jobs/${job.id}\n\nHunting Fox never sends anything for you.`);
 }
 
-export async function writePerson(p: Person, ctx: Parameters<typeof buildMessages>[1], rp: ResumeProfile | null, ownAi?: Provider | null): Promise<Person> {
-  let line: string | undefined;
-  if (p.link) {
-    try {
-      const out = await writer<{ line: string }>("personal-line", {
-        student_headline: rp?.headline,
-        job: ctx.role,
-        company: ctx.company,
-        person: { first: p.first, title: p.title },
-        link: p.link,
-      }, 120, ownAi);
-      line = out.line?.trim().slice(0, 140);
-    } catch {
-      line = undefined;
+type MsgCtx = Parameters<typeof buildMessages>[1] & {
+  student?: { skills?: string[]; projects?: { title: string; detail: string }[]; education?: string[] };
+  job?: { key_skills?: string[]; description?: string };
+};
+
+/**
+ * Write one person's LinkedIn note and email with AI, from their profile and the student's real details.
+ * Falls back to the plain template only if every AI provider fails.
+ */
+export async function writePerson(p: Person, ctx: MsgCtx, rp: ResumeProfile | null, ownAi?: Provider | null): Promise<Person> {
+  try {
+    const out = await writer<{ note: string; subject: string; body: string }>("write-messages", {
+      job: { title: ctx.role, company: ctx.company, key_skills: ctx.job?.key_skills?.slice(0, 12), description: ctx.job?.description?.slice(0, 1200), ask: ctx.big ? "referral" : "pass_on" },
+      student: {
+        name: ctx.studentName,
+        headline: ctx.headline || rp?.headline,
+        skills: (ctx.student?.skills || rp?.skills || []).slice(0, 25),
+        projects: (ctx.student?.projects || rp?.projects || []).slice(0, 4),
+        education: ctx.student?.education || (rp?.education || []).map((e) => e.school),
+        portfolio: ctx.portfolio || null,
+      },
+      person: { first: p.first, title: p.title, months_at_company: p.months, headline: p.headline, about: p.about, skills: p.skills?.slice(0, 15), schools: p.schools, past_companies: p.pastCompanies, activity: p.active },
+      connection: p.link || null,
+      resume_link: ctx.resumeLink || null,
+    }, 900, ownAi);
+    let note = (out.note || "").trim();
+    const subject = (out.subject || "").trim().slice(0, 90);
+    let body = (out.body || "").trim();
+    if (!note || !body) throw new Error("empty message");
+    // The model wrote a link that isn't ours, or forgot ours: fix it. Keep the note within LinkedIn's 200.
+    note = note.replace(/https?:\/\/\S+/g, "").replace(/\s+/g, " ").trim();
+    if (ctx.resumeLink) {
+      const room = 200 - ctx.resumeLink.length - 1;
+      if (note.length > room) note = note.slice(0, room).replace(/[\s,;:]+\S*$/, "").replace(/[,;:]$/, "") + ".";
+      note = `${note} ${ctx.resumeLink}`;
+    } else if (note.length > 200) {
+      note = note.slice(0, 199).replace(/\s+\S*$/, "") + ".";
     }
+    if (!ctx.resumeLink) body = body.replace(/https?:\/\/\S*\/r\/\S+/g, "").trim();
+    return { ...p, line: undefined, note, subject: subject || `${ctx.role} at ${ctx.company}`, body, written: true };
+  } catch (e: any) {
+    await jlog("warn", "messages", `AI couldn't write for ${p.first}, using the plain version: ${String(e?.message || e).slice(0, 200)}`);
+    const m = buildMessages({ ...p, line: undefined }, ctx);
+    return { ...p, line: undefined, ...m, written: true };
   }
-  const m = buildMessages({ ...p, line }, ctx);
-  return { ...p, line, ...m, written: true };
 }

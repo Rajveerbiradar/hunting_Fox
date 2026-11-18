@@ -8,7 +8,7 @@ export type JobData = {
   applicantsText?: string;
   jobState?: string;
   applyUrl?: string;
-  poster?: { name?: string; title?: string; worksThere?: boolean };
+  poster?: { name?: string; title?: string; url?: string; worksThere?: boolean };
   hiringEmail?: string;
   consultant?: boolean;
 };
@@ -37,6 +37,7 @@ export type Person = {
   months?: number;
   active: "Active" | "Rarely active";
   headline?: string;
+  about?: string;
   schools: string[];
   pastCompanies: string[];
   skills: string[];

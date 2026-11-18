@@ -2,12 +2,13 @@ import { NextResponse } from "next/server";
 import { adminClient, currentUser } from "@/lib/supabase/clients";
 import { access } from "@/lib/limits";
 import { writePerson } from "@/lib/pipeline/run";
+import { knownSkills } from "@/lib/pipeline/rules";
 import type { Person } from "@/lib/pipeline/types";
 
 export const maxDuration = 60;
 
-/** Writes messages for the people after the top 2, only when the student taps "Show 2 more people". */
-export async function POST(_: Request, { params }: { params: Promise<{ id: string }> }) {
+/** Writes messages for the people after the top 2 when the student taps "Show more people", or rewrites them on "Write them again". */
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const user = await currentUser();
   if (!user) return NextResponse.json({ error: "signed_out" }, { status: 401 });
@@ -26,10 +27,14 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
     big: report?.size_band === "big",
     studentName: profile?.name || "",
     headline: profile?.resume_profile?.headline,
-    resumeLink: `${(process.env.NEXT_PUBLIC_SITE_URL || "").replace(/\/$/, "")}/r/${report?.share_token}`,
+    resumeLink: profile?.resume_text || profile?.resume_profile ? `${(process.env.NEXT_PUBLIC_SITE_URL || "").replace(/\/$/, "")}/r/${report?.share_token}` : "",
     portfolio: (profile?.links || [])[0]?.url,
+    job: { key_skills: report?.job_data?.keySkills, description: report?.job_data?.description },
+    student: { skills: knownSkills(profile || {}), projects: profile?.resume_profile?.projects, education: (profile?.education?.length ? profile.education : profile?.resume_profile?.education || []).map((e: { school: string }) => e.school) },
   };
-  const updated = await Promise.all(people.map((p) => (p.written ? p : writePerson(p, ctx, profile?.resume_profile || null))));
+  // { rewrite: true }: write the messages again for the people already shown (the first 2, plus any written later).
+  const { rewrite } = await req.json().catch(() => ({ rewrite: false }));
+  const updated = await Promise.all(people.map((p, i) => (rewrite ? (p.written || i < 2 ? writePerson(p, ctx, profile?.resume_profile || null) : p) : p.written ? p : writePerson(p, ctx, profile?.resume_profile || null))));
   await sb.from("reports").update({ people: updated }).eq("job_id", id);
   return NextResponse.json({ people: updated });
 }

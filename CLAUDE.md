@@ -81,7 +81,7 @@ Server-only tables have RLS on and no policies; the app reads them with the serv
 1. Check company — `rules.ts` `checkCompany` (fake / closed / agency stop here; they don't count as a search)
 2. Find people — `fetchPeople` (b2bsearch by domain, harvestapi fallback), cached per company for 7 days, minus `blocked_people`
 3. Resume changes ∥ rank people — two AI calls in parallel (`prompts/resume-changes.md`, `prompts/rank-people.md`); each falls back silently
-4. Write messages — templates in `rules.ts`, AI personal line only when there's a real connection (`prompts/personal-line.md`), top 2 people only
+4. Write messages — AI writes each person's LinkedIn note (≤200 chars) and email from their profile (title, headline, about, skills, career) and the student's real details (`prompts/write-messages.md`, `writePerson` in run.ts). Top 2 at scan time, the rest on "Show more people" (`/api/jobs/[id]/more`). The resume link is added only if the student has a resume. Template in `rules.ts` is only the fallback if every AI provider fails
 5. Done → `reports` row, `events` "finished"
 
 `jobs.step` (0–5) + `step_detail` drive the progress popup, the live "three dots" step on Home/My jobs and admin Jobs.

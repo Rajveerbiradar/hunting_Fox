@@ -22,8 +22,8 @@ export function checkCompany(job: JobData, company: CompanyData) {
   if (job.poster?.name)
     checks.push({
       group: "Who posted the job",
-      text: job.poster.worksThere === false ? `Posted by ${job.poster.name}, who doesn't list this company` : `Posted by ${job.poster.name}${job.poster.title ? `, ${job.poster.title}` : ""}`,
-      result: job.poster.worksThere === false ? "warn" : "pass",
+      text: job.poster.worksThere ? `Posted by ${job.poster.name}${job.poster.title ? `, ${job.poster.title}` : ""}` : `Posted by ${job.poster.name}. Their LinkedIn headline doesn't name the company, so we couldn't confirm they work there`,
+      result: job.poster.worksThere ? "pass" : "unknown",
     });
   else checks.push({ group: "Who posted the job", text: "We couldn't see who posted it", result: "unknown" });
 
@@ -88,8 +88,8 @@ export function buildMessages(
   ctx: { role: string; company: string; big: boolean; studentName: string; headline?: string; resumeLink: string; portfolio?: string }
 ) {
   const first = p.first;
-  const opener = ctx.big ? `I'm about to apply for the ${ctx.role} role at ${ctx.company}.` : `I just applied for the ${ctx.role} role at ${ctx.company}.`;
-  const ask = ctx.big ? "Would you be open to referring me?" : "Could you pass my resume to whoever is hiring?";
+  const opener = `I'm ${ctx.headline ? `a ${ctx.headline.replace(/^(a|an)\s+/i, "")}` : "a student"}, applying for the ${ctx.role} role at ${ctx.company}.`;
+  const ask = ctx.big ? "If you think I'd be a fit, would you be open to referring me? Thank you." : "If you think I'd be a fit, could you point me to the right person? Thank you.";
   const parts = [`Hi ${first},`, opener, p.line, ask, ctx.resumeLink].filter(Boolean) as string[];
   let note = parts.join(" ");
   if (note.length > 200) note = [`Hi ${first},`, opener, ask, ctx.resumeLink].join(" ");
@@ -100,11 +100,11 @@ export function buildMessages(
   const body = [
     `Hi ${first},`,
     "",
-    [opener, p.line, ctx.headline ? `I'm a ${ctx.headline}.` : ""].filter(Boolean).join(" "),
+    [opener, p.line].filter(Boolean).join(" "),
     "",
-    `${ask} My resume is attached${ctx.portfolio ? `, and my work is at ${ctx.portfolio}` : ""}.`,
+    [ask, ctx.resumeLink ? `My resume is here: ${ctx.resumeLink}` : "I can send my resume whenever it helps.", ctx.portfolio ? `My work: ${ctx.portfolio}` : ""].filter(Boolean).join(" "),
     "",
-    "Thank you,",
+    "Thank you for your time,",
     ctx.studentName,
   ].join("\n");
   return { note, subject, body };

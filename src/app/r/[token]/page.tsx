@@ -17,6 +17,15 @@ export default async function Page({ params }: { params: Promise<{ token: string
   const { data: profile } = await sb.from("profiles").select("skills,resume_text").eq("id", job!.user_id).single();
   const levels = Object.fromEntries((profile?.skills || []).map((s: { name: string; level: number }) => [s.name.toLowerCase(), s.level]));
   const lines = report.resume ? buildDiff(report.resume, levels).final : (profile?.resume_text || "").split("\n");
-  if (!lines.filter(Boolean).length) notFound();
+  if (!lines.filter(Boolean).length) {
+    return (
+      <main className="wrap" style={{ maxWidth: 520, paddingTop: 96 }}>
+        <div className="card" style={{ padding: 32 }}>
+          <h1 className="h2">This resume isn&apos;t ready yet</h1>
+          <p className="mute" style={{ fontSize: 16, lineHeight: 1.5, margin: "12px 0 0" }}>The student hasn&apos;t added it yet. Please ask them to send it directly.</p>
+        </div>
+      </main>
+    );
+  }
   return <ResumeSheet lines={lines} print={false} />;
 }

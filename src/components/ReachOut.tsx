@@ -9,6 +9,14 @@ export function ReachOut(p: { jobId: string; company: string; big: boolean; peop
   const [people, setPeople] = useState(p.people);
   const [sel, setSel] = useState(people[0]?.id);
   const [more, setMore] = useState(false);
+  const [rewriting, setRewriting] = useState(false);
+  async function rewrite() {
+    setRewriting(true);
+    const r = await fetch(`/api/jobs/${p.jobId}/more`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ rewrite: true }) }).catch(() => null);
+    const d = r ? await r.json().catch(() => ({})) : {};
+    if (d.people) setPeople(d.people);
+    setRewriting(false);
+  }
   const [loadingMore, setLoadingMore] = useState(false);
   const [sent, setSent] = useState<string[]>(p.sentTo);
   const [notes, setNotes] = useState<Record<string, string>>({});
@@ -58,7 +66,7 @@ export function ReachOut(p: { jobId: string; company: string; big: boolean; peop
         <BackLink href={`/jobs/${p.jobId}`}>Back to {p.company}</BackLink>
         <h1 style={{ margin: "8px 0 0", fontSize: "clamp(28px,4vw,38px)", lineHeight: 1.1, fontWeight: 700, letterSpacing: "-.03em" }}>Message people at {p.company}</h1>
         <p className="mute" style={{ margin: "8px 0 0", fontSize: 16, lineHeight: 1.5 }}>
-          {p.big ? "Send these before you apply. Ask for a referral first; if no one replies in 12 hours, apply yourself." : "Send these after you apply. Ask each person to pass your resume to whoever is hiring, which works better than asking a stranger for a referral."} Every message already has a link to your {p.company} resume.
+          {p.big ? "Send these before you apply. Politely ask for a referral; if no one replies in 12 hours, apply yourself." : "Send these after you apply. Ask for their help in finding the right person, which works better than asking a stranger for a referral."} Each message is written for that person from their profile. Change anything you like before sending.
         </p>
 
         {people.length === 0 ? (
@@ -70,7 +78,7 @@ export function ReachOut(p: { jobId: string; company: string; big: boolean; peop
           <>
             <div style={{ marginTop: 28, display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
               <span className="lbl">Start with {people.length > 1 ? "these 2" : "this person"}</span>
-              <span className="mute" style={{ fontSize: 14 }}>From public LinkedIn profiles</span>
+              <button className="btn ghost sm" disabled={rewriting} onClick={rewrite}>{rewriting ? <Spinner size={16} /> : null}{rewriting ? "Writing them again…" : "Write them again"}</button>
             </div>
             <div className="people" style={{ marginTop: 12 }}>{people.slice(0, 2).map(Card)}</div>
             {people.length > 2 && (

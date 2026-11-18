@@ -14,6 +14,21 @@ function sizeMin(text?: string) {
   return m ? Number(m[1]) : undefined;
 }
 
+const GENERIC = new Set(["app", "apps", "inc", "llc", "ltd", "limited", "pvt", "private", "technologies", "technology", "tech", "india", "solutions", "labs", "the", "co", "company", "group", "services", "software", "global"]);
+
+/**
+ * Does a headline name this company? Matches any distinctive word of the name or the website's name,
+ * ignoring spaces and case ("Beep App" / eventbeep.com matches "HR at EventBeep"). true when it does,
+ * undefined when we can't tell (we never say someone doesn't work there just from a headline).
+ */
+function mentionsCompany(headline: string, company: CompanyData): true | undefined {
+  const h = headline.toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (!h) return undefined;
+  const words = (company.name || "").toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length >= 3 && !GENERIC.has(w));
+  const stem = (company.domain || "").split(".")[0];
+  return words.some((w) => h.includes(w)) || (stem.length >= 3 && h.includes(stem)) ? true : undefined;
+}
+
 /** LinkedIn: automation_craft/linkedin-job-details-scraper */
 export async function fetchLinkedIn(url: string, own?: string | null): Promise<{ job: JobData; company: CompanyData }> {
   const { items } = await runActor<any>("automation_craft/linkedin-job-details-scraper", {
@@ -47,7 +62,7 @@ export async function fetchLinkedIn(url: string, own?: string | null): Promise<{
     jobState: str(j.jobState) || undefined,
     applyUrl: str(j.applyUrl) || url,
     poster: poster && (poster.name || poster.title)
-      ? { name: str(poster.name), title: str(poster.title || poster.headline), worksThere: company.name ? str(poster.title || poster.headline).toLowerCase().includes(company.name.toLowerCase()) : undefined }
+      ? { name: str(poster.name), title: str(poster.title || poster.headline), url: str(poster.url || poster.profileUrl || poster.linkedinUrl) || undefined, worksThere: mentionsCompany(str(poster.title || poster.headline), company) }
       : undefined,
   };
   return { job, company };
@@ -131,6 +146,7 @@ function cleanPerson(r: any, i: number, company: string): Person | null {
     months: monthsSince(current?.startDate || current?.start),
     active: r.lowSignal ? "Rarely active" : "Active",
     headline: str(r.headline).slice(0, 160) || undefined,
+    about: str(r.about || r.summary || r.description).slice(0, 700) || undefined,
     schools,
     pastCompanies: past,
     skills,

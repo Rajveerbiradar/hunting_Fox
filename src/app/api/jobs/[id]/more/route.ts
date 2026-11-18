@@ -8,8 +8,9 @@ import type { Person } from "@/lib/pipeline/types";
 export const maxDuration = 300;
 
 /**
- * { ids: [...] }: write those people's messages again ("Write it again").
- * No body: finish anyone still without a message (the page calls this if the background writing stopped).
+ * Write one person's LinkedIn note and email, when the student asks for it.
+ * { ids: [id], notes?: string }: with notes (60–600 characters, the student's rough words) the AI turns them into a
+ * proper message; without notes it writes our suggested message from their profile and the student's resume.
  */
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -35,9 +36,19 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     job: { key_skills: report?.job_data?.keySkills, description: report?.job_data?.description },
     student: { skills: knownSkills(profile || {}), projects: profile?.resume_profile?.projects, resume: (profile?.resume_text || "").split("\n").filter((l: string) => l.trim()), education: (profile?.education?.length ? profile.education : profile?.resume_profile?.education || []).map((e: { school: string }) => e.school) },
   };
-  const { ids } = await req.json().catch(() => ({ ids: null }));
-  const targets = Array.isArray(ids) ? people.filter((p) => ids.includes(p.id)) : people.filter((p) => !p.written);
-  await writeMany(id, targets, ctx, profile?.resume_profile || null);
+  const b = await req.json().catch(() => ({}));
+  const ids: string[] = Array.isArray(b.ids) ? b.ids.slice(0, 1) : [];
+  const notes = typeof b.notes === "string" ? b.notes.trim().slice(0, 600) : "";
+  if (notes && notes.length < 60) return NextResponse.json({ error: "too_short" }, { status: 400 });
+  const targets = people.filter((p) => ids.includes(p.id));
+  if (!targets.length) return NextResponse.json({ error: "no_person" }, { status: 400 });
+  const done = await writeMany(id, targets.map((t) => ({ ...t, asked: notes || undefined })), { ...ctx, studentNotes: notes }, profile?.resume_profile || null);
+  // Keep what the student wrote, so "Write it again" starts from it.
+  if (done[0]) {
+    const { data: r } = await sb.from("reports").select("people").eq("job_id", id).single();
+    const list = (r?.people || []).map((x: Person) => (x.id === done[0].id ? { ...x, asked: notes || undefined } : x));
+    await sb.from("reports").update({ people: list }).eq("job_id", id);
+  }
   const { data: fresh } = await sb.from("reports").select("people").eq("job_id", id).single();
   return NextResponse.json({ people: fresh?.people || people });
 }

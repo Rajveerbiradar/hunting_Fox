@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { BackLink, Header, Icon, Spinner, copyText, letterTile, useToast } from "./ui";
 import type { Person } from "@/lib/pipeline/types";
 
@@ -8,45 +8,26 @@ const enc = encodeURIComponent;
 export function ReachOut(p: { jobId: string; company: string; big: boolean; people: Person[]; hiringEmail?: string; sentTo: string[]; initial: string; missingName: boolean; finishedAt?: string | null }) {
   const [people, setPeople] = useState(p.people);
   const [sel, setSel] = useState(people[0]?.id);
-  const [rewriting, setRewriting] = useState<string | null>(null);
-  const pendingCount = people.filter((x) => !x.written).length;
-  const nudged = useRef(false);
+  const [writing, setWriting] = useState<string | null>(null);
+  const [composing, setComposing] = useState<Record<string, boolean>>({});
+  const [asks, setAsks] = useState<Record<string, string>>(() => Object.fromEntries(p.people.filter((x) => x.asked).map((x) => [x.id, x.asked!])));
+  const MIN = 60, MAX = 600;
 
-  // Messages are written in the background, everyone at once. Poll until all are in;
-  // each card fills in the moment its message is saved. If nothing new arrives for 75s, ask the server to finish the rest.
-  useEffect(() => {
-    if (!pendingCount) return;
-    let alive = true, last = Date.now(), lastDone = people.length - pendingCount;
-    const tick = async () => {
-      const r = await fetch(`/api/jobs/${p.jobId}`, { cache: "no-store" }).catch(() => null);
-      const d = r && r.ok ? await r.json().catch(() => null) : null;
-      if (!alive) return;
-      const fresh: Person[] | undefined = d?.report?.people;
-      if (fresh?.length) {
-        setPeople((cur) => fresh.map((f) => (f.written ? f : cur.find((c) => c.id === f.id) || f)));
-        const done = fresh.filter((x) => x.written).length;
-        if (done > lastDone) { lastDone = done; last = Date.now(); }
-        if (done === fresh.length) return;
-      }
-      // Old job, or the background writing stopped: finish the rest now.
-      const stale = p.finishedAt && Date.now() - new Date(p.finishedAt).getTime() > 240_000;
-      if ((stale || Date.now() - last > 75_000) && !nudged.current) {
-        nudged.current = true;
-        fetch(`/api/jobs/${p.jobId}/more`, { method: "POST" }).catch(() => null);
-      }
-      setTimeout(tick, 2000);
-    };
-    const t = setTimeout(tick, 1500);
-    return () => { alive = false; clearTimeout(t); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [p.jobId, pendingCount > 0]);
-
-  async function rewrite(id: string) {
-    setRewriting(id);
-    const r = await fetch(`/api/jobs/${p.jobId}/more`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ids: [id] }) }).catch(() => null);
+  // Nothing is written up front. The student picks a person, then either writes a few rough lines
+  // ("Write my email") or asks for our suggested message. One person at a time, on request.
+  async function write(id: string, withNotes: boolean) {
+    const text = (asks[id] || "").trim();
+    if (withNotes && text.length < MIN) return;
+    setWriting(id);
+    const r = await fetch(`/api/jobs/${p.jobId}/more`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ids: [id], notes: withNotes ? text : "" }) }).catch(() => null);
     const d = r ? await r.json().catch(() => ({})) : {};
-    if (d.people) { setPeople(d.people); setNotes((n) => { const c = { ...n }; delete c[id]; return c; }); setBodies((b) => { const c = { ...b }; delete c[id]; return c; }); }
-    setRewriting(null);
+    if (d.people) {
+      setPeople(d.people);
+      setComposing((c) => ({ ...c, [id]: false }));
+      setNotes((n) => { const c = { ...n }; delete c[id]; return c; });
+      setBodies((b2) => { const c = { ...b2 }; delete c[id]; return c; });
+    } else toast.show("Couldn't write it just now. Try again in a minute.");
+    setWriting(null);
   }
   const [sent, setSent] = useState<string[]>(p.sentTo);
   const [notes, setNotes] = useState<Record<string, string>>({});
@@ -75,7 +56,7 @@ export function ReachOut(p: { jobId: string; company: string; big: boolean; peop
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
           <span className="tag" style={x.active === "Active" ? { background: "var(--green-bg)", color: "#1A6B3C" } : { background: "#EEF1F5", color: "var(--mute)" }}>{x.active}</span>
           {x.email && x.emailFound && <span className="tag" style={{ background: "var(--green-bg)", color: "#1A6B3C" }}>✓ Work email</span>}
-          {!x.written && <span className="tag" style={{ background: "#EEF1F5", color: "var(--mute)", gap: 6 }}><Spinner size={12} />Writing</span>}
+          {writing === x.id ? <span className="tag" style={{ background: "#EEF1F5", color: "var(--mute)", gap: 6 }}><Spinner size={12} />Writing</span> : x.written ? <span className="tag" style={{ background: "#EEF1F5", color: "var(--ink)" }}>Message ready</span> : null}
           {sent.includes(x.id) && <span className="tag" style={{ background: "#E7EFFA", color: "#164A88" }}>✓ Sent</span>}
         </div>
       </button>
@@ -89,7 +70,7 @@ export function ReachOut(p: { jobId: string; company: string; big: boolean; peop
         <BackLink href={`/jobs/${p.jobId}`}>Back to {p.company}</BackLink>
         <h1 style={{ margin: "8px 0 0", fontSize: "clamp(28px,4vw,38px)", lineHeight: 1.1, fontWeight: 700, letterSpacing: "-.03em" }}>Message people at {p.company}</h1>
         <p className="mute" style={{ margin: "8px 0 0", fontSize: 16, lineHeight: 1.5 }}>
-          {p.big ? "Send these before you apply. Politely ask for a referral; if no one replies in 12 hours, apply yourself." : "Send these after you apply. Ask for their help in finding the right person, which works better than asking a stranger for a referral."} Each message is written for that person from their profile. Change anything you like before sending.
+          {p.big ? "Message people before you apply. Politely ask for a referral; if no one replies in 12 hours, apply yourself." : "Message people after you apply. Ask for their help in finding the right person, which works better than asking a stranger for a referral."} Pick a person, say what you want to tell them in your own words, and we&apos;ll turn it into a proper message.
         </p>
 
         {people.length === 0 ? (
@@ -101,7 +82,6 @@ export function ReachOut(p: { jobId: string; company: string; big: boolean; peop
           <>
             <div style={{ marginTop: 28, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
               <span className="lbl">Best first · start with the top 2</span>
-              {pendingCount > 0 && <span className="mute" style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 14 }}><Spinner size={16} />{people.length - pendingCount} of {people.length} messages ready</span>}
             </div>
             <div className="people" style={{ marginTop: 12 }}>{people.map(Card)}</div>
 
@@ -115,8 +95,36 @@ export function ReachOut(p: { jobId: string; company: string; big: boolean; peop
                   <button className="btn" style={sent.includes(cur.id) ? { background: "#E7EFFA", color: "#164A88" } : { background: "var(--bg)" }} onClick={() => toggleSent(cur.id)} aria-pressed={sent.includes(cur.id)}>{sent.includes(cur.id) ? "✓ Sent" : "I sent it"}</button>
                 </div>
 
-                {!cur.written || rewriting === cur.id ? (
-                  <div className="row" style={{ padding: "24px 0 0" }}><Spinner size={20} />Writing {cur.first}&apos;s messages from their profile…</div>
+                <div style={{ marginTop: 18, display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
+                  {cur.profileUrl && <a className="btn sec" href={cur.profileUrl} target="_blank" rel="noopener">View {cur.first} on LinkedIn{Icon.ext()}</a>}
+                  {cur.email && cur.emailFound ? (
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                      <span className="tag" style={{ background: "var(--green-bg)", color: "#1A6B3C" }}>✓ Work email</span>
+                      <span style={{ fontSize: 16, fontWeight: 700, userSelect: "all", wordBreak: "break-all" }}>{cur.email}</span>
+                      <button className="btn sec" style={{ minHeight: 36, fontSize: 14 }} onClick={() => copy(cur.email!, "Address copied")}>Copy</button>
+                    </span>
+                  ) : <span className="mute" style={{ fontSize: 14 }}>No work email found. Use the LinkedIn note.</span>}
+                </div>
+                {cur.profileUrl && <p className="mute" style={{ margin: "8px 0 0", fontSize: 14 }}>If their profile looks hidden to you, the LinkedIn link still opens it once you&apos;re signed in.</p>}
+
+                {writing === cur.id ? (
+                  <div className="row" style={{ padding: "26px 0 0" }}><Spinner size={20} />Writing {cur.first}&apos;s note and email…</div>
+                ) : !cur.written || composing[cur.id] ? (
+                  <div style={{ marginTop: 26, paddingTop: 22, borderTop: "1px solid var(--line)" }}>
+                    <label htmlFor="ask" className="lbl" style={{ display: "block" }}>What do you want to tell {cur.first}?</label>
+                    <textarea id="ask" className="ta" rows={4} maxLength={MAX} style={{ marginTop: 10 }} value={asks[cur.id] || ""} onChange={(e) => setAsks({ ...asks, [cur.id]: e.target.value })}
+                      placeholder="Write it your way, in a few rough lines. We'll turn it into a well-written, professional email." />
+                    <div className="mute" style={{ marginTop: 6, fontSize: 14, display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                      <span>{(asks[cur.id] || "").trim().length < MIN ? `Write at least ${MIN - (asks[cur.id] || "").trim().length} more characters, about 10 words, so we have enough to work with.` : "Good. We'll keep your points and your ask."}</span>
+                      <span>{(asks[cur.id] || "").length} / {MAX}</span>
+                    </div>
+                    <div style={{ marginTop: 14, display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 10 }}>
+                      <button className={(asks[cur.id] || "").trim().length >= MIN ? "btn lg pri" : "btn lg off"} disabled={(asks[cur.id] || "").trim().length < MIN} onClick={() => write(cur.id, true)}>Write my email</button>
+                      <button className="btn outline" onClick={() => write(cur.id, false)}>Use our suggested email</button>
+                      <span className="mute" style={{ fontSize: 14 }}>Our suggested email is still written for {cur.first}, from their profile and your resume.</span>
+                    </div>
+                    {cur.written && <button className="btn ghost" style={{ marginTop: 6 }} onClick={() => setComposing({ ...composing, [cur.id]: false })}>Keep the current message</button>}
+                  </div>
                 ) : (
                   <>
                     <div style={{ marginTop: 26, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
@@ -127,20 +135,15 @@ export function ReachOut(p: { jobId: string; company: string; big: boolean; peop
                     <textarea id="note" className="ta" rows={4} style={{ marginTop: 10 }} value={note} onChange={(e) => setNotes({ ...notes, [cur.id]: e.target.value })} />
                     {note.length > 200 && <p style={{ margin: "6px 0 0", fontSize: 14, fontWeight: 600, color: "var(--red)" }}>LinkedIn only allows 200 characters in a note. Make it shorter before you copy it.</p>}
                     <div style={{ marginTop: 12, display: "flex", gap: 10, flexWrap: "wrap" }}>
-                      <button className="btn pri" onClick={() => (note.length > 200 ? toast.show("Make it 200 characters or less first") : copy(note, "Note copied"))}>Copy note</button>
-                      {cur.profileUrl && <a className="btn sec" href={cur.profileUrl} target="_blank" rel="noopener">Open {cur.first}&apos;s profile{Icon.ext()}</a>}
-                      <button className="btn ghost" onClick={() => rewrite(cur.id)}>Write it again</button>
+                      <button className="btn dark" onClick={() => (note.length > 200 ? toast.show("Make it 200 characters or less first") : copy(note, "Note copied"))}>Copy note</button>
+                      <button className="btn ghost" onClick={() => setComposing({ ...composing, [cur.id]: true })}>Write it again</button>
                     </div>
 
                     <div style={{ marginTop: 30, paddingTop: 26, borderTop: "1px solid var(--line)" }}>
                       <span className="lbl">Email</span>
                       {cur.email ? (
                         <>
-                          <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                            <span style={{ fontSize: 18, fontWeight: 700, userSelect: "all" }}>{cur.email}</span>
-                            <span className="tag" style={cur.emailFound ? { background: "var(--green-bg)", color: "#1A6B3C" } : { background: "#EEF1F5", color: "#5B6472" }}>{cur.emailFound ? `Their work email at ${p.company}` : "Our best guess, may bounce"}</span>
-                            <button className="btn sec" style={{ minHeight: 36, fontSize: 14 }} onClick={() => copy(cur.email!, "Address copied")}>Copy address</button>
-                          </div>
+                          <div className="mute" style={{ marginTop: 12, fontSize: 14 }}>To <b style={{ color: "var(--ink)" }}>{cur.email}</b></div>
                           <div className="mute" style={{ marginTop: 14, fontSize: 14 }}>Subject</div>
                           <div style={{ marginTop: 4, fontSize: 16, fontWeight: 700 }}>{cur.subject}</div>
                           <label htmlFor="body" className="sr">Email to {cur.first}</label>

@@ -51,6 +51,8 @@ export type Person = {
   subject?: string;
   body?: string;
   written?: boolean;
+  /** The rough lines the student wrote for this person's message, if they wrote any. */
+  asked?: string;
 };
 
 export type ResumePart = {

@@ -275,12 +275,14 @@ async function scan(job: any) {
   };
   const pending = ordered.map((p) => ({ ...p, written: false, note: undefined, subject: undefined, body: undefined }));
   await sb.from("reports").update({ people: pending, resume, checks }).eq("job_id", job.id);
-  await sb.from("jobs").update({ status: "ready", step: 5, step_detail: pending.length ? `Writing ${pending.length === 1 ? "the message" : `all ${pending.length} messages`} now. Each one shows up as soon as it's ready` : "No one to message", finished_at: new Date().toISOString() }).eq("id", job.id);
+  await sb.from("jobs").update({ status: "ready", step: 5, step_detail: pending.length ? `${pending.length} ${pending.length === 1 ? "person" : "people"} ready. Pick one and we'll write the message with you` : "No one to message", finished_at: new Date().toISOString() }).eq("id", job.id);
   await sb.from("events").insert({ user_id: job.user_id, job_id: job.id, name: "finished" });
   if (profile?.email_ready && profile?.email)
     await sendEmail(profile.email, `${company.name} is ready`, `Here's what to do for the ${jd.title} job at ${company.name}:\n${SITE()}/jobs/${job.id}\n\nHunting Fox never sends anything for you.`);
 
-  await writeMany(job.id, pending, ctx, rp, own.ai);
+  // Messages are not written for everyone up front. The student picks a person on the reach-out page and either
+  // writes a few rough lines (we turn them into a proper email) or asks for our suggested one: POST /api/jobs/[id]/more.
+  void ctx;
 }
 
 const PARALLEL = 8;
@@ -327,6 +329,8 @@ export async function writeMany(jobId: string, targets: Person[], ctx: MsgCtx, r
 
 export type MsgCtx = Parameters<typeof buildMessages>[1] & {
   student?: { skills?: string[]; projects?: { title: string; detail: string }[]; education?: string[]; resume?: string[] };
+  /** What the student wants to say to this person, in their own rough words. Empty = our suggested message. */
+  studentNotes?: string;
   job?: { key_skills?: string[]; description?: string };
 };
 
@@ -350,6 +354,7 @@ export async function writePerson(p: Person, ctx: MsgCtx, rp: ResumeProfile | nu
       person: { first: p.first, title: p.title, months_at_company: p.months, headline: p.headline, about: p.about?.slice(0, 1200), skills: p.skills?.slice(0, 15), schools: p.schools, past_companies: p.pastCompanies, activity: p.active },
       connection: p.link || null,
       has_resume: !!ctx.resumeLink,
+      student_notes: ctx.studentNotes?.trim() || null,
     }, 1400, ownAi);
     let note = (out.note || "").trim();
     const subject = (out.subject || "").trim().replace(/\s*—\s*/g, ", ").slice(0, 90);

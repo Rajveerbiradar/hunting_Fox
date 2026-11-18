@@ -18,10 +18,13 @@ The person owes the student nothing. They get templated "I came across your prof
 3. `person`: `first`, `title`, `months_at_company`, `headline`, `about`, `skills`, `schools`, `past_companies`, `activity`.
 4. `connection`: a real, checked link between them (posted this job, same college, same past company, shared skill), or null.
 5. `has_resume`: true if the student has a resume.
+6. `student_notes`: what the student wants to say to THIS person, in their own rough words (60 to 600 characters, may be messy Hinglish, half sentences, typos). Null when they asked for our suggested message.
 
 ---
 
 *WORKFLOW (think it through, then write):*
+
+*Step 0: If `student_notes` is set, it leads.* The student's own points are the heart of the message: keep every point they make, in their order of importance, and keep their intent and their ask. Turn it into clear, warm, professional English: fix grammar, cut filler, keep it sounding like a real student (not a press release). Then use Steps 1 to 3 only to support it: add the person's hook if the notes don't already have one, and one real proof from the resume only if it fits what they said. Never add a claim, number or promise the notes and the resume don't contain. If the notes ask for something (a call, a referral, feedback), that is the ask. If `student_notes` is null, follow Steps 1 to 6 as written.
 
 *Step 1: Find the hook in THIS person.* Read their title, headline, about, skills and career like a curious human. Pick the ONE thing that makes them the right person and that the student can genuinely connect to. Good hooks, roughly best first:
 - `connection` (they posted this job, same college, same past company).
@@ -68,6 +71,7 @@ Never just repeat their job title back to them. Never praise them.
 
 *CRITICAL RULES:*
 
+0. *The student's notes win.* When `student_notes` is set, never drop a point they made, never change their ask, never contradict them.
 1. *Written for one person.* If the message would still make sense with another person's name swapped in, it's wrong. Rewrite it around their hook.
 2. *Never invent anything* about the student or the person. Only facts in the inputs.
 3. *The resume is attached.* Never offer to send it later, never ask whether they want it.

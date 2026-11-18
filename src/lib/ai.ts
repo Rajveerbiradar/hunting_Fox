@@ -61,11 +61,13 @@ export function parseJson<T>(text: string): T {
 }
 
 /** One chat call. Asks for JSON mode; providers that don't support it are asked again without it. */
+/** Settings a model refused (e.g. Sonnet 5.5: "`temperature` is deprecated for this model"), per model. Never sent again. */
+const refused = new Map<string, Set<string>>();
+
 async function chat(p: Provider, system: string, user: string, maxTokens: number, temperature = 0.3) {
   const base = {
     model: p.model,
     max_tokens: maxTokens,
-    temperature,
     messages: [
       { role: "system" as const, content: system },
       { role: "user" as const, content: user },
@@ -76,13 +78,21 @@ async function chat(p: Provider, system: string, user: string, maxTokens: number
   const cap = Math.min(280_000, 60_000 + maxTokens * 40);
   const t0 = Date.now();
   const open = (body: object) => client(p).chat.completions.create({ ...base, ...body, stream: true } as never, { timeout: 60_000 }) as unknown as Promise<AsyncIterable<{ choices: { delta?: { content?: string | null }; finish_reason?: string | null }[] }>>;
+  // Optional extras. Newer models reject some of them with a 400: drop the one the error names (or JSON mode
+  // first if it names none) and ask again, and remember it for this model.
+  const no = refused.get(p.model) || new Set<string>();
+  refused.set(p.model, no);
+  const extras: Record<string, unknown> = { temperature, response_format: { type: "json_object" } };
   let stream;
-  try {
-    stream = await open({ response_format: { type: "json_object" } });
-  } catch (e) {
-    const status = (e as { status?: number }).status;
-    if (status !== 400 && status !== 422) throw e;
-    stream = await open({});
+  for (let i = 0; ; i++) {
+    const body = Object.fromEntries(Object.entries(extras).filter(([k]) => !no.has(k)));
+    try { stream = await open(body); break; } catch (e) {
+      const status = (e as { status?: number }).status;
+      const msg = String((e as Error)?.message || "");
+      const left = Object.keys(body);
+      if ((status !== 400 && status !== 422) || !left.length || i > 2) throw e;
+      no.add(left.find((k) => msg.includes(k)) || (left.includes("response_format") ? "response_format" : left[0]));
+    }
   }
   let text = "", finish: string | null | undefined;
   for await (const chunk of stream) {

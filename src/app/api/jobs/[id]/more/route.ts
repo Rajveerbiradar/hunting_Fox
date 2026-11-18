@@ -1,8 +1,11 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { companyInput } from "@/lib/pipeline/resume";
 import { NextResponse } from "next/server";
 import { adminClient, currentUser } from "@/lib/supabase/clients";
 import { access } from "@/lib/limits";
-import { writeMany } from "@/lib/pipeline/run";
+import { writePerson } from "@/lib/pipeline/run";
+import { jlog, jobCtx } from "@/lib/joblog";
+import { ownKeys } from "@/lib/ownKeys";
 import { knownSkills } from "@/lib/pipeline/rules";
 import type { Person } from "@/lib/pipeline/types";
 
@@ -30,7 +33,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     role: job.title,
     company: job.company,
     big: report?.size_band === "big",
-    studentName: profile?.name || "",
+    studentName: (profile?.resume_profile?.name || profile?.name || "").replace(/\s*\(.*?\)\s*/g, " ").trim(),
     headline: profile?.resume_profile?.headline,
     resumeLink: profile?.resume_text || profile?.resume_profile ? `${(process.env.NEXT_PUBLIC_SITE_URL || "").replace(/\/$/, "")}/r/${report?.share_token}` : "",
     portfolio: (profile?.links || [])[0]?.url,
@@ -44,13 +47,28 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (notes && notes.length < 10) return NextResponse.json({ error: "too_short" }, { status: 400 });
   const targets = people.filter((p) => ids.includes(p.id));
   if (!targets.length) return NextResponse.json({ error: "no_person" }, { status: 400 });
-  const done = await writeMany(id, targets.map((t) => ({ ...t, asked: notes || undefined })), { ...ctx, studentNotes: notes }, profile?.resume_profile || null);
-  // Keep what the student wrote, so "Write it again" starts from it.
-  if (done[0]) {
-    const { data: r } = await sb.from("reports").select("people").eq("job_id", id).single();
-    const list = (r?.people || []).map((x: Person) => (x.id === done[0].id ? { ...x, asked: notes || undefined } : x));
-    await sb.from("reports").update({ people: list }).eq("job_id", id);
-  }
+  const target = { ...targets[0], asked: notes || undefined };
+  const keys = await ownKeys(user.id).catch(() => ({ ai: null }));
+  // One person, asked for by the student: the real AI message or a clear error. Never the plain template.
+  // Runs inside the job's log context, so every try (and why it failed) shows in admin → Jobs → Log.
+  const t0 = Date.now();
+  const result = await jobCtx.run({ jobId: id, started: t0 }, async () => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const late = new Promise<never>((_, rej) => { timer = setTimeout(() => rej(new Error("took over 150 seconds")), 150_000); });
+    try {
+      const w = await Promise.race([writePerson(target, { ...ctx, studentNotes: notes }, profile?.resume_profile || null, keys.ai, true), late]);
+      await jlog("info", "messages", `Wrote ${target.first}'s message${notes ? " with the student's notes" : ""} in ${Math.round((Date.now() - t0) / 1000)}s`);
+      return { ok: true as const, person: w };
+    } catch (e: any) {
+      await jlog("error", "messages", `Couldn't write ${target.first}'s message: ${String(e?.message || e).slice(0, 300)}`);
+      return { ok: false as const, reason: String(e?.message || e).slice(0, 160) };
+    } finally { clearTimeout(timer); }
+  });
+  // The student's notes are kept either way, so "Try again" / "Write it again" start from them.
+  const { data: r } = await sb.from("reports").select("people").eq("job_id", id).single();
+  const list = (r?.people || []).map((x: Person) => (x.id !== target.id ? x : result.ok ? { ...result.person, asked: notes || undefined } : { ...x, asked: notes || undefined }));
+  await sb.from("reports").update({ people: list }).eq("job_id", id);
+  if (!result.ok) return NextResponse.json({ error: "ai_failed", detail: result.reason, people: list }, { status: 503 });
   const { data: fresh } = await sb.from("reports").select("people").eq("job_id", id).single();
   return NextResponse.json({ people: fresh?.people || people });
 }

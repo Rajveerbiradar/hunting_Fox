@@ -207,7 +207,7 @@ async function scan(job: any) {
     role: jd.title,
     company: company.name,
     big: band === "big",
-    studentName: profile?.name || rp?.name || "",
+    studentName: (rp?.name || profile?.name || "").replace(/\s*\(.*?\)\s*/g, " ").trim(),
     headline: rp?.headline,
     resumeLink: hasResume ? `${SITE()}/r/${report?.share_token}` : "",
     portfolio: (profile?.links || [])[0]?.url,
@@ -282,7 +282,7 @@ export type MsgCtx = Parameters<typeof buildMessages>[1] & {
  * Write one person's LinkedIn note and email with AI, from their profile and the student's real details.
  * Falls back to the plain template only if every AI provider fails.
  */
-export async function writePerson(p: Person, ctx: MsgCtx, rp: ResumeProfile | null, ownAi?: Provider | null): Promise<Person> {
+export async function writePerson(p: Person, ctx: MsgCtx, rp: ResumeProfile | null, ownAi?: Provider | null, strict = false): Promise<Person> {
   try {
     const out = await writer<{ note: string; subject: string; body: string }>("write-messages", {
       job: { title: ctx.role, company: ctx.company, key_skills: ctx.job?.key_skills?.slice(0, 12), description: ctx.job?.description?.slice(0, 4000), ask: ctx.big ? "referral" : "pass_on" },
@@ -321,6 +321,8 @@ export async function writePerson(p: Person, ctx: MsgCtx, rp: ResumeProfile | nu
     body = body.replace(/\n{3,}/g, "\n\n").trim();
     return { ...p, line: undefined, note, subject: subject || `${ctx.role} at ${ctx.company}`, body, written: true };
   } catch (e: any) {
+    // When the student asked for this one message, never hand them the template: say it failed instead.
+    if (strict) { await jlog("error", "messages", `AI couldn't write for ${p.first}: ${String(e?.message || e).slice(0, 300)}`); throw e; }
     await jlog("warn", "messages", `AI couldn't write for ${p.first}, using the plain version: ${String(e?.message || e).slice(0, 200)}`);
     const m = buildMessages({ ...p, line: undefined }, ctx);
     return { ...p, line: undefined, ...m, written: true };

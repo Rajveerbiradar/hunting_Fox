@@ -13,6 +13,7 @@ export function ReachOut(p: { jobId: string; company: string; big: boolean; peop
   const [composing, setComposing] = useState<Record<string, boolean>>({});
   const [asks, setAsks] = useState<Record<string, string>>(() => Object.fromEntries(p.people.filter((x) => x.asked).map((x) => [x.id, x.asked!])));
   const MIN = 10, MAX = 600;
+  const [failed, setFailed] = useState<Record<string, string>>({});
 
   // Nothing is written up front. The student picks a person, adds what only they know (optional), and
   // "Write my email" blends it with the person's profile, the job and their resume. One person at a time.
@@ -21,14 +22,19 @@ export function ReachOut(p: { jobId: string; company: string; big: boolean; peop
     if (withNotes && raw.length > 0 && raw.length < MIN) return;
     const text = raw.length >= MIN ? raw : "";
     setWriting(id);
+    setFailed((f) => { const c = { ...f }; delete c[id]; return c; });
     const r = await fetch(`/api/jobs/${p.jobId}/more`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ids: [id], notes: withNotes ? text : "" }) }).catch(() => null);
     const d = r ? await r.json().catch(() => ({})) : {};
-    if (d.people) {
+    if (r?.ok && d.people) {
       setPeople(d.people);
       setComposing((c) => ({ ...c, [id]: false }));
       setNotes((n) => { const c = { ...n }; delete c[id]; return c; });
       setBodies((b2) => { const c = { ...b2 }; delete c[id]; return c; });
-    } else toast.show("Couldn't write it just now. Try again in a minute.");
+    } else {
+      // Nothing was written: say so (with the reason) and keep what the student typed.
+      setFailed((f) => ({ ...f, [id]: d.detail || "No answer from the AI" }));
+      setComposing((c) => ({ ...c, [id]: true }));
+    }
     setWriting(null);
   }
   const [sent, setSent] = useState<string[]>(p.sentTo);
@@ -112,6 +118,12 @@ export function ReachOut(p: { jobId: string; company: string; big: boolean; peop
                   <div className="row" style={{ padding: "26px 0 0" }}><Spinner size={20} />Writing {cur.first}&apos;s note and email…</div>
                 ) : !cur.written || composing[cur.id] ? (
                   <div style={{ marginTop: 26, paddingTop: 22, borderTop: "1px solid var(--line)" }}>
+                    {failed[cur.id] && (
+                      <div role="alert" style={{ marginBottom: 16, padding: "14px 18px", borderRadius: 16, background: "#FDECEF", color: "#B8132F", fontSize: 16, lineHeight: 1.5 }}>
+                        <b>We couldn&apos;t write {cur.first}&apos;s message this time.</b> <span style={{ color: "var(--ink)" }}>Your words are still below. Tap Write my email to try again.</span>
+                        <div className="mute" style={{ fontSize: 13, marginTop: 4 }}>What went wrong: {failed[cur.id]}</div>
+                      </div>
+                    )}
                     <label htmlFor="ask" className="lbl" style={{ display: "block" }}>Add what only you know <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400 }}>(optional, but it makes the email much better)</span></label>
                     <textarea id="ask" className="ta" rows={4} maxLength={MAX} style={{ marginTop: 10 }} value={asks[cur.id] || ""} onChange={(e) => setAsks({ ...asks, [cur.id]: e.target.value })}
                       placeholder={`Why ${p.company || "this company"}, something you noticed about ${cur.first} or their work, what you're hoping for. Rough lines are fine. We'll combine it with ${cur.first}'s profile, the job and your resume.`} />

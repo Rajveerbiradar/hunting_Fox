@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { runActor, addRows } from "@/lib/apify";
+import { jlog } from "@/lib/joblog";
 import type { CompanyData, JobData, Person } from "./types";
 
 const str = (v: any) => (typeof v === "string" ? v : v == null ? "" : String(v));
@@ -27,6 +28,46 @@ function mentionsCompany(headline: string, company: CompanyData): true | undefin
   const words = (company.name || "").toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length >= 3 && !GENERIC.has(w));
   const stem = (company.domain || "").split(".")[0];
   return words.some((w) => h.includes(w)) || (stem.length >= 3 && h.includes(stem)) ? true : undefined;
+}
+
+const SUFFIX = /\b(private|pvt|limited|ltd|llp|llc|inc|corp(oration)?|co|company|technologies|technology|tech|solutions|labs|india|global|group|services|software)\b/g;
+const cname = (x: string) => x.toLowerCase().replace(/&/g, " and ").replace(SUFFIX, " ").replace(/[^a-z0-9]+/g, " ").trim();
+
+/** Same company by name? "Sure" = "Sure Pvt Ltd" = "SURE"; "Sure" ≠ "Credfine". Short names must match whole. */
+export function sameCompany(a: string, b: string) {
+  const x = cname(a), y = cname(b);
+  if (!x || !y) return false;
+  if (x === y || x.replace(/ /g, "") === y.replace(/ /g, "")) return true;
+  const [short, long] = x.length <= y.length ? [x, y] : [y, x];
+  return short.length >= 5 && (` ${long} `).includes(` ${short} `);
+}
+
+/**
+ * Does this row really work at the company NOW? The data provider links people to a company by its website,
+ * which can be wrong (shared or reused domains). Checked in this order:
+ *  1. a work email on the company's own domain → yes;
+ *  2. a current position (no end date) at a company with the same name → yes;
+ *  3. their headline names the company → yes;
+ * otherwise no. Returns the reason, for the job log.
+ */
+export function worksThere(r: any, company: CompanyData): string | null {
+  const domain = (company.domain || "").toLowerCase();
+  const emails = [r.email, ...(Array.isArray(r.workEmails) ? r.workEmails : []), ...(Array.isArray(r.emails) ? r.emails.map((e: any) => e?.email) : [])].map(str).filter(Boolean);
+  if (domain && emails.some((e) => { const d = e.split("@")[1]?.toLowerCase() || ""; return d === domain || d.endsWith("." + domain); })) return "work email";
+  const positions: any[] = Array.isArray(r.positions) ? r.positions : Array.isArray(r.experience) ? r.experience : [];
+  const current = positions.filter((p) => { const end = str(p.endDate || p.end); return !end || /present/i.test(end); });
+  const stem = domain.split(".")[0];
+  if (current.some((p) => { const c = str(p.company || p.companyName); return sameCompany(c, company.name) || (stem.length >= 4 && cname(c).replace(/ /g, "") === stem); })) return "current job";
+  if (str(r.headline) && sameCompany(str(r.headline).split(/ at | @ |\|/i).slice(1).join(" ") || "", company.name)) return "headline";
+  if (mentionsCompany(str(r.headline), company)) return "headline";
+  return null;
+}
+
+/** Keep the email only if it's on the company's own domain. */
+function onDomain(email: string, company: CompanyData) {
+  const d = email.split("@")[1]?.toLowerCase() || "";
+  const domain = (company.domain || "").toLowerCase();
+  return !!domain && (d === domain || d.endsWith("." + domain));
 }
 
 /** LinkedIn: automation_craft/linkedin-job-details-scraper */
@@ -204,8 +245,18 @@ export async function fetchPeople(company: CompanyData, jobTitle: string, mode: 
   // Same person from both runs: keep one (the lead copy, which has the email).
   const seen = new Set<string>();
   rows = rows.filter((r) => { const k = str(r.profileUrl || r.slug || r.fullName).toLowerCase(); if (!k || seen.has(k)) return false; seen.add(k); return true; });
+  // Cross-check every person: keep only people who really work there now (work email on the company's domain,
+  // a current job at a company with the same name, or a headline naming it). Emails off the domain are dropped.
+  const dropped: string[] = [];
+  rows = rows.filter((r) => {
+    const why = worksThere(r, company);
+    if (!why) dropped.push(`${str(r.fullName || r.name)} (${str((Array.isArray(r.positions) ? r.positions.find((p: any) => !p.endDate) : null)?.company) || "no current job listed"})`);
+    return !!why;
+  });
+  if (dropped.length) await jlog("warn", "people", `Dropped ${dropped.length} who don't work at ${company.name} now: ${dropped.join(", ").slice(0, 400)}`);
   return rows
     .filter((r) => !r.lowSignal || rows.length <= 2)
     .map((r, i) => cleanPerson(r, i, company.name))
-    .filter((p): p is Person => !!p);
+    .filter((p): p is Person => !!p)
+    .map((p) => (p.email && !onDomain(p.email, company) ? { ...p, email: undefined, emailFound: undefined } : p));
 }

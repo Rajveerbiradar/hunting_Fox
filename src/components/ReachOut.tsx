@@ -11,7 +11,7 @@ export function ReachOut(p: { jobId: string; company: string; big: boolean; peop
   const [sel, setSel] = useState(people[0]?.id);
   const [composing, setComposing] = useState<Record<string, boolean>>({});
   const [asks, setAsks] = useState<Record<string, string>>(() => Object.fromEntries(p.people.filter((x) => x.asked).map((x) => [x.id, x.asked!])));
-  const MIN = 10, MAX = 600;
+  const MAX = 600;
   // A message is being written (on the server) while `writing` is set and under 3 minutes old. Several can run at once.
   const isWriting = (x?: Person) => !!x?.writing && Date.now() - new Date(x.writing.at).getTime() < 180_000;
   const anyWriting = people.some(isWriting);
@@ -39,9 +39,7 @@ export function ReachOut(p: { jobId: string; company: string; big: boolean; peop
   // Nothing is written up front. The student picks a person, adds what only they know (optional), and
   // "Write my email" blends it with the person's profile, the job and their resume. One person at a time.
   async function write(id: string, withNotes: boolean) {
-    const raw = (asks[id] || "").trim();
-    if (withNotes && raw.length > 0 && raw.length < MIN) return;
-    const text = raw.length >= MIN ? raw : "";
+    const text = (asks[id] || "").trim();
     // Show "Writing…" at once; the server takes it from here.
     setPeople((ps) => ps.map((x) => (x.id === id ? { ...x, writing: { at: new Date().toISOString() }, write_error: undefined } : x)));
     const r = await fetch(`/api/jobs/${p.jobId}/more`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ids: [id], notes: withNotes ? text : "" }) }).catch(() => null);
@@ -146,11 +144,11 @@ export function ReachOut(p: { jobId: string; company: string; big: boolean; peop
                     <textarea id="ask" className="ta" rows={4} maxLength={MAX} style={{ marginTop: 10 }} value={asks[cur.id] || ""} onChange={(e) => setAsks({ ...asks, [cur.id]: e.target.value })}
                       placeholder={`Why ${p.company || "this company"}, something you noticed about ${cur.first} or their work, what you're hoping for. Rough lines are fine. We'll combine it with ${cur.first}'s profile, the job and your resume.`} />
                     <div className="mute" style={{ marginTop: 6, fontSize: 14, display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-                      <span>{(() => { const n = (asks[cur.id] || "").trim().length; return n === 0 ? `Empty is fine: we'll write it from ${cur.first}'s profile and your resume.` : n < MIN ? "Write a few more words so we can use it." : `Your points lead the email. We add ${cur.first}'s profile and your resume around them.`; })()}</span>
+                      <span>{(asks[cur.id] || "").trim() ? `Your points lead the email. We add ${cur.first}'s profile and your resume around them.` : `Empty is fine: we'll write it from ${cur.first}'s profile and your resume.`}</span>
                       <span>{(asks[cur.id] || "").length} / {MAX}</span>
                     </div>
                     <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                      {(() => { const n = (asks[cur.id] || "").trim().length; const bad = n > 0 && n < MIN; return <button className={bad ? "btn lg off" : "btn lg pri"} disabled={bad} onClick={() => write(cur.id, true)}>Write my email</button>; })()}
+                      <button className="btn lg pri" onClick={() => write(cur.id, true)}>Write my email</button>
                       {(asks[cur.id] || "").trim().length > 0 && <button className="btn ghost" onClick={() => write(cur.id, false)}>Skip, write it without my input</button>}
                     </div>
                     {cur.written && <button className="btn ghost" style={{ marginTop: 6 }} onClick={() => setComposing({ ...composing, [cur.id]: false })}>Keep the current message</button>}

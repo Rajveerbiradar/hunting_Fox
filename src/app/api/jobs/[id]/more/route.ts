@@ -44,7 +44,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const b = await req.json().catch(() => ({}));
   const ids: string[] = Array.isArray(b.ids) ? b.ids.slice(0, 1) : [];
   const notes = typeof b.notes === "string" ? b.notes.trim().slice(0, 600) : "";
-  if (notes && notes.length < 10) return NextResponse.json({ error: "too_short" }, { status: 400 });
   const targets = people.filter((p) => ids.includes(p.id));
   if (!targets.length) return NextResponse.json({ error: "no_person" }, { status: 400 });
   const target = { ...targets[0], asked: notes || undefined };
@@ -56,7 +55,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   after(() => jobCtx.run({ jobId: id, started: Date.now() }, async () => {
     const t0 = Date.now();
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const late = new Promise<never>((_, rej) => { timer = setTimeout(() => rej(new Error("took over 150 seconds")), 150_000); });
+    const late = new Promise<never>((_, rej) => { timer = setTimeout(() => rej(new Error("took over 4 minutes")), 240_000); });
     try {
       // The real AI message or a clear error. Never the plain template.
       const w = await Promise.race([writePerson(target, { ...ctx, studentNotes: notes }, profile?.resume_profile || null, keys.ai), late]);

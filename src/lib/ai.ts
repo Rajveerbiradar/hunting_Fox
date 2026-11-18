@@ -71,20 +71,28 @@ async function chat(p: Provider, system: string, user: string, maxTokens: number
       { role: "user" as const, content: user },
     ],
   };
-  // The old flat 60 s limit killed every long reply (a full resume rewrite takes 1–2 minutes on Sonnet), and each
-  // kill was retried 3 times: that was the 5-minute wait and the "no answer". Allow time for the reply's length.
-  const opts = { timeout: Math.min(240_000, 30_000 + maxTokens * 20) };
-  let r;
+  // Streamed: the reply arrives piece by piece, so a long answer is never cut off by a request timeout (that
+  // was "Request timed out"). We only give up if nothing starts within 60 s, or the whole reply passes the cap.
+  const cap = Math.min(280_000, 60_000 + maxTokens * 40);
+  const t0 = Date.now();
+  const open = (body: object) => client(p).chat.completions.create({ ...base, ...body, stream: true } as never, { timeout: 60_000 }) as unknown as Promise<AsyncIterable<{ choices: { delta?: { content?: string | null }; finish_reason?: string | null }[] }>>;
+  let stream;
   try {
-    r = await client(p).chat.completions.create({ ...base, response_format: { type: "json_object" } }, opts);
+    stream = await open({ response_format: { type: "json_object" } });
   } catch (e) {
     const status = (e as { status?: number }).status;
     if (status !== 400 && status !== 422) throw e;
-    r = await client(p).chat.completions.create(base, opts);
+    stream = await open({});
   }
-  // A reply that hit the token limit is cut off mid-JSON: asking again with the same limit only wastes another minute.
-  if (r.choices[0]?.finish_reason === "length") throw Object.assign(new Error(`Reply cut off at ${maxTokens} tokens`), { cutOff: true });
-  return r.choices[0]?.message?.content || "";
+  let text = "", finish: string | null | undefined;
+  for await (const chunk of stream) {
+    text += chunk.choices?.[0]?.delta?.content || "";
+    finish = chunk.choices?.[0]?.finish_reason || finish;
+    if (Date.now() - t0 > cap) throw new Error(`Still writing after ${Math.round(cap / 1000)}s, gave up`);
+  }
+  // A reply that hit the token limit is cut off mid-JSON: asking again with the same limit only wastes time.
+  if (finish === "length") throw Object.assign(new Error(`Reply cut off at ${maxTokens} tokens`), { cutOff: true });
+  return text;
 }
 
 async function markProvider(id: string, ok: boolean, err?: string) {
@@ -103,6 +111,7 @@ async function run<T>(task: "writer" | "ranker", promptName: string, input: unkn
   ];
   if (!ordered.length) { await jlog("error", "ai", "No AI provider. Add one in /admin → API keys."); throw new Error("No AI provider. Add one in /admin → API keys."); }
   let last: unknown;
+  let lastWhere = "";
   for (const p of ordered) {
     // Same provider, up to 3 tries, but only when it's busy or broken right now (network, 408, 429, 5xx)
     // or replied with something that isn't JSON. A wrong key, missing model or no credit moves on at once.
@@ -118,12 +127,13 @@ async function run<T>(task: "writer" | "ranker", promptName: string, input: unkn
         return out;
       } catch (e) {
         last = e;
+        lastWhere = `${p.name} (${p.model}), ${((Date.now() - t0) / 1000).toFixed(0)}s`;
         const status = (e as { status?: number }).status;
         const msg = String((e as { message?: string })?.message || e);
         await jlog("warn", "ai", `${promptName} on ${p.name} (${p.model}) failed after ${((Date.now() - t0) / 1000).toFixed(1)}s${status ? ` (${status})` : ""}: ${msg.slice(0, 300)}`);
         // Only a busy or broken provider is worth asking again. A cut-off or unreadable reply would just repeat.
         // A timed-out reply would just time out again on the same provider: move on instead.
-        const badReply = (e as { cutOff?: boolean }).cutOff || e instanceof SyntaxError || /No JSON|timed out|timeout/i.test(msg) || (e as { name?: string }).name === "APIConnectionTimeoutError";
+        const badReply = (e as { cutOff?: boolean }).cutOff || e instanceof SyntaxError || /No JSON|timed out|timeout|gave up/i.test(msg) || (e as { name?: string }).name === "APIConnectionTimeoutError";
         if (badReply) break;
         const worthRetry = status === undefined || status === 408 || status === 429 || status >= 500;
         if (!worthRetry || /quota|insufficient|credit|billing/i.test(msg)) break;
@@ -131,7 +141,7 @@ async function run<T>(task: "writer" | "ranker", promptName: string, input: unkn
       }
     }
   }
-  throw last instanceof Error ? last : new Error(String(last));
+  throw new Error(lastWhere ? `${lastWhere}: ${String((last as Error)?.message || last).slice(0, 140)}` : String((last as Error)?.message || last));
 }
 
 /** Writing tasks: resume profile, resume changes, personal lines. */

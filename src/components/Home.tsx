@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Header, Icon, LiveStep, Spinner, letterTile, useLiveJobs } from "./ui";
+import { Header, Icon, LiveStep, Spinner, announceJob, letterTile, useLiveJobs } from "./ui";
 import { AskMore } from "./AskMore";
 import { ContactRows } from "./Contact";
 import { statusOf } from "@/lib/status";
@@ -55,7 +55,7 @@ export function Home(p: { signedIn: boolean; initialLink?: string; name?: string
       const d = r ? await r.json().catch(() => ({})) : {};
       router.replace("/");
       if (r?.ok && d.duplicate) { setStarting(false); router.push(`/jobs/${d.id}`); }
-      else if (r?.ok) setScanId(d.id);
+      else if (r?.ok) { setScanId(d.id); announceJob(); }
       else setStarting(false);
     })();
   }, [p.signedIn, p.initialLink, p.approved, router]);
@@ -87,7 +87,7 @@ export function Home(p: { signedIn: boolean; initialLink?: string; name?: string
           </>
         )}
 
-        <LinkBox key={restored} signedIn={p.signedIn} initial={restored || (!p.signedIn ? p.initialLink : "")} onStarting={() => setStarting(true)} onFailed={() => setStarting(false)} onStarted={(id) => setScanId(id)} />
+        <LinkBox key={restored} signedIn={p.signedIn} initial={restored || (!p.signedIn ? p.initialLink : "")} onStarting={() => setStarting(true)} onFailed={() => setStarting(false)} onStarted={(id) => { setScanId(id); announceJob(); }} />
 
         {p.signedIn && p.resumeName ? (
           <div className="mute" style={{ margin: "4px 8px 0", display: "flex", alignItems: "center", gap: 8, fontSize: 14, flexWrap: "wrap" }}>

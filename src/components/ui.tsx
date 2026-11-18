@@ -112,24 +112,47 @@ type LiveRow = { id: string; status: string; step?: number | null; company?: str
 const isWorking = (r: LiveRow) => r.status === "queued" || r.status === "scanning";
 
 /** Keeps rows in step with the server while any job is still being worked on. */
+/** Tell every job list on the page that a search just started, so it shows up without a refresh. */
+export const announceJob = () => { try { window.dispatchEvent(new Event("hf:jobs")); } catch { /* no window */ } };
+
+/**
+ * A list of the student's jobs that stays live: new searches appear at once (announceJob or a server
+ * refresh), and running ones update every 2.5 s until they finish.
+ */
 export function useLiveJobs<T extends LiveRow>(initial: T[]) {
   const [rows, setRows] = useState(initial);
+  // The server sent a fresh list (router.refresh): take it.
+  const sig = initial.map((r) => `${r.id}:${r.status}:${r.step ?? ""}`).join(",");
+  useEffect(() => { setRows(initial); }, [sig]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const pull = useCallback(async () => {
+    const r = await fetch("/api/jobs", { cache: "no-store" }).catch(() => null);
+    const d = r && r.ok ? await r.json().catch(() => null) : null;
+    if (!d?.jobs) return;
+    const fresh = new Map<string, LiveRow>(d.jobs.map((j: LiveRow) => [j.id, j]));
+    setRows((x) => {
+      const have = new Set(x.map((row) => row.id));
+      // New jobs (started on this page or elsewhere) go on top, with the fields every list reads.
+      const added = (d.jobs as T[]).filter((j) => !have.has(j.id)).map((j) => ({ verdict: null, people: 0, ...j }) as T);
+      return [...added, ...x.map((row) => {
+        const f = fresh.get(row.id);
+        return f ? { ...row, status: f.status, step: f.step, company: f.company ?? row.company, title: f.title ?? row.title } : row;
+      })];
+    });
+  }, []);
+
+  useEffect(() => {
+    const on = () => { void pull(); };
+    window.addEventListener("hf:jobs", on);
+    return () => window.removeEventListener("hf:jobs", on);
+  }, [pull]);
+
   const working = rows.some(isWorking);
   useEffect(() => {
     if (!working) return;
-    let alive = true;
-    const t = setInterval(async () => {
-      const r = await fetch("/api/jobs", { cache: "no-store" }).catch(() => null);
-      const d = r && r.ok ? await r.json() : null;
-      if (!alive || !d?.jobs) return;
-      const fresh = new Map<string, LiveRow>(d.jobs.map((j: LiveRow) => [j.id, j]));
-      setRows((x) => x.map((row) => {
-        const f = fresh.get(row.id);
-        return f ? { ...row, status: f.status, step: f.step, company: f.company ?? row.company, title: f.title ?? row.title } : row;
-      }));
-    }, 2500);
-    return () => { alive = false; clearInterval(t); };
-  }, [working]);
+    const t = setInterval(() => { void pull(); }, 2500);
+    return () => clearInterval(t);
+  }, [working, pull]);
   return [rows, setRows] as const;
 }
 

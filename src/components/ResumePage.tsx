@@ -3,7 +3,8 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { BackLink, Header, Icon, copyText, useToast } from "./ui";
 import { ResumeUpload } from "./ResumeUpload";
-import { buildDiff, type DiffLine } from "@/lib/resumeDiff";
+import { buildDiff } from "@/lib/resumeDiff";
+import { ResumeDoc, type DocMark } from "./ResumeDoc";
 import { ADDS_TO_RESUME, SKILL_LEVELS } from "@/lib/status";
 
 type Skill = { name: string; level: number; from_job?: string };
@@ -24,38 +25,14 @@ export function ResumePage({ jobId, company, resume, hasResume, skills, initial,
     setEditing((e) => ({ ...e, [skill]: false }));
     await fetch("/api/profile", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ skills: next }) });
   }
-  function jump(skill: string) {
-    setEditing((e) => ({ ...e, [skill]: true }));
-    document.getElementById(`q-${skill}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
-  }
   async function copy(t: string) {
     toast.show((await copyText(t)) ? "Copied" : "Select the text to copy it");
   }
 
-  const Chips = () => (
-    <span style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 4 }}>
-      {qs.map((q) => {
-        const lv = levels[q.skill.toLowerCase()];
-        if (lv === undefined) return <button key={q.skill} onClick={() => jump(q.skill)} style={{ minHeight: 30, padding: "0 10px", borderRadius: 12, border: "1.5px dashed #6B7280", background: "transparent", fontSize: 14, fontWeight: 700, color: "var(--mute)", cursor: "pointer" }}>{q.skill} ?</button>;
-        const yes = ADDS_TO_RESUME(lv);
-        return <span key={q.skill} className="tag" style={yes ? { background: "var(--green-bg)", color: "#1A6B3C", minHeight: 30 } : { background: "#EEF1F5", color: "var(--mute2)", textDecoration: "line-through", minHeight: 30 }}>{q.skill}{yes ? " ✓" : " · not added"}</span>;
-      })}
-    </span>
-  );
-
-  const Line = ({ l, copyable }: { l: DiffLine; copyable?: boolean }) =>
-    l.kind === "head" ? <div className="ln h">{l.text}</div> : (
-      <div className={`ln ${l.kind === "ctx" ? "" : l.kind}`}>
-        <span className="sg">{l.kind === "del" ? "−" : l.kind === "add" ? "+" : ""}</span>
-        <span style={{ flex: 1, minWidth: 0 }}>
-          {l.text}
-          {l.reworded && <span title={l.reason} style={{ marginLeft: 8, fontSize: 12, fontWeight: 700, color: "var(--mute)", background: "#fff", padding: "2px 8px", borderRadius: 8 }}>rewritten from your resume</span>}
-          {l.skills && unanswered > 0 && <Chips />}
-          {l.reworded && l.reason && <span className="mute" style={{ display: "block", fontSize: 14, marginTop: 2 }}>{l.reason}</span>}
-        </span>
-        {copyable && l.kind === "add" && <button className="cbtn" onClick={() => copy(l.text)} aria-label="Copy line">Copy</button>}
-      </div>
-    );
+  const [clean, setClean] = useState(false);
+  const marks: Record<number, DocMark> = {};
+  diff?.right.forEach((r, i) => { if (r.kind === "add") marks[i] = { old: r.reworded ? diff.left[i]?.text : undefined, reason: r.reason || (r.skills ? "Skills you said you've used" : undefined) }; });
+  const changed = Object.keys(marks).length;
 
   return (
     <>
@@ -128,16 +105,20 @@ export function ResumePage({ jobId, company, resume, hasResume, skills, initial,
               </section>
             )}
 
-            <p className="mute" style={{ margin: "24px 8px 0", fontSize: 16 }}>
-              <span style={{ color: "#B8132F", fontWeight: 700 }}>Red</span> lines are removed. <span style={{ color: "#1A6B3C", fontWeight: 700 }}>Green</span> lines are new. Tap <b>Copy</b> to paste a line into your own resume, or just download the PDF.
-            </p>
-            <div className="two" style={{ marginTop: 12 }}>
-              <section className="card" style={{ padding: "22px 18px" }}><div className="lbl" style={{ padding: "0 10px 10px" }}>Before</div>{diff!.left.map((l, i) => <Line key={i} l={l} />)}</section>
-              <section className="card" style={{ padding: "22px 18px" }}><div className="lbl" style={{ padding: "0 10px 10px", color: "#1A6B3C" }}>After, for {company}</div>{diff!.right.map((l, i) => <Line key={i} l={l} copyable />)}</section>
-            </div>
-            <section className="card one" style={{ marginTop: 12, padding: "18px 12px" }}>
-              <div className="lbl" style={{ padding: "0 10px 10px" }}>Your resume, changed for {company}</div>
-              {diff!.unified.map((l, i) => <Line key={i} l={l} copyable />)}
+            <section className="card" style={{ marginTop: 24, padding: "20px 16px 24px" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", padding: "0 8px 16px" }}>
+                <div style={{ minWidth: 0 }}>
+                  <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Your resume for {company}</h2>
+                  <p className="mute" style={{ margin: "4px 0 0", fontSize: 14 }}>{clean ? "This is exactly what the PDF looks like." : `${changed} ${changed === 1 ? "line" : "lines"} changed, in green. The old line is crossed out under it. Tap Copy to paste a line into your own resume.`}</p>
+                </div>
+                <div role="radiogroup" aria-label="View" style={{ display: "flex", gap: 6 }}>
+                  <button className="opt" role="radio" aria-checked={!clean} onClick={() => setClean(false)}>Show changes</button>
+                  <button className="opt" role="radio" aria-checked={clean} onClick={() => setClean(true)}>Final</button>
+                </div>
+              </div>
+              <div style={{ background: "var(--bg)", borderRadius: 20, padding: "20px 12px" }}>
+                <ResumeDoc lines={diff!.final} marks={clean ? undefined : marks} onCopy={copy} />
+              </div>
             </section>
             {resume.edits.length === 0 && !diff!.addedSkills.length && <p className="mute" style={{ margin: "12px 8px" }}>Your resume already fits this job well, so we didn&apos;t change any lines.</p>}
 

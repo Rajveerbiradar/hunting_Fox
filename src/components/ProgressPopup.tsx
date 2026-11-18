@@ -41,7 +41,6 @@ export function ProgressPopup({ jobId, email, onClose }: { jobId: string | null;
   const done = job?.status === "ready";
   const problem = job && ["failed", "closed", "fake"].includes(job.status) ? PROBLEMS[job.error === "not_found" ? "not_found" : job.error === "own_key_out" ? "own_key_out" : job.status] : null;
   const company = job?.company || "this job";
-  const secs = [50, 40, 30, 15, 5][Math.min(step, 4)];
 
   return (
     <div className="ov">
@@ -95,7 +94,7 @@ export function ProgressPopup({ jobId, email, onClose }: { jobId: string | null;
             ) : (
               <>
                 <p className="mute" style={{ margin: "16px 0 0", fontSize: 14, lineHeight: 1.5 }}>
-                  About {secs} seconds left. You can close this. We&apos;ll keep going{email ? <> and you&apos;ll find it in My jobs</> : null}.
+                  {step >= 3 ? "Almost there." : "This usually takes about a minute."} You can close this. We&apos;ll keep going{email ? <> and you&apos;ll find it in My jobs</> : null}.
                 </p>
                 <div style={{ marginTop: 18, display: "flex", justifyContent: "flex-end" }}>
                   <button className="btn lg sec" onClick={onClose}>Close and keep going</button>

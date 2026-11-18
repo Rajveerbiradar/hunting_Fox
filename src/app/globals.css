@@ -182,3 +182,27 @@ h1, h2, h3 { text-wrap: balance; }
 .sk { background: linear-gradient(90deg, var(--fill) 25%, #f1f3f6 50%, var(--fill) 75%); background-size: 200% 100%; animation: hfsk 1.2s ease-in-out infinite; border-radius: 14px; }
 @keyframes hfsk { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 @media (prefers-reduced-motion: reduce) { .sk, .navbar { animation: none; } }
+
+/* Resume template (ResumeDoc): the same look on the site, the shared link and the PDF. */
+.rdoc { background: #fff; color: #101828; font-size: 14px; line-height: 1.5; max-width: 794px; margin: 0 auto; padding: 48px 52px; box-shadow: 0 1px 3px rgba(16, 24, 40, .08), 0 8px 24px rgba(16, 24, 40, .06); border-radius: 6px; }
+.rdoc h1 { margin: 0; font-size: 28px; line-height: 1.15; font-weight: 700; letter-spacing: -.02em; text-align: center; }
+.rdoc .rc { margin: 6px 0 0; text-align: center; color: #5b6472; font-size: 13px; }
+.rdoc h2 { margin: 18px 0 6px; padding-bottom: 4px; border-bottom: 1.5px solid #101828; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
+.rdoc .re { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 8px 0 2px; }
+.rdoc .re span { color: #5b6472; font-size: 13px; white-space: nowrap; }
+.rdoc p { margin: 2px 0; }
+.rdoc .rb { position: relative; padding-left: 14px; }
+.rdoc .rb::before { content: "•"; position: absolute; left: 2px; }
+.rdoc .rmark { position: relative; background: var(--green-bg); margin: 2px -10px; padding: 4px 64px 4px 10px; border-radius: 8px; }
+.rdoc .rold { color: #5b6472; text-decoration: line-through; font-size: 13px; }
+.rdoc .rwhy { color: #1a6b3c; font-size: 13px; font-weight: 600; }
+.rdoc .cbtn { position: absolute; top: 4px; right: 6px; min-height: 30px; padding: 0 10px; border-radius: 10px; border: 0; background: #fff; font-size: 13px; font-weight: 600; color: var(--green); cursor: pointer; }
+.rdoc.clean .rmark, .rdoc .rmark.clean { background: none; padding: 0; margin: 0; }
+@media (max-width: 640px) { .rdoc { padding: 28px 20px; } .rdoc h1 { font-size: 24px; } }
+@media print {
+  @page { size: A4; margin: 14mm; }
+  .rdoc { box-shadow: none; padding: 0; max-width: none; border-radius: 0; }
+  .rdoc .rmark { background: none; padding: 0; margin: 0; }
+  .rdoc .rold, .rdoc .rwhy { display: none; }
+}
+@media print { main:has(> .rdoc), main:has(> div > .rdoc) { padding: 0 !important; background: #fff !important; min-height: 0 !important; } }

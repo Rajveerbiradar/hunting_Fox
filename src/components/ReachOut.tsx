@@ -1,23 +1,53 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BackLink, Header, Icon, Spinner, copyText, letterTile, useToast } from "./ui";
 import type { Person } from "@/lib/pipeline/types";
 
 const enc = encodeURIComponent;
 
-export function ReachOut(p: { jobId: string; company: string; big: boolean; people: Person[]; hiringEmail?: string; sentTo: string[]; initial: string; missingName: boolean }) {
+export function ReachOut(p: { jobId: string; company: string; big: boolean; people: Person[]; hiringEmail?: string; sentTo: string[]; initial: string; missingName: boolean; finishedAt?: string | null }) {
   const [people, setPeople] = useState(p.people);
   const [sel, setSel] = useState(people[0]?.id);
-  const [more, setMore] = useState(false);
-  const [rewriting, setRewriting] = useState(false);
-  async function rewrite() {
-    setRewriting(true);
-    const r = await fetch(`/api/jobs/${p.jobId}/more`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ rewrite: true }) }).catch(() => null);
+  const [rewriting, setRewriting] = useState<string | null>(null);
+  const pendingCount = people.filter((x) => !x.written).length;
+  const nudged = useRef(false);
+
+  // Messages are written in the background, everyone at once. Poll until all are in;
+  // each card fills in the moment its message is saved. If nothing new arrives for 75s, ask the server to finish the rest.
+  useEffect(() => {
+    if (!pendingCount) return;
+    let alive = true, last = Date.now(), lastDone = people.length - pendingCount;
+    const tick = async () => {
+      const r = await fetch(`/api/jobs/${p.jobId}`, { cache: "no-store" }).catch(() => null);
+      const d = r && r.ok ? await r.json().catch(() => null) : null;
+      if (!alive) return;
+      const fresh: Person[] | undefined = d?.report?.people;
+      if (fresh?.length) {
+        setPeople((cur) => fresh.map((f) => (f.written ? f : cur.find((c) => c.id === f.id) || f)));
+        const done = fresh.filter((x) => x.written).length;
+        if (done > lastDone) { lastDone = done; last = Date.now(); }
+        if (done === fresh.length) return;
+      }
+      // Old job, or the background writing stopped: finish the rest now.
+      const stale = p.finishedAt && Date.now() - new Date(p.finishedAt).getTime() > 240_000;
+      if ((stale || Date.now() - last > 75_000) && !nudged.current) {
+        nudged.current = true;
+        fetch(`/api/jobs/${p.jobId}/more`, { method: "POST" }).catch(() => null);
+      }
+      setTimeout(tick, 2000);
+    };
+    const t = setTimeout(tick, 1500);
+    return () => { alive = false; clearTimeout(t); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [p.jobId, pendingCount > 0]);
+
+  async function rewrite(id: string) {
+    setRewriting(id);
+    const r = await fetch(`/api/jobs/${p.jobId}/more`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ids: [id] }) }).catch(() => null);
     const d = r ? await r.json().catch(() => ({})) : {};
-    if (d.people) setPeople(d.people);
-    setRewriting(false);
+    if (d.people) { setPeople(d.people); setNotes((n) => { const c = { ...n }; delete c[id]; return c; }); setBodies((b) => { const c = { ...b }; delete c[id]; return c; }); }
+    setRewriting(null);
   }
-  const [loadingMore, setLoadingMore] = useState(false);
   const [sent, setSent] = useState<string[]>(p.sentTo);
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [bodies, setBodies] = useState<Record<string, string>>({});
@@ -27,15 +57,6 @@ export function ReachOut(p: { jobId: string; company: string; big: boolean; peop
   const note = cur ? notes[cur.id] ?? cur.note ?? "" : "";
   const body = cur ? bodies[cur.id] ?? cur.body ?? "" : "";
 
-  async function showMore() {
-    setMore(!more);
-    if (more || people.slice(2).every((x) => x.written)) return;
-    setLoadingMore(true);
-    const r = await fetch(`/api/jobs/${p.jobId}/more`, { method: "POST" });
-    const d = await r.json().catch(() => ({}));
-    if (d.people) setPeople(d.people);
-    setLoadingMore(false);
-  }
   async function toggleSent(id: string) {
     const next = sent.includes(id) ? sent.filter((x) => x !== id) : [...sent, id];
     setSent(next);
@@ -53,6 +74,7 @@ export function ReachOut(p: { jobId: string; company: string; big: boolean; peop
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
           <span className="tag" style={x.active === "Active" ? { background: "var(--green-bg)", color: "#1A6B3C" } : { background: "#EEF1F5", color: "var(--mute)" }}>{x.active}</span>
+          {!x.written && <span className="tag" style={{ background: "#EEF1F5", color: "var(--mute)", gap: 6 }}><Spinner size={12} />Writing</span>}
           {sent.includes(x.id) && <span className="tag" style={{ background: "#E7EFFA", color: "#164A88" }}>✓ Sent</span>}
         </div>
       </button>
@@ -76,17 +98,11 @@ export function ReachOut(p: { jobId: string; company: string; big: boolean; peop
           </div>
         ) : (
           <>
-            <div style={{ marginTop: 28, display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-              <span className="lbl">Start with {people.length > 1 ? "these 2" : "this person"}</span>
-              <button className="btn ghost sm" disabled={rewriting} onClick={rewrite}>{rewriting ? <Spinner size={16} /> : null}{rewriting ? "Writing them again…" : "Write them again"}</button>
+            <div style={{ marginTop: 28, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+              <span className="lbl">Best first · start with the top 2</span>
+              {pendingCount > 0 && <span className="mute" style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 14 }}><Spinner size={16} />{people.length - pendingCount} of {people.length} messages ready</span>}
             </div>
-            <div className="people" style={{ marginTop: 12 }}>{people.slice(0, 2).map(Card)}</div>
-            {people.length > 2 && (
-              <>
-                <button className="btn on-grey" style={{ marginTop: 12 }} onClick={showMore} aria-expanded={more}>{loadingMore ? <Spinner size={18} /> : null}{more ? `Hide ${people.length - 2} more` : `Show ${people.length - 2} more ${people.length - 2 === 1 ? "person" : "people"}`}</button>
-                {more && <div className="people" style={{ marginTop: 12 }}>{people.slice(2).map(Card)}</div>}
-              </>
-            )}
+            <div className="people" style={{ marginTop: 12 }}>{people.map(Card)}</div>
 
             {cur && (
               <section className="card" style={{ marginTop: 24, padding: 26 }}>
@@ -98,8 +114,8 @@ export function ReachOut(p: { jobId: string; company: string; big: boolean; peop
                   <button className="btn" style={sent.includes(cur.id) ? { background: "#E7EFFA", color: "#164A88" } : { background: "var(--bg)" }} onClick={() => toggleSent(cur.id)} aria-pressed={sent.includes(cur.id)}>{sent.includes(cur.id) ? "✓ Sent" : "I sent it"}</button>
                 </div>
 
-                {!cur.written ? (
-                  <div className="row" style={{ padding: "24px 0 0" }}><Spinner size={20} />Writing messages for {cur.first}…</div>
+                {!cur.written || rewriting === cur.id ? (
+                  <div className="row" style={{ padding: "24px 0 0" }}><Spinner size={20} />Writing {cur.first}&apos;s messages from their profile…</div>
                 ) : (
                   <>
                     <div style={{ marginTop: 26, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
@@ -112,6 +128,7 @@ export function ReachOut(p: { jobId: string; company: string; big: boolean; peop
                     <div style={{ marginTop: 12, display: "flex", gap: 10, flexWrap: "wrap" }}>
                       <button className="btn pri" onClick={() => (note.length > 200 ? toast.show("Make it 200 characters or less first") : copy(note, "Note copied"))}>Copy note</button>
                       {cur.profileUrl && <a className="btn sec" href={cur.profileUrl} target="_blank" rel="noopener">Open {cur.first}&apos;s profile{Icon.ext()}</a>}
+                      <button className="btn ghost" onClick={() => rewrite(cur.id)}>Write it again</button>
                     </div>
 
                     <div style={{ marginTop: 30, paddingTop: 26, borderTop: "1px solid var(--line)" }}>

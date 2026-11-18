@@ -1,13 +1,16 @@
 import { NextResponse } from "next/server";
 import { adminClient, currentUser } from "@/lib/supabase/clients";
 import { access } from "@/lib/limits";
-import { writePerson } from "@/lib/pipeline/run";
+import { writeMany } from "@/lib/pipeline/run";
 import { knownSkills } from "@/lib/pipeline/rules";
 import type { Person } from "@/lib/pipeline/types";
 
-export const maxDuration = 60;
+export const maxDuration = 300;
 
-/** Writes messages for the people after the top 2 when the student taps "Show more people", or rewrites them on "Write them again". */
+/**
+ * { ids: [...] }: write those people's messages again ("Write it again").
+ * No body: finish anyone still without a message (the page calls this if the background writing stopped).
+ */
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const user = await currentUser();
@@ -32,9 +35,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     job: { key_skills: report?.job_data?.keySkills, description: report?.job_data?.description },
     student: { skills: knownSkills(profile || {}), projects: profile?.resume_profile?.projects, education: (profile?.education?.length ? profile.education : profile?.resume_profile?.education || []).map((e: { school: string }) => e.school) },
   };
-  // { rewrite: true }: write the messages again for the people already shown (the first 2, plus any written later).
-  const { rewrite } = await req.json().catch(() => ({ rewrite: false }));
-  const updated = await Promise.all(people.map((p, i) => (rewrite ? (p.written || i < 2 ? writePerson(p, ctx, profile?.resume_profile || null) : p) : p.written ? p : writePerson(p, ctx, profile?.resume_profile || null))));
-  await sb.from("reports").update({ people: updated }).eq("job_id", id);
-  return NextResponse.json({ people: updated });
+  const { ids } = await req.json().catch(() => ({ ids: null }));
+  const targets = Array.isArray(ids) ? people.filter((p) => ids.includes(p.id)) : people.filter((p) => !p.written);
+  await writeMany(id, targets, ctx, profile?.resume_profile || null);
+  const { data: fresh } = await sb.from("reports").select("people").eq("job_id", id).single();
+  return NextResponse.json({ people: fresh?.people || people });
 }

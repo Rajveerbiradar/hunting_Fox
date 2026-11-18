@@ -81,8 +81,8 @@ Server-only tables have RLS on and no policies; the app reads them with the serv
 1. Check company — `rules.ts` `checkCompany` (fake / closed / agency stop here; they don't count as a search)
 2. Find people — `fetchPeople` (b2bsearch by domain, harvestapi fallback), cached per company for 7 days, minus `blocked_people`
 3. Resume changes ∥ rank people — run in parallel; each falls back silently. Resume (`prompts/resume-changes.md`, `resumeTask` in run.ts): the **job description is the main source** — AI pulls the exact ATS words (`keywords`) and rewrites only real lines (resume text + skills the student confirmed at level 2+). People in the **same role** (`sameRole` in rules.ts, seniority ignored) are only a hint. Any skill not on the resume becomes a question (`ask` → `skill_questions`), never an edit; code drops any edit that adds a known skill word the student hasn't got, and never re-asks skills they said no to. Fallback questions = job post's key skills only
-4. Write messages — AI writes each person's LinkedIn note (≤200 chars) and email from their profile (title, headline, about, skills, career) and the student's real details (`prompts/write-messages.md`, `writePerson` in run.ts). Top 2 at scan time, the rest on "Show more people" (`/api/jobs/[id]/more`). The resume link is added only if the student has a resume. Template in `rules.ts` is only the fallback if every AI provider fails
-5. Done → `reports` row, `events` "finished"
+4. Ready + write messages — the job is marked **ready right after step 3** (report saved with every person `written: false`). Then `writeMany` (run.ts) writes every person's LinkedIn note (≤200 chars) and email **8 at a time, best first**, from their profile and the student's real details (`prompts/write-messages.md`, `writePerson`). Each finished person is saved at once (re-read + replace by id), so `/jobs/[id]/reach-out` polls and fills each card live (per-person "Writing" spinner). A person over 45 s gets the template from `rules.ts`. If nothing new arrives for 75 s, or the job finished 4+ min ago, the page calls `POST /api/jobs/[id]/more` to finish the rest; `{ids:[id]}` rewrites one person ("Write it again"). The resume link is added only if the student has a resume
+5. `events` "finished" is written when the job turns ready, before messages
 
 `jobs.step` (0–5) + `step_detail` drive the progress popup, the live "three dots" step on Home/My jobs and admin Jobs.
 
@@ -112,6 +112,10 @@ Student: `/` (Home: paste box, resume, news, ask-for-more), `/sign-in`, `/jobs` 
 Admin: `/admin` single page with a menu (`#students`, `#requests`, `#jobs`, `#keys`, `#usage`, `#removals`, `#settings`). Server guard `requireAdmin()` on every admin API.
 
 APIs: `src/app/api/**` — jobs, resume, profile, account, account/keys, requests, remove-info, cron (daily: retry stuck, flip no-reply, 30-day delete, refresh credit), admin, admin/{keys,requests,jobs,usage,removals,settings}.
+
+## Resume template
+
+Every resume is drawn by `ResumeDoc` (src/components/ResumeDoc.tsx): on upload check, the job's resume page (one block, "Show changes" / "Final"), the PDF (`/jobs/[id]/resume/print`) and the shared link (`/r/[token]`). Stored as lines in a small format that `prompts/resume-profile.md` produces on upload: `# Name`, `@ contact`, `## Section`, `### Title, Place | Dates`, `- bullet`, plain lines, `**bold**`. `buildDiff` keeps the line marker when an edit drops it and adds confirmed skills after a `Label:` in the skills line. Old resumes (plain lines) still render; re-upload converts them. Students with no resume can copy a ChatGPT prompt from the upload card that writes one in this format, then upload it as .txt.
 
 ## Design rules (v2) — keep to these
 

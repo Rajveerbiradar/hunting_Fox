@@ -1,18 +1,12 @@
 import { AutoPrint } from "./AutoPrint";
+import { ResumeDoc } from "./ResumeDoc";
 
+/** A full page with just the resume in our template. Used for the PDF download and the shared link. */
 export function ResumeSheet({ lines, print = true }: { lines: string[]; print?: boolean }) {
-  const [name, ...rest] = lines;
   return (
-    <main style={{ maxWidth: 760, margin: "0 auto", padding: "48px max(16px, 6vw)", background: "#fff", minHeight: "100vh", fontSize: 14, lineHeight: 1.55 }}>
-      {print && <AutoPrint />}
-      <h1 style={{ margin: 0, fontSize: 26 }}>{name?.replace(/^##\s*/, "")}</h1>
-      {rest.map((l, i) =>
-        l.startsWith("## ") ? (
-          <h2 key={i} style={{ margin: "20px 0 6px", fontSize: 12, textTransform: "uppercase", letterSpacing: ".08em", borderBottom: "1px solid #ddd", paddingBottom: 4 }}>{l.slice(3)}</h2>
-        ) : (
-          <p key={i} style={{ margin: "2px 0" }}>{l}</p>
-        )
-      )}
+    <main style={{ padding: "32px max(16px, env(safe-area-inset-left, 0px)) 48px", background: "#f2f4f7", minHeight: "100vh" }}>
+      {print && <div style={{ maxWidth: 794, margin: "0 auto 16px" }}><AutoPrint /></div>}
+      <ResumeDoc lines={lines} />
     </main>
   );
 }

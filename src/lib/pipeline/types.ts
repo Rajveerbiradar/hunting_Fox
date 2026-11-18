@@ -69,4 +69,6 @@ export type ResumeProfile = {
   projects?: { title: string; detail: string }[];
   education?: { school: string; what: string; from?: string | null; to?: string | null }[];
   lines?: string[];
+  /** What a resume normally has that this one lacks (shown once after upload). */
+  missing?: string[];
 };

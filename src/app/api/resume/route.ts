@@ -54,7 +54,7 @@ export async function POST(req: Request) {
     pending_resume_text: lines.join("\n"),
     pending_resume_profile: { ...profile, lines: undefined, file_name: file.name },
   }).eq("id", user.id);
-  return NextResponse.json({ file_name: file.name, lines, profile });
+  return NextResponse.json({ file_name: file.name, lines, profile, missing: (profile.missing || []).slice(0, 5) });
 }
 
 /** Confirm: "Yes, use this". */

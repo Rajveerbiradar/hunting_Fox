@@ -216,9 +216,9 @@ async function scan(job: any) {
 
   await setStep(job.id, 4, resume ? `${resume.edits.length} changes${resume.skill_questions.length ? `, and ${resume.skill_questions.length} quick questions for you` : ""}` : "No resume yet, so no resume changes");
 
-  // 5. Messages: the top 2 now (the rest when the student asks), written by AI from each person's profile.
-  // The resume link goes in only if the student has a resume.
-  const top = ordered.slice(0, 2);
+  // 5. The job is ready as soon as the resume changes and the people list are done.
+  // Messages are written right after, for everyone at once (8 at a time, top people first);
+  // each person's card fills in on the page the moment theirs is saved.
   const hasResume = !!(rp || profile?.resume_text);
   const ctx: MsgCtx = {
     role: jd.title,
@@ -231,20 +231,59 @@ async function scan(job: any) {
     student: { skills: student.skills, projects: rp?.projects, education: student.education },
     job: { key_skills: jd.keySkills, description: jd.description },
   };
-  const written = await Promise.all(top.map((p) => writePerson(p, ctx, rp, own.ai)));
-  const people_final = [...written, ...ordered.slice(2)];
-  const notes = written.filter((p) => p.note).length;
-  const emails = written.filter((p) => p.email).length;
-  await setStep(job.id, 5, `${notes} LinkedIn notes${emails ? ` and ${emails} emails` : ""}, ready to copy`);
-
-  await sb.from("reports").update({ people: people_final, resume, checks }).eq("job_id", job.id);
-  await sb.from("jobs").update({ status: "ready", step: 5, finished_at: new Date().toISOString() }).eq("id", job.id);
+  const pending = ordered.map((p) => ({ ...p, written: false, note: undefined, subject: undefined, body: undefined }));
+  await sb.from("reports").update({ people: pending, resume, checks }).eq("job_id", job.id);
+  await sb.from("jobs").update({ status: "ready", step: 5, step_detail: pending.length ? `Writing ${pending.length === 1 ? "the message" : `all ${pending.length} messages`} now. Each one shows up as soon as it's ready` : "No one to message", finished_at: new Date().toISOString() }).eq("id", job.id);
   await sb.from("events").insert({ user_id: job.user_id, job_id: job.id, name: "finished" });
   if (profile?.email_ready && profile?.email)
     await sendEmail(profile.email, `${company.name} is ready`, `Here's what to do for the ${jd.title} job at ${company.name}:\n${SITE()}/jobs/${job.id}\n\nHunting Fox never sends anything for you.`);
+
+  await writeMany(job.id, pending, ctx, rp, own.ai);
 }
 
-type MsgCtx = Parameters<typeof buildMessages>[1] & {
+const PARALLEL = 8;
+const PER_PERSON_MS = 45_000;
+
+/**
+ * Write messages for many people at once: PARALLEL at a time, in list order (best first).
+ * Each finished person is saved straight away, so the page shows it without waiting for the rest.
+ * A person that takes longer than PER_PERSON_MS gets the plain version so nobody waits forever.
+ * Never throws.
+ */
+export async function writeMany(jobId: string, targets: Person[], ctx: MsgCtx, rp: ResumeProfile | null, ownAi?: Provider | null) {
+  if (!targets.length) return [];
+  const t0 = Date.now();
+  const sb = adminClient();
+  let chain: Promise<unknown> = Promise.resolve();
+  // Saves run one after another, each re-reading the list and replacing only this person.
+  const save = (p: Person) => (chain = chain.then(async () => {
+    const { data } = await sb.from("reports").select("people").eq("job_id", jobId).single();
+    const list: Person[] = (data?.people || []).map((x: Person) => (x.id === p.id ? p : x));
+    await sb.from("reports").update({ people: list }).eq("job_id", jobId);
+  }).catch((e) => jlog("warn", "messages", `Couldn't save ${p.first}'s message: ${String(e?.message || e).slice(0, 160)}`)));
+  const queue = [...targets];
+  const out: Person[] = [];
+  const worker = async () => {
+    while (queue.length) {
+      const p = queue.shift()!;
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const late = new Promise<Person>((res) => { timer = setTimeout(() => {
+        void jlog("warn", "messages", `${p.first} took over ${PER_PERSON_MS / 1000}s, using the plain version`);
+        res({ ...p, line: undefined, ...buildMessages({ ...p, line: undefined }, ctx), written: true });
+      }, PER_PERSON_MS); });
+      const w = await Promise.race([writePerson(p, ctx, rp, ownAi), late]).catch(() => ({ ...p, ...buildMessages({ ...p, line: undefined }, ctx), written: true }));
+      clearTimeout(timer);
+      out.push(w);
+      await save(w);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(PARALLEL, targets.length) }, worker));
+  await chain;
+  await jlog("info", "messages", `Wrote ${out.length} ${out.length === 1 ? "message" : "messages"} in ${Math.round((Date.now() - t0) / 1000)}s (${PARALLEL} at a time)`);
+  return out;
+}
+
+export type MsgCtx = Parameters<typeof buildMessages>[1] & {
   student?: { skills?: string[]; projects?: { title: string; detail: string }[]; education?: string[] };
   job?: { key_skills?: string[]; description?: string };
 };

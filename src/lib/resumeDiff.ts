@@ -31,9 +31,19 @@ export function buildDiff(r: ResumePart, levels: Record<string, number>) {
     let next = l;
     let reworded = false, reason: string | undefined;
     const e = edits.get(l);
-    if (e) { next = e.new; reworded = true; reason = e.reason; }
+    if (e) {
+      next = e.new;
+      // Keep the template marker of the old line ("- ", "### ") if the AI dropped it.
+      const marker = l.match(/^(### |- |• |@ |# )/)?.[0];
+      if (marker && !next.startsWith(marker)) next = marker + next.replace(/^(#{1,3} |[-•] |@ )/, "");
+      reworded = true; reason = e.reason;
+    }
     const skillsHere = i === si;
-    if (skillsHere && added.length) next = `${added.join(", ")}, ${next}`;
+    if (skillsHere && added.length) {
+      // "- Tools: Figma, Excel" → "- Tools: Photoshop, Figma, Excel": new skills go after the bullet and label.
+      const pre = next.match(/^([-•] )?([^:,]{1,30}:\s*)?/)?.[0] || "";
+      next = `${pre}${added.join(", ")}, ${next.slice(pre.length)}`;
+    }
     if (next !== l) {
       left.push({ kind: "del", text: l });
       right.push({ kind: "add", text: next, reworded, reason, skills: skillsHere });

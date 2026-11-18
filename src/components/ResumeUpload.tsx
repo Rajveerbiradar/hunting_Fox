@@ -1,7 +1,29 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
-import { Icon, Spinner } from "./ui";
+import { Icon, Spinner, copyText } from "./ui";
+import { ResumeDoc } from "./ResumeDoc";
+
+/** For students with no resume, or one we can't read: paste into ChatGPT (or any AI), save the answer as a .txt file, upload it. */
+const AI_PROMPT = `Write my resume in this exact plain-text format, using only facts I give you. Ask me questions first if you need more (education, internships, projects, skills, links). Don't invent anything.
+
+# Full Name
+@ email · phone · city · LinkedIn link
+## Summary
+Two lines about what I do.
+## Experience
+### Role, Company | Mon YYYY – Mon YYYY
+- What I did and the result, with a number if I gave one
+## Projects
+### Project name | Mon YYYY
+- What it does, what I built, what tools I used
+## Education
+### Degree, College | YYYY – YYYY
+## Skills
+Languages: ...
+Tools: ...
+
+When it's done, give me only the resume in that format, nothing else.`;
 
 /** Upload → "Did we read your resume correctly?" → confirm. Used on Home, Account and the resume page. */
 export function ResumeUpload({ signedIn, compact, current, onDone }: { signedIn: boolean; compact?: boolean; current?: string; onDone?: () => void }) {
@@ -11,6 +33,8 @@ export function ResumeUpload({ signedIn, compact, current, onDone }: { signedIn:
   const [lines, setLines] = useState<string[]>([]);
   const [file, setFile] = useState("");
   const [err, setErr] = useState("");
+  const [missing, setMissing] = useState<string[]>([]);
+  const [showPrompt, setShowPrompt] = useState(false);
 
   function pick() {
     if (!signedIn) return router.push("/sign-in");
@@ -29,6 +53,7 @@ export function ResumeUpload({ signedIn, compact, current, onDone }: { signedIn:
       return setState("error");
     }
     setLines(d.lines || []);
+    setMissing(d.missing || []);
     setState("check");
   }
 
@@ -52,15 +77,35 @@ export function ResumeUpload({ signedIn, compact, current, onDone }: { signedIn:
             </span>
           </div>
           <button className="btn sec" onClick={pick}>{Icon.upload()}{current ? "Change" : "Add resume"}</button>
+          {!compact && (
+            <div style={{ flex: "1 1 100%", fontSize: 14 }}>
+              <button className="lnk" onClick={() => setShowPrompt(!showPrompt)} aria-expanded={showPrompt} style={{ background: "none", border: 0, padding: 0, color: "var(--ink)", fontWeight: 600, textDecoration: "underline", cursor: "pointer", fontSize: 14 }}>
+                {current ? "Want to make a fresh one with ChatGPT?" : "No resume, or we can't read yours? Make one with ChatGPT"}
+              </button>
+              {showPrompt && (
+                <div style={{ marginTop: 10, background: "var(--sunken)", borderRadius: 16, padding: 16 }}>
+                  <p className="mute" style={{ margin: "0 0 10px", lineHeight: 1.5 }}>1. Copy this and paste it into ChatGPT (or any AI). 2. Answer its questions. 3. Save its answer as a .txt file. 4. Tap {current ? "Change" : "Add resume"} and pick that file.</p>
+                  <pre style={{ margin: 0, whiteSpace: "pre-wrap", fontFamily: "inherit", fontSize: 14, lineHeight: 1.5 }}>{AI_PROMPT}</pre>
+                  <button className="btn sec" style={{ marginTop: 10 }} onClick={async () => { await copyText(AI_PROMPT); }}>Copy</button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       ) : state === "reading" ? (
         <div className="row"><Spinner size={22} label="Reading" /><span style={{ fontSize: 16, fontWeight: 600 }}>Reading {file}…</span></div>
       ) : (
         <div className="row" style={{ flexDirection: "column", alignItems: "stretch" }}>
           <div style={{ fontSize: 16, fontWeight: 700 }}>Did we read your resume correctly?</div>
-          <div className="mute" style={{ fontSize: 14 }}>Here&apos;s what we read from {file}. Your downloaded resumes will use one simple, clean layout, not your original design.</div>
-          <div style={{ background: "var(--bg)", borderRadius: 18, padding: "16px 18px", fontSize: 16, lineHeight: 1.6, maxHeight: 320, overflow: "auto" }}>
-            {lines.map((l, i) => l.startsWith("## ") ? <div key={i} style={{ fontWeight: 700, marginTop: 10 }}>{l.slice(3)}</div> : <div key={i}>{l}</div>)}
+          <div className="mute" style={{ fontSize: 14 }}>Here&apos;s {file} in our resume layout. Every resume you download from Hunting Fox uses this layout.</div>
+          {missing.length > 0 && (
+            <div style={{ background: "#ffefb0", color: "#4f3e00", borderRadius: 14, padding: "12px 14px", fontSize: 14, lineHeight: 1.5 }}>
+              <b>⚠ Worth adding to your resume</b>
+              {missing.map((m) => <div key={m}>{m}</div>)}
+            </div>
+          )}
+          <div style={{ background: "var(--bg)", borderRadius: 18, padding: "16px 12px" }}>
+            <ResumeDoc lines={lines} />
           </div>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             <button className="btn pri" onClick={() => confirm(true)}>Yes, use this</button>

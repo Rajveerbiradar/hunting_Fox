@@ -15,8 +15,8 @@ export const STEPS = [
   { label: "Reading the job", running: "Opening the link" },
   { label: "Checking the company is real", running: "Looking at their LinkedIn page, website and who posted the job" },
   { label: "Finding people who work there", running: "Searching public LinkedIn profiles" },
-  { label: "Working out what to change in your resume", running: "Comparing your resume with the people on this team" },
-  { label: "Writing a message for each person", running: "Using what we found on each person's profile" },
+  { label: "Working out what to change in your resume", running: "Matching your resume to the words in the job post" },
+  { label: "Writing a message for each person", running: "Starting on everyone at once" },
 ];
 
 export const SKILL_LEVELS = ["Never used it", "Know about it", "Used in a project", "Used at a company", "Use it daily", "Expert"];

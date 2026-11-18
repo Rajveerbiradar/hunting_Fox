@@ -14,6 +14,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
       people={report?.people || []}
       hiringEmail={report?.job_data?.hiringEmail}
       sentTo={job.sent_to || []}
+      finishedAt={job.finished_at}
       initial={(profile?.name || user.email || "?")[0]}
       missingName={!profile?.name}
     />

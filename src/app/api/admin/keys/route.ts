@@ -4,6 +4,7 @@ import { requireAdmin } from "@/lib/admin";
 import { decrypt, encrypt, last4, saveSetting, settings } from "@/lib/secrets";
 import { checkToken, pooledCredit } from "@/lib/apify";
 import { testProvider } from "@/lib/ai";
+import { clefConfig, testClef } from "@/lib/clef";
 
 /** Never returns a key: only its last 4 characters. */
 async function overview() {
@@ -27,7 +28,11 @@ async function overview() {
   const envAi = process.env.AI_API_KEY || process.env.ANTHROPIC_API_KEY;
   const ai = (provs || []).map((p) => ({ id: p.id, name: p.name, base: p.base_url, model: p.model, last4: p.last4, ok: p.ok, error: p.last_error, source: "admin" as const }));
   if (envAi) ai.push({ id: "env", name: "From Vercel settings", base: process.env.AI_BASE_URL || "https://api.anthropic.com/v1/", model: process.env.AI_MODEL || process.env.WRITER_MODEL || "claude-haiku-5-5", last4: last4(envAi), ok: true, error: null, source: "env" as never });
-  return { apify, pool, ai, writer: vals.writer_provider || "", ranker: vals.ranker_provider || "", scanMode: vals.scan_mode || "auto" };
+  const clef = await clefConfig();
+  return {
+    apify, pool, ai, writer: vals.writer_provider || "", ranker: vals.ranker_provider || "", scanMode: vals.scan_mode || "auto",
+    clef: clef ? { set: true, accountId: clef.accountId, model: clef.model, last4: last4(clef.token) } : { set: false },
+  };
 }
 
 async function tokenFor(label: string) {
@@ -118,6 +123,22 @@ export async function POST(req: Request) {
     }
     case "ai_remove":
       await sb.from("ai_providers").delete().eq("id", b.id);
+      break;
+    // Clef (Cloudflare decision model) for ranking people. Test first; save only if it passes.
+    case "clef_test":
+    case "clef_save": {
+      const cfg = { accountId: String(b.accountId || "").trim(), token: String(b.token || "").trim(), model: (b.model === "clef" ? "clef" : "clef-flash") as "clef" | "clef-flash" };
+      if (!cfg.token) { const cur = await clefConfig(); if (cur) cfg.token = cur.token; }
+      const t = await testClef(cfg);
+      if (b.type === "clef_test") return NextResponse.json(t);
+      if (!t.ok) return NextResponse.json({ error: "Test the key first. It didn't pass." }, { status: 400 });
+      await Promise.all([saveSetting("clef_account_id", cfg.accountId), saveSetting("clef_token", cfg.token), saveSetting("clef_model", cfg.model)]);
+      if (b.useForRanking !== false) await saveSetting("ranker_provider", "clef");
+      break;
+    }
+    case "clef_remove":
+      await Promise.all([saveSetting("clef_account_id", ""), saveSetting("clef_token", ""), saveSetting("clef_model", "")]);
+      if ((await settings())["ranker_provider"] === "clef") await saveSetting("ranker_provider", "");
       break;
     case "route":
       if (!["writer_provider", "ranker_provider", "scan_mode"].includes(b.name)) return NextResponse.json({ error: "Unknown setting" }, { status: 400 });

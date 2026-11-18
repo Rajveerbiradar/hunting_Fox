@@ -4,7 +4,8 @@ import { Icon, Spinner, useToast } from "./ui";
 
 type Tok = { label: string; last4: string | null; exhausted: boolean; remaining: number | null; start: number | null; rows: number; added: string | null; checked: string | null; source: "admin" | "env" };
 type Prov = { id: string; name: string; base: string; model: string; last4: string | null; ok: boolean; error: string | null; source: "admin" | "env" };
-type Data = { apify: Tok[]; pool: { left: number; start: number; accounts: number; working: number }; ai: Prov[]; writer: string; ranker: string; scanMode: string; error?: string };
+type Clef = { set: boolean; accountId?: string; model?: "clef" | "clef-flash"; last4?: string };
+type Data = { apify: Tok[]; pool: { left: number; start: number; accounts: number; working: number }; ai: Prov[]; writer: string; ranker: string; scanMode: string; clef?: Clef; error?: string };
 type Test = { ok: boolean; title?: string; text?: string; code?: string; lines?: string[]; json?: string };
 type Ed = { kind: "apify" | "ai"; target: string; name: string; base: string; key: string; model: string; preset: string };
 
@@ -196,15 +197,18 @@ export function AdminKeys() {
         {ed?.kind === "ai" && ed.target === "new" && editor}
       </div>
 
-      {data.ai.length > 0 && (
+      <ClefCard clef={data.clef || { set: false }} ranking={data.ranker === "clef"} post={post} onData={(d) => setData(d)} toast={toast.show} />
+
+      {(data.ai.length > 0 || data.clef?.set) && (
         <>
           <h2 className="h2" style={{ margin: "40px 8px 0" }}>Which provider does what</h2>
           <p className="mute" style={{ margin: "4px 8px 0", fontSize: 14 }}>If the one you pick fails, the next working provider in the list above takes over. Changes take effect within 30 seconds.</p>
           <div className="card" style={{ marginTop: 12 }}>
-            {([["writer_provider", "Writing resume changes and messages", "Needs a good writer. Haiku or GPT-5 mini are cheap and good enough.", data.writer], ["ranker_provider", "Ranking people", "Small and fast is fine. A free Cloudflare model works.", data.ranker]] as const).map(([name, title, sub, val]) => (
+            {([["writer_provider", "Writing resume changes and messages", "Needs a good writer. Haiku or GPT-5 mini are cheap and good enough.", data.writer], ["ranker_provider", "Ranking people", "Clef is built for this: it scores each person and spots real connections. Falls back to the writing model if it fails.", data.ranker]] as const).map(([name, title, sub, val]) => (
               <div className="row" key={name}>
                 <label htmlFor={name} style={{ flex: "1 1 220px", minWidth: 0 }}><span style={{ display: "block", fontSize: 16, fontWeight: 700 }}>{title}</span><span className="mute" style={{ display: "block", fontSize: 14, marginTop: 2 }}>{sub}</span></label>
-                <select id={name} className="sel" value={val || data.ai[0].id} onChange={(e) => act({ type: "route", name, value: e.target.value }, name, "Saved")}>
+                <select id={name} className="sel" value={val || data.ai[0]?.id || ""} onChange={(e) => act({ type: "route", name, value: e.target.value }, name, "Saved")}>
+                  {name === "ranker_provider" && data.clef?.set && <option value="clef">Clef (Cloudflare) · {data.clef.model}</option>}
                   {data.ai.map((a) => <option key={a.id} value={a.id}>{a.name} · {a.model}</option>)}
                 </select>
               </div>
@@ -214,6 +218,56 @@ export function AdminKeys() {
       )}
       <p className="mute" style={{ margin: "16px 8px 0", fontSize: 14 }}>How the test works: Apify keys are checked with one free request to the account. AI keys get one tiny chat request (about 10 tokens), and it has to reply in the OpenAI chat format before Save unlocks. Change any field and you&apos;ll need to test again.</p>
       {toast.el}
+    </>
+  );
+}
+
+/** Clef (Cloudflare's decision model) for ranking people: Account ID + token + model, test before save. */
+function ClefCard({ clef, ranking, post, onData, toast }: { clef: Clef; ranking: boolean; post: (b: Record<string, unknown>) => Promise<Data & { ok?: boolean; title?: string; text?: string; code?: string; lines?: string[] }>; onData: (d: Data) => void; toast: (m: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [accountId, setAccountId] = useState(clef.accountId || "");
+  const [token, setToken] = useState("");
+  const [model, setModel] = useState<"clef" | "clef-flash">(clef.model || "clef-flash");
+  const [phase, setPhase] = useState<"idle" | "testing" | "pass" | "fail" | "saving">("idle");
+  const [test, setTest] = useState<Test | null>(null);
+  const reset = () => { setPhase("idle"); setTest(null); };
+  const ready = /^[a-f0-9]{32}$/i.test(accountId.trim()) && (!!token.trim() || clef.set);
+  return (
+    <>
+      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12, margin: "40px 8px 0", flexWrap: "wrap" }}>
+        <div><h2 className="h2">Clef for ranking people</h2><p className="mute" style={{ margin: "4px 0 0", fontSize: 14, maxWidth: "62ch" }}>Cloudflare&apos;s decision model. It doesn&apos;t write text: it scores how useful each person is and checks for a real connection (same college, company, skill). Uses a Cloudflare Workers AI token.</p></div>
+        {!open && <button className="btn addb" onClick={() => { setOpen(true); reset(); }}>{clef.set ? "Edit" : <>{Icon.plus()}Set up Clef</>}</button>}
+      </div>
+      <div className="card" style={{ marginTop: 12, overflow: "hidden" }}>
+        <div className="row">
+          <span className="tile" style={{ width: 40, height: 40, background: "var(--tile)", fontWeight: 700, fontSize: 13 }}>CF</span>
+          <div style={{ flex: "1 1 220px", minWidth: 0 }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <span style={{ fontSize: 16, fontWeight: 700 }}>Clef</span>
+              <span className="tag" style={clef.set ? { background: "var(--green-bg)", color: "var(--green)" } : { background: "var(--tile)", color: "var(--mute)" }}>{clef.set ? (ranking ? "Ranking people" : "Set up, not in use") : "Not set up"}</span>
+            </div>
+            <div className="mute" style={{ fontSize: 14, marginTop: 2, wordBreak: "break-all" }}>{clef.set ? `${clef.model} · ••••${clef.last4} · account ${clef.accountId}` : "Get the Account ID and a token from Cloudflare → AI → Workers AI → Use REST API."}</div>
+          </div>
+          {clef.set && !open && <button className="btn danger sm" onClick={async () => { const d = await post({ type: "clef_remove" }); onData(d); toast("Clef removed"); }}>Remove</button>}
+        </div>
+        {open && (
+          <div className="row" style={{ flexDirection: "column", alignItems: "stretch", gap: 14, background: "var(--sunken)", borderTop: "1px solid var(--line)" }}>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <div style={{ flex: "1 1 300px", minWidth: 0 }}><label htmlFor="cfa" style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 6 }}>Account ID</label><input id="cfa" className="in" style={{ width: "100%", ...mono, fontSize: 14 }} placeholder="32 characters" value={accountId} onChange={(e) => { setAccountId(e.target.value); reset(); }} /></div>
+              <div style={{ flex: "0 1 220px" }}><label htmlFor="cfm" style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 6 }}>Model</label><select id="cfm" className="sel" style={{ width: "100%" }} value={model} onChange={(e) => { setModel(e.target.value as "clef" | "clef-flash"); reset(); }}><option value="clef-flash">clef-flash · fast, cheaper</option><option value="clef">clef · most accurate</option></select></div>
+            </div>
+            <div><label htmlFor="cft" style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 6 }}>Workers AI API token</label><input id="cft" className="in" type="password" autoComplete="off" style={{ width: "100%", ...mono }} placeholder={clef.set ? `Leave empty to keep ••••${clef.last4}` : "Paste the token"} value={token} onChange={(e) => { setToken(e.target.value); reset(); }} /></div>
+            {phase === "testing" && <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 16, fontWeight: 600 }}><Spinner size={18} />Asking Clef a tiny test question…</div>}
+            {phase === "pass" && test && <div className="note" style={{ background: "var(--green-bg)", color: "var(--green)" }}><div style={{ fontSize: 16, fontWeight: 700 }}>Clef works</div>{test.lines?.map((l) => <div key={l} style={{ fontSize: 14, marginTop: 4 }}>✓ {l}</div>)}</div>}
+            {phase === "fail" && test && <div role="alert" className="note" style={{ background: "var(--red-bg)", color: "var(--red)" }}><div style={{ fontSize: 16, fontWeight: 700 }}>{test.title}</div>{test.text && <div style={{ fontSize: 14, marginTop: 4 }}>{test.text}</div>}{test.code && <div style={{ fontSize: 13, marginTop: 6, ...mono }}>{test.code}</div>}</div>}
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              {phase !== "pass" && phase !== "saving" && <button className="btn pri" disabled={!ready || phase === "testing"} onClick={async () => { setPhase("testing"); const t = await post({ type: "clef_test", accountId, token, model }); setTest(t as Test); setPhase(t.ok ? "pass" : "fail"); }}>{phase === "fail" ? "Test again" : "Test key"}</button>}
+              <button className={`btn ${phase === "pass" || phase === "saving" ? "pri" : "sec"}`} disabled={phase !== "pass"} onClick={async () => { setPhase("saving"); const d = await post({ type: "clef_save", accountId, token, model }); if ((d as { error?: string }).error) { setTest({ ok: false, title: (d as { error?: string }).error }); setPhase("fail"); return; } onData(d); setOpen(false); setToken(""); toast("Clef saved and now ranks people"); }}>{phase === "saving" ? <Spinner size={16} color="#fff" /> : null}Save and use for ranking</button>
+              <button className="btn ghost" onClick={() => setOpen(false)}>Cancel</button>
+            </div>
+          </div>
+        )}
+      </div>
     </>
   );
 }

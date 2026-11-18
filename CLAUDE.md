@@ -90,6 +90,8 @@ Student's own keys (`src/lib/ownKeys.ts`): if they have an Apify key, the search
 
 Apify rotation (`src/lib/apify.ts` `runActor`): DB tokens in `added_at` order, then env. Rotates on 401/402/403/credit text and on 429/5xx/network; parks exhausted accounts; **never** retries a timeout on another account (it may still be running and costing money). Pooled credit = sum of all accounts; below $5 → "lean" mode.
 
+Ranking people with **Clef** (`src/lib/clef.ts`): Cloudflare's decision model (`@cf/cloudflare/clef-flash` or `clef`, REST `/ai/run`, System One API: `state` + typed `questions` → probabilities, wrapped in `result`). It's not a chat model, so it's not in the AI providers list. Set up in /admin → API keys → Clef (Account ID + Workers AI token + model, tested before save; stored as settings `clef_account_id`, `clef_token`, `clef_model`). When `ranker_provider` = `clef`, `rankTask` asks Clef one `score` question (usefulness) and one `choice` question (real connection) per person, re-checks every connection in code (exact school / company / skill / "hiring" in headline), and builds the one-line "why" from templates. Any Clef failure falls back to the chat ranker (`decide`).
+
 AI (`src/lib/ai.ts`): one call per task, JSON mode with fallback, providers in order with the routed one first (`writer_provider` / `ranker_provider` settings); a failing provider is marked and the next takes over.
 
 ## Debugging — start here

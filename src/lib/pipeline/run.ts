@@ -5,6 +5,8 @@ import { scanMode } from "@/lib/apify";
 import { ownKeys } from "@/lib/ownKeys";
 import { withoutBlocked } from "@/lib/removals";
 import { decide, writer, type Provider } from "@/lib/ai";
+import { clefConfig, clefRank } from "@/lib/clef";
+import { setting } from "@/lib/secrets";
 import { sendEmail } from "@/lib/email";
 import { fetchLinkedIn, fetchNaukri, fetchPeople } from "./fetchers";
 import { buildMessages, checkCompany, knownSkills, sizeBand, skillQuestions, teamSummary } from "./rules";
@@ -146,6 +148,17 @@ async function scan(job: any) {
   const rankTask = (async (): Promise<Ranked> => {
     if (people.length <= 1) return { order: people.map((_, i) => ({ i, why: "", link: null })) };
     if (cachedRanking && !rp) return cachedRanking;
+    // Clef (Cloudflare decision model) when it's picked for ranking in /admin; the chat providers are the fallback.
+    if ((await setting("ranker_provider", "")) === "clef") {
+      const cfg = await clefConfig();
+      if (cfg) {
+        try {
+          return await clefRank(cfg, { title: jd.title, key_skills: jd.keySkills, company: company.name, size_band: band }, student, people);
+        } catch (e: any) {
+          await jlog("warn", "rank", `Clef failed, using the chat model instead: ${String(e?.message || e).slice(0, 200)}`);
+        }
+      } else await jlog("warn", "rank", "Clef is picked for ranking but isn't set up in /admin → API keys. Using the chat model.");
+    }
     return decide<Ranked>("rank-people", {
       job: { title: jd.title, key_skills: jd.keySkills, company: company.name, size_band: band },
       student,

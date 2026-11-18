@@ -38,7 +38,7 @@ function SignIn() {
           </div>
         )}
         <button className="btn lg gbtn loading" onClick={google} disabled={busy} aria-busy={busy} style={{ width: "100%" }}>{busy ? <Spinner size={20} /> : <GoogleG />}{busy ? "Opening Google…" : "Continue with Google"}</button>
-        <p className="mute" style={{ margin: 0, fontSize: 14, lineHeight: 1.5 }}>We only see your name and email address. We never post, apply or send messages for you.</p>
+        <p className="mute" style={{ margin: 0, fontSize: 14, lineHeight: 1.5 }}>We only see your name and email address. We never post, apply or send messages for you. By continuing you agree to the <Link href="/terms">terms</Link> and <Link href="/privacy">privacy policy</Link>.</p>
       </div>
       <p style={{ textAlign: "center", marginTop: 20, fontSize: 14 }}><Link href="/" className="mute">← Back</Link></p>
     </main>

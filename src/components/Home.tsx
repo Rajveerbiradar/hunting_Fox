@@ -204,6 +204,8 @@ export function Home(p: { signedIn: boolean; initialLink?: string; name?: string
               <span style={{ color: "var(--green)" }}>{Icon.shield()}</span>
               <span>We check every company first, so you don&apos;t waste time on fake jobs. We never send anything for you.</span>
               <Link href="/remove-info">Remove my info</Link>
+              <Link href="/terms">Terms</Link>
+              <Link href="/privacy">Privacy</Link>
             </div>
           </>
         )}

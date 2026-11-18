@@ -162,7 +162,7 @@ function cleanPerson(r: any, i: number, company: string): Person | null {
  * People to message. Two b2bsearch runs at the same time (both by website domain):
  *  1. people in the job's role (title filter),
  *  2. anyone there with an official work email at this company (a real lead, goes on top).
- * If both find nobody: anyone at the company (small startups often have 1–3 people, none in this role).
+ * Fewer than we want from both: top up with anyone at the company (small startups often have 1–3 people, none in this role).
  * Last resort: harvestapi by LinkedIn page URL.
  */
 export async function fetchPeople(company: CompanyData, jobTitle: string, mode: "full" | "lean", own?: string | null): Promise<Person[]> {
@@ -186,7 +186,8 @@ export async function fetchPeople(company: CompanyData, jobTitle: string, mode: 
       b2b({ mustHave: ["currentWorkEmail"] }, mode === "full" ? 3 : 2, "work email"),
     ]);
     rows = [...leads.map((r) => ({ ...r, _lead: true })), ...role];
-    if (!rows.length) rows = await b2b({}, want, "anyone");
+    // Too few (e.g. 1 email lead and nobody in the role): top up with anyone else who works there.
+    if (rows.length < want) rows = [...rows, ...(await b2b({}, want + rows.length, "anyone"))];
   }
   if (!rows.length && company.linkedinUrl && mode === "full") {
     try {

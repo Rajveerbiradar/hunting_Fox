@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { PdfButton } from "./PdfButton";
-import { BackLink, Header, Icon, Spinner, copyText, letterTile, useToast } from "./ui";
+import { Header, Icon, Spinner, copyText, letterTile, useToast } from "./ui";
 import type { Person } from "@/lib/pipeline/types";
 
 const enc = encodeURIComponent;
@@ -67,9 +67,8 @@ export function ReachOut(p: { jobId: string; company: string; big: boolean; peop
 
   return (
     <>
-      <Header signedIn initial={p.initial} />
+      <Header signedIn initial={p.initial} back={{ href: `/jobs/${p.jobId}`, label: `Back to ${p.company}` }} />
       <main className="wrap wide">
-        <BackLink href={`/jobs/${p.jobId}`}>Back to {p.company}</BackLink>
         <h1 style={{ margin: "8px 0 0", fontSize: "clamp(28px,4vw,38px)", lineHeight: 1.1, fontWeight: 700, letterSpacing: "-.03em" }}>Message people at {p.company}</h1>
         <p className="mute" style={{ margin: "8px 0 0", fontSize: 16, lineHeight: 1.5 }}>
           {p.big ? "Message people before you apply. Politely ask for a referral; if no one replies in 12 hours, apply yourself." : "Message people after you apply. Ask for their help in finding the right person, which works better than asking a stranger for a referral."} Pick a person, say what you want to tell them in your own words, and we&apos;ll turn it into a proper message.

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { BackLink, Header, Icon, letterTile } from "./ui";
+import { Header, Icon, letterTile } from "./ui";
 import { StatusMenu } from "./StatusMenu";
 import { ProgressPopup } from "./ProgressPopup";
 import { SearchBox } from "./SearchBox";
@@ -39,9 +39,8 @@ export function JobPage({ job, report, hasResume, initial }: { job: any; report:
   const problem = ["failed", "closed"].includes(job.status) ? PROBLEMS[job.error === "not_found" ? "not_found" : job.status] : null;
   if (problem) return (
     <>
-      <Header signedIn initial={initial} />
+      <Header signedIn initial={initial} back={{ href: "/jobs", label: "My jobs" }} showJobs={false} />
       <main className="wrap">
-        <BackLink href="/jobs">My jobs</BackLink>
         <div className="card" style={{ marginTop: 12, padding: 28 }}>
           <h1 className="h2">{problem.title}</h1>
           <p className="mute" style={{ fontSize: 16, lineHeight: 1.5 }}>{problem.text}</p>
@@ -71,9 +70,8 @@ export function JobPage({ job, report, hasResume, initial }: { job: any; report:
 
   return (
     <>
-      <Header signedIn initial={initial} />
+      <Header signedIn initial={initial} back={{ href: "/jobs", label: "My jobs" }} showJobs={false} />
       <main className="wrap wide">
-        <BackLink href="/jobs">My jobs</BackLink>
 
         {ask && !status && (
           <div className="card" style={{ marginTop: 8, padding: "14px 16px 14px 20px", display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", border: "1.5px solid var(--ink)" }}>

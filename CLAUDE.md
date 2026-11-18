@@ -143,6 +143,7 @@ Design source: the "Hunting Fox v2" canvas artifact. Tokens are in `src/app/glob
 - Every loading action shows a spinner immediately. `PressFeedback` (mounted in the root layout) does this for **every** button automatically: any `fetch` started within 400 ms of a click puts `data-busy` on that button (spinner, no double taps) until it answers; buttons with their own state set `aria-busy` to opt out (`LinkBox`, sign-in). Link clicks show a thin top bar; every route has a `loading.tsx` skeleton (`PageLoading`).
 - Retries: Apify, AI providers and Clef retry the **same** key up to 3 tries (1–4 s waits) on network/408/429/5xx before moving on; never on bad keys, no credit, or an Apify timeout.
 - Vercel functions run in Mumbai (`regions: ["bom1"]` in vercel.json), next to Supabase.
+- The top bar (`Header`) is sticky and carries the page's way back (`back={{href,label}}`, a white "‹ Back to {company}" pill next to the logo) on the job, resume and reach-out pages, so it's reachable without scrolling up. On phones the logo text and the "My jobs" text hide to make room.
 - Lists have the Newest/Oldest toggle (`useSort` in `src/components/ui.tsx`).
 
 ## Copy rules

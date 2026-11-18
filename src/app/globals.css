@@ -248,3 +248,10 @@ h1, h2, h3 { text-wrap: balance; }
 .rcmp .rcwhy p { margin: 0; }
 .rcmp .rcwhy p span { font-weight: 700; color: #101828; }
 .rcmp .rcwhy .rkeep { margin-top: 8px; }
+
+/* "Back to …" in the sticky top bar, so it's there however far down the page you are */
+.hback { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; min-width: 0; padding: 0 14px 0 10px; border-radius: 14px; corner-shape: squircle; background: #fff; border: 1px solid #e4e7ec; font-size: 15px; font-weight: 600; color: #101828; text-decoration: none; }
+.hback span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 34vw; }
+.hback:hover { background: #f7f8fa; }
+.hback svg { flex: none; }
+@media (max-width: 640px) { .logo.slim .wm { display: none; } .hjobs span { display: none; } .hback span { max-width: 46vw; } }

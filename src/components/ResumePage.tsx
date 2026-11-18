@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { BackLink, Header, Icon, copyText, useToast } from "./ui";
+import { Header, Icon, copyText, useToast } from "./ui";
 import { ResumeUpload } from "./ResumeUpload";
 import { appliedUse, buildDiff } from "@/lib/resumeDiff";
 import { Spinner } from "./ui";
@@ -133,9 +133,8 @@ export function ResumePage({ jobId, company, resume: start, hasResume, skills, i
   const rewrite = () => startRewrite({ action: "answers", answers: ready.map((g) => ({ q: g.question, a: answers[g.id] })) });
   return (
     <>
-      <Header signedIn initial={initial} />
+      <Header signedIn initial={initial} back={{ href: `/jobs/${jobId}`, label: `Back to ${company}` }} />
       <main className="wrap xwide">
-        <BackLink href={`/jobs/${jobId}`}>Back to {company}</BackLink>
         <div style={{ marginTop: 8, display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 20, flexWrap: "wrap" }}>
           <div style={{ minWidth: 0 }}>
             <h1 style={{ margin: 0, fontSize: "clamp(30px,4vw,36px)", lineHeight: 1.1, fontWeight: 700, letterSpacing: "-.03em" }}>Your resume for {company}</h1>

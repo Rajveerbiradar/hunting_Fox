@@ -43,15 +43,22 @@ export const Icon = {
   info: (s = 18) => <svg aria-hidden width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><circle cx="12" cy="12" r="9.5" /><path d="M12 11v5.5" /><path d="M12 7.6v.01" /></svg>,
 };
 
-export function Header({ signedIn, initial, home = "/", showJobs = true, admin }: { signedIn: boolean; initial?: string; home?: string; showJobs?: boolean; admin?: boolean }) {
+/**
+ * The top bar. It stays on screen while scrolling, so `back` (a page's way back) lives here, not in the page,
+ * and is always one tap away.
+ */
+export function Header({ signedIn, initial, home = "/", showJobs = true, admin, back }: { signedIn: boolean; initial?: string; home?: string; showJobs?: boolean; admin?: boolean; back?: { href: string; label: string } }) {
   return (
     <header className="hd">
       <div className="hdi">
-        <Link href={home} className="logo" aria-label="Hunting Fox home"><span className="lm">{Icon.fox(24)}</span><span className="wm">hunting fox</span></Link>
+        <div style={{ display: "flex", alignItems: "center", gap: 14, minWidth: 0 }}>
+          <Link href={home} className={back ? "logo slim" : "logo"} aria-label="Hunting Fox home"><span className="lm">{Icon.fox(24)}</span><span className="wm">hunting fox</span></Link>
+          {back && <Link href={back.href} className="hback">{Icon.back()}<span>{back.label}</span></Link>}
+        </div>
         {signedIn ? (
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             {admin && <Link href="/admin" className="btn on-grey">Admin</Link>}
-            {showJobs && <Link href="/jobs" className="btn on-grey">{Icon.list(20)}My jobs</Link>}
+            {showJobs && <Link href="/jobs" className={back ? "btn on-grey hjobs" : "btn on-grey"} aria-label="My jobs">{Icon.list(20)}<span>My jobs</span></Link>}
             <Link href="/account" className="av" aria-label="Your account">{(initial || "?").toUpperCase()}</Link>
           </div>
         ) : (

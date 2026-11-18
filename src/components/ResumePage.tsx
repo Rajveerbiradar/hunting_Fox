@@ -21,7 +21,7 @@ type R = {
   rewrite_error?: string;
 };
 
-export function ResumePage({ jobId, company, resume: start, hasResume, skills, initial, portal }: { jobId: string; company: string; resume: R | null; hasResume: boolean; skills: Skill[]; initial: string; portal: string }) {
+export function ResumePage({ jobId, company, resume: start, hasResume, skills, initial, portal, answered = [] }: { jobId: string; company: string; resume: R | null; hasResume: boolean; skills: Skill[]; initial: string; portal: string; answered?: { q: string; a: string }[] }) {
   const [resume, setResume] = useState<R | null>(start);
   const [mine, setMine] = useState<Skill[]>(skills);
   const [editing, setEditing] = useState<Record<string, boolean>>({});
@@ -103,7 +103,11 @@ export function ResumePage({ jobId, company, resume: start, hasResume, skills, i
   async function startRewrite(body: object) {
     const r = await fetch(`/api/jobs/${jobId}/resume-plan`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }).catch(() => null);
     const d = r ? await r.json().catch(() => ({})) : {};
-    if (d.resume?.rewriting) { setResume(d.resume); setAnswers({}); }
+    if (d.resume?.rewriting) {
+      const sent = (body as { answers?: { q: string; a: string }[] }).answers || [];
+      if (sent.length) setDone((x) => [...x.filter((f) => !sent.some((s) => s.q === f.q)), ...sent]);
+      setResume(d.resume); setAnswers({});
+    }
     else toast.show("Couldn't start just now. Try again in a minute.");
   }
   const redo = () => startRewrite({ action: "redo" });
@@ -120,7 +124,11 @@ export function ResumePage({ jobId, company, resume: start, hasResume, skills, i
   // Gap questions: the student's own rough answers become new facts (saved for every job) and a fresh rewrite.
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [skipped, setSkipped] = useState<Record<string, boolean>>({});
-  const gaps = (resume?.gaps || []).filter((g) => !skipped[g.id]);
+  // Questions already answered (saved on the profile, also from other jobs) never come back as empty boxes.
+  const [done, setDone] = useState<{ q: string; a: string }[]>(answered);
+  const isDone = (q: string) => done.some((f) => f.q.trim().toLowerCase() === q.trim().toLowerCase());
+  const gaps = (resume?.gaps || []).filter((g) => !skipped[g.id] && !isDone(g.question));
+  const doneHere = (resume?.gaps || []).map((g) => done.find((f) => f.q.trim().toLowerCase() === g.question.trim().toLowerCase())).filter(Boolean) as { q: string; a: string }[];
   const ready = gaps.filter((g) => (answers[g.id] || "").trim().length >= 10);
   const rewrite = () => startRewrite({ action: "answers", answers: ready.map((g) => ({ q: g.question, a: answers[g.id] })) });
   return (
@@ -219,7 +227,20 @@ export function ResumePage({ jobId, company, resume: start, hasResume, skills, i
               </section>
             )}
 
-            {gaps.length > 0 && (
+            {doneHere.length > 0 && (
+              <section className="card" style={{ marginTop: 16, padding: "18px 24px" }}>
+                <div className="lbl">Your answers{busy ? ", being added to your resume now" : ""}</div>
+                {doneHere.map((f, i) => (
+                  <div key={i} style={{ padding: "12px 0", borderTop: i ? "1px solid var(--line)" : undefined }}>
+                    <div style={{ display: "flex", gap: 8, alignItems: "baseline" }}><span style={{ color: "var(--green)", fontWeight: 700 }}>✓</span><span style={{ fontSize: 16, fontWeight: 600 }}>{f.q}</span></div>
+                    <div className="mute" style={{ fontSize: 14, marginTop: 4, marginLeft: 22 }}>{f.a}</div>
+                  </div>
+                ))}
+                <p className="mute" style={{ margin: "6px 0 0", fontSize: 14 }}>Saved to your profile, so we use them for every job.</p>
+              </section>
+            )}
+
+            {gaps.length > 0 && !busy && (
               <section className="card" style={{ marginTop: 16, padding: 24 }}>
                 <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Make it stronger: {gaps.length} {gaps.length === 1 ? "question" : "questions"}</h2>
                 <p className="mute" style={{ margin: "6px 0 0", fontSize: 16 }}>Your resume doesn&apos;t show these yet. If you&apos;ve done anything like it, write it your way, in a few rough lines. We&apos;ll add it in the job&apos;s language and remember it for every job.</p>

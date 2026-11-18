@@ -46,17 +46,16 @@ export async function makeResume(lines: string[], profile: any, jd: JobData, own
     job: { title: jd.title, key_skills: jd.keySkills, description: jd.description.slice(0, 7000) },
     company: companyInput(company, jd.company),
   };
-  // A long rewrite can run past the token limit and come back as broken JSON: one more full try before giving up.
+  // One call: ai.ts already retries a busy provider and moves on to the next one. Repeating a cut-off or
+  // unreadable reply here only made the student wait minutes for the same failure.
   let failed = "";
-  let out: Out | null = null;
-  for (let t = 1; t <= 2 && !out; t++) {
-    out = await writer<Out>("resume-changes", input, 8000, own).catch(async (e) => {
-      failed = String(e?.message || e).slice(0, 200);
-      await jlog("warn", "resume", `Resume changes try ${t} failed: ${failed}`);
-      return null;
-    });
-    if (out && !(out.edits?.length || out.priorities?.length || out.summary)) { failed = "The AI sent back an empty answer"; await jlog("warn", "resume", `Resume changes try ${t}: empty answer`); out = null; }
-  }
+  const t0 = Date.now();
+  let out: Out | null = await writer<Out>("resume-changes", input, 8000, own).catch(async (e) => {
+    failed = String(e?.message || e).slice(0, 200);
+    return null;
+  });
+  if (out && !(out.edits?.length || out.priorities?.length || out.summary)) { failed = "The AI sent back an empty answer"; out = null; }
+  await jlog(out ? "info" : "warn", "resume", `Resume changes ${out ? "written" : "failed"} in ${Math.round((Date.now() - t0) / 1000)}s${failed ? `: ${failed}` : ""}`);
   if (!out) {
     // Never pretend the resume already fits: say it failed so the student can try again.
     await jlog("error", "resume", `Resume changes failed: ${failed}`);

@@ -13,6 +13,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
       resume={report?.resume || null}
       hasResume={!!profile?.resume_text}
       skills={profile?.skills || []}
+      answered={(Array.isArray(profile?.facts) ? profile.facts : []).map((f: { q: string; a: string }) => ({ q: f.q, a: f.a }))}
       initial={(profile?.name || user.email || "?")[0]}
       portal={job.portal}
     />

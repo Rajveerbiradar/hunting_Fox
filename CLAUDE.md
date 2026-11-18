@@ -115,6 +115,9 @@ APIs: `src/app/api/**` — jobs, resume, profile, account, account/keys, request
 
 ## Resume template
 
+Upload (`/api/resume`): POST checks the file, pulls the text, stores the file, sets `pending_resume_profile = {status:"reading"}` and answers at once (202). The AI read runs in `after()` and **saves it as the student's resume straight away** (no confirm step), leaving `{status:"done", missing}` or `{status:"failed", error}` in `pending_resume_profile`. GET returns that status + current lines; `ResumeUpload` reads it on every page open and polls every 3 s while reading, so the student can leave. DELETE clears the notice ("Looks good"). A read stuck over 4 min shows as failed.
+
+
 Every resume is drawn by `ResumeDoc` (src/components/ResumeDoc.tsx): on upload check, the job's resume page (one block, "Show changes" / "Final"), the PDF (`/jobs/[id]/resume/print`) and the shared link (`/r/[token]`). On upload `prompts/resume-profile.md` returns the resume as **structured JSON** (name, headline, contact, summary, experience, projects, education, skills, achievements, other; text fields are markdown with `**bold**`), and `toLines` in `src/lib/resumeFormat.ts` turns it into lines in a fixed order (contact: email · phone · city · LinkedIn · GitHub · website; empty parts left out). Line format: `# Name`, `> Headline`, `@ contact`, `## Section`, `### Title, Place | Dates`, `- bullet`, plain lines, `**bold**`. `buildDiff` keeps the line marker when an edit drops it and adds confirmed skills after a `Label:` in the skills line. Old resumes (plain lines) still render; re-upload converts them. Students with no resume can copy a ChatGPT prompt from the upload card that writes one in this format, then upload it as .txt.
 
 ## Prompts

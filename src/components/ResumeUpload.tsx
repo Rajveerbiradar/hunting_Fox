@@ -1,6 +1,6 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Icon, Spinner, copyText } from "./ui";
 import { ResumeDoc } from "./ResumeDoc";
 
@@ -46,24 +46,51 @@ export function ResumeUpload({ signedIn, compact, current, onDone }: { signedIn:
     input.current?.click();
   }
 
+  const ERR: Record<string, string> = {
+    unreadable: "We couldn't read any text in that file. If it's a scanned image, export it again as a PDF with text.",
+    too_big: "That file is over 5 MB. Try a smaller PDF.",
+    no_ai: "Hunting Fox isn't fully set up yet (no AI key). Rajveer is on it, so try again a bit later.",
+    ai_failed: "Our AI couldn't read it just now. Upload it again in a minute.",
+  };
+  type Up = { status: "reading" | "done" | "failed"; file_name: string; missing?: string[]; error?: string };
+
+  function show(up: Up | null, l?: string[]) {
+    if (!up) return;
+    setFile(up.file_name);
+    if (up.status === "reading") setState("reading");
+    else if (up.status === "failed") { setErr(ERR[up.error || ""] || ERR.ai_failed); setState("error"); }
+    else { setLines(l || []); setMissing(up.missing || []); setState("check"); }
+  }
+
+  // The reading happens on the server. Pick up where it is when the page opens, then check every 3 s while reading.
+  useEffect(() => {
+    if (!signedIn) return;
+    let alive = true;
+    let t: ReturnType<typeof setTimeout>;
+    const tick = async () => {
+      const d = await fetch("/api/resume", { cache: "no-store" }).then((r) => r.json()).catch(() => null);
+      if (!alive || !d) return;
+      show(d.upload, d.lines);
+      if (d.upload?.status === "reading") t = setTimeout(tick, 3000);
+      else if (d.upload?.status === "done") router.refresh();
+    };
+    if (state === "reading" || state === "idle") t = setTimeout(tick, state === "reading" ? 3000 : 0);
+    return () => { alive = false; clearTimeout(t); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [signedIn, state === "reading"]);
+
   async function upload(f: File) {
     setFile(f.name);
     setState("reading");
     const fd = new FormData();
     fd.append("file", f);
-    const r = await fetch("/api/resume", { method: "POST", body: fd });
-    const d = await r.json().catch(() => ({}));
-    if (!r.ok) {
-      setErr(d.error === "unreadable" ? "We couldn't read any text in that file. If it's a scanned image, export it again as a PDF with text." : d.error === "too_big" ? "That file is over 5 MB. Try a smaller PDF." : d.error === "no_ai" ? "Hunting Fox isn't fully set up yet (no AI key). Rajveer is on it, so try again a bit later." : d.error === "ai_failed" ? "Our AI couldn't read it just now. Try again in a minute." : "Something went wrong reading it. Try again.");
-      return setState("error");
-    }
-    setLines(d.lines || []);
-    setMissing(d.missing || []);
-    setState("check");
+    const r = await fetch("/api/resume", { method: "POST", body: fd }).catch(() => null);
+    const d = r ? await r.json().catch(() => ({})) : {};
+    if (!r || !r.ok) { setErr(ERR[d.error] || "Something went wrong uploading it. Try again."); return setState("error"); }
   }
 
-  async function confirm(ok: boolean) {
-    await fetch("/api/resume", { method: ok ? "PUT" : "DELETE" });
+  async function seen() {
+    await fetch("/api/resume", { method: "DELETE" });
     setState("idle");
     onDone?.();
     router.refresh();
@@ -98,11 +125,17 @@ export function ResumeUpload({ signedIn, compact, current, onDone }: { signedIn:
           )}
         </div>
       ) : state === "reading" ? (
-        <div className="row"><Spinner size={22} label="Reading" /><span style={{ fontSize: 16, fontWeight: 600 }}>Reading {file}…</span></div>
+        <div className="row" style={{ padding: "16px 18px", alignItems: "flex-start" }}>
+          <Spinner size={22} label="Reading" />
+          <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
+            <span style={{ fontSize: 16, fontWeight: 700 }}>Reading {file} and putting it in our layout…</span>
+            <span className="mute" style={{ fontSize: 14, lineHeight: 1.45 }}>This takes about a minute. You can leave this page or paste a job. We keep going, and it&apos;ll be ready here when you come back.</span>
+          </div>
+        </div>
       ) : (
         <div className="row" style={{ flexDirection: "column", alignItems: "stretch" }}>
-          <div style={{ fontSize: 16, fontWeight: 700 }}>Did we read your resume correctly?</div>
-          <div className="mute" style={{ fontSize: 14 }}>Here&apos;s {file} in our resume layout. Every resume you download from Hunting Fox uses this layout.</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: "#1A6B3C" }}>✓ Your resume is ready</div>
+          <div className="mute" style={{ fontSize: 14 }}>Here&apos;s {file} in our resume layout. We use it for every new job you paste, and every resume you download uses this layout. If something&apos;s wrong, fix your file and upload it again.</div>
           {missing.length > 0 && (
             <div style={{ background: "#ffefb0", color: "#4f3e00", borderRadius: 14, padding: "12px 14px", fontSize: 14, lineHeight: 1.5 }}>
               <b>⚠ Worth adding to your resume</b>
@@ -113,8 +146,8 @@ export function ResumeUpload({ signedIn, compact, current, onDone }: { signedIn:
             <ResumeDoc lines={lines} />
           </div>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <button className="btn pri" onClick={() => confirm(true)}>Yes, use this</button>
-            <button className="btn sec" onClick={() => confirm(false)}>Something&apos;s wrong</button>
+            <button className="btn pri" onClick={seen}>Looks good</button>
+            <button className="btn sec" onClick={pick}>{Icon.upload()}Upload again</button>
           </div>
           <div className="mute" style={{ fontSize: 14 }}>Jobs you already added keep the old resume. You can redo any of them with the new one from that job&apos;s page.</div>
         </div>

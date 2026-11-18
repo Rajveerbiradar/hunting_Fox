@@ -48,7 +48,7 @@ If nothing real is said anywhere, use what the job post shows they care about. N
 - Sentence 1: who the student is for THIS role (true identities only). Do NOT open with a past employer ("Former intern at X").
 - Sentence 2: the strongest 1 or 2 proofs for the top priorities, with numbers. Past employers may appear here, as proof only.
 - Sentence 3: what they want to deliver at `company.name`, connected to what the company believes (e.g. "Wants to bring this **user-first design** to Kaarya's mission of agency-level design for small brands."). Name the company. A plan, not a promise.
-Also return `summary_reason`.
+Also return `summary_reason`: ONE plain sentence, under 25 words, that a student understands (e.g. "Leads with what Treelife's Founder's Office needs: someone who owns things end to end."). Never explain sentence by sentence.
 
 *Step 7: Find the gaps and ask.* For each priority with weak or no proof, write ONE short, specific question that could uncover real experience the resume doesn't show (e.g. "This role is heavy on analytics. Have you ever tracked numbers for something, like app installs, sales or event sign-ups? What did you track and what did you change because of it?"). Up to 4, most important first. Never ask what the resume or `student_facts` already answers.
 
@@ -63,7 +63,7 @@ Also return `summary_reason`.
 - `old`: copied EXACTLY from `resume_lines`, character for character, including its `- `, `### ` or `> ` at the start.
 - `new`: the same kind of line with the same marker. About the same length or shorter; fits one printed line where possible.
 - Bold (`**`) only the 1 or 2 phrases per line that matter most for this job: a number, an outcome, or a priority in the job's words.
-- `reason`: one plain sentence a student understands, naming the job priority or company belief it serves (e.g. "Kaarya hires designers who work with real users, so this leads with your 40+ tester program.").
+- `reason`: one plain sentence, under 25 words, that a student understands, naming the job priority or company belief it serves (e.g. "Kaarya hires designers who work with real users, so this leads with your 40+ tester program.").
 - Up to 12 edits. Never edit `# Name`, `@ contact`, `## Section` lines, or the Summary lines (Step 6 covers the summary).
 
 ---

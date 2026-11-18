@@ -222,7 +222,7 @@ h1, h2, h3 { text-wrap: balance; }
 
 /* Before | after, side by side (resume page "Show changes") */
 .rdoc.rcmp { max-width: none; padding: 32px 28px; }
-.rcmp .rcrow { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+.rcmp .rcrow { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; align-items: start; }
 .rcmp .rcrow > div { min-width: 0; position: relative; }
 .rcmp .rchead { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 2; background: #fff; padding: 6px 0 10px; margin-bottom: 8px; border-bottom: 1px solid #e4e7ec; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: #5b6472; }
 .rcmp .rchead > div:last-child { color: #1a6b3c; }
@@ -244,3 +244,7 @@ h1, h2, h3 { text-wrap: balance; }
 .rbusy { position: absolute; inset: 0; z-index: 5; border-radius: 20px; background: rgba(242, 244, 247, .78); backdrop-filter: blur(2px); display: flex; justify-content: center; align-items: flex-start; padding-top: 80px; }
 .rbusy-in { position: sticky; top: 120px; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; background: #fff; padding: 22px 28px; border-radius: 20px; corner-shape: squircle; box-shadow: 0 8px 24px rgba(16, 24, 40, .1); font-size: 16px; color: #101828; max-width: 340px; }
 .rbusy-in span { color: #5b6472; font-size: 14px; }
+.rcmp .rcwhy { margin: 6px 0 4px; padding: 10px 12px; border: 1px solid #e4e7ec; border-radius: 10px; background: #fff; font-size: 13px; line-height: 1.45; color: #5b6472; }
+.rcmp .rcwhy p { margin: 0; }
+.rcmp .rcwhy p span { font-weight: 700; color: #101828; }
+.rcmp .rcwhy .rkeep { margin-top: 8px; }

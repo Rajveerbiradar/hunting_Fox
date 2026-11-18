@@ -5,7 +5,7 @@ import { checkLink } from "@/lib/links";
 import { Icon, Spinner } from "./ui";
 
 /** The paste box. Checks the link as you type; signed-out students go to sign-in with the link kept. */
-export function LinkBox({ signedIn, initial = "", onStarted }: { signedIn: boolean; initial?: string; onStarted: (id: string) => void }) {
+export function LinkBox({ signedIn, initial = "", onStarting, onStarted, onFailed }: { signedIn: boolean; initial?: string; onStarting?: () => void; onStarted: (id: string) => void; onFailed?: () => void }) {
   const router = useRouter();
   const [link, setLink] = useState(initial);
   const [busy, setBusy] = useState(false);
@@ -17,14 +17,17 @@ export function LinkBox({ signedIn, initial = "", onStarted }: { signedIn: boole
   async function go(e?: React.FormEvent) {
     e?.preventDefault();
     if (c.kind !== "ok" || busy) return;
+    setBusy(true);
     if (!signedIn) {
       router.push(`/sign-in?link=${encodeURIComponent(c.url)}`);
-      return;
+      return; // stays "loading" until the sign-in page opens
     }
-    setBusy(true);
-    const r = await fetch("/api/jobs", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ link: c.url }) });
-    const d = await r.json().catch(() => ({}));
+    onStarting?.();
+    const r = await fetch("/api/jobs", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ link: c.url }) }).catch(() => null);
+    const d = r ? await r.json().catch(() => ({})) : {};
     setBusy(false);
+    if (!r) { onFailed?.(); return setErr("Couldn't reach Hunting Fox. Check your internet and try again."); }
+    if (!r.ok || d.duplicate) onFailed?.();
     if (r.status === 403) return setErr("You're on the waiting list. As soon as you're approved, this link will work.");
     if (r.status === 402) return setErr("You've used all your searches. Your saved jobs still work. Ask for more below, or add your own key in Account.");
     if (!r.ok) return setErr(d.msg || "Something went wrong on our side. Try again in a minute.");
@@ -51,8 +54,8 @@ export function LinkBox({ signedIn, initial = "", onStarted }: { signedIn: boole
         <label htmlFor="joblink" className="sr">Job link</label>
         <input id="joblink" type="text" inputMode="url" autoComplete="off" placeholder="Paste a LinkedIn or Naukri job link" value={link} onChange={(e) => setLink(e.target.value)} aria-describedby="linkmsg" />
         {c.kind === "empty" && <button type="button" className="chip" onClick={paste}>Paste</button>}
-        <button type="submit" className={`btn lg ${c.kind === "ok" ? "pri" : "off"}`} disabled={c.kind !== "ok" || busy}>
-          {busy ? <Spinner size={18} color="#fff" /> : null}Show me what to do{!busy && Icon.arrow()}
+        <button type="submit" className={`btn lg ${c.kind === "ok" || busy ? "pri" : "off"}${busy ? " loading" : ""}`} disabled={c.kind !== "ok" || busy} aria-busy={busy}>
+          {busy ? <><Spinner size={18} color="#fff" />{signedIn ? "Starting…" : "Opening sign-in…"}</> : <>Show me what to do{Icon.arrow()}</>}
         </button>
       </form>
       <div id="linkmsg" role="status" style={{ margin: "10px 8px 0", fontSize: 14, minHeight: 20, fontWeight: c.kind === "empty" && !err ? 400 : 600, color }}>{msg}</div>

@@ -27,6 +27,7 @@ function ago(iso?: string | null) {
 export function Home(p: { signedIn: boolean; initialLink?: string; name?: string; email?: string; resumeName?: string; jobs?: Job[]; left?: number; limit?: number; used?: number; ownApify?: boolean; approved?: boolean; admin?: boolean; declineMessage?: string | null }) {
   const router = useRouter();
   const [scanId, setScanId] = useState<string | null>(null);
+  const [starting, setStarting] = useState(false);
   const [picked, setPicked] = useState<Record<string, string>>({});
   const [stopped, setStopped] = useState(false);
   const [more, setMore] = useState<Record<string, boolean>>({});
@@ -48,12 +49,14 @@ export function Home(p: { signedIn: boolean; initialLink?: string; name?: string
   // Coming back from sign-in with a link: start it straight away.
   useEffect(() => {
     if (!p.signedIn || !p.initialLink || !p.approved) return;
+    setStarting(true);
     (async () => {
-      const r = await fetch("/api/jobs", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ link: p.initialLink }) });
-      const d = await r.json().catch(() => ({}));
+      const r = await fetch("/api/jobs", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ link: p.initialLink }) }).catch(() => null);
+      const d = r ? await r.json().catch(() => ({})) : {};
       router.replace("/");
-      if (r.ok && d.duplicate) router.push(`/jobs/${d.id}`);
-      else if (r.ok) setScanId(d.id);
+      if (r?.ok && d.duplicate) { setStarting(false); router.push(`/jobs/${d.id}`); }
+      else if (r?.ok) setScanId(d.id);
+      else setStarting(false);
     })();
   }, [p.signedIn, p.initialLink, p.approved, router]);
 
@@ -84,7 +87,7 @@ export function Home(p: { signedIn: boolean; initialLink?: string; name?: string
           </>
         )}
 
-        <LinkBox key={restored} signedIn={p.signedIn} initial={restored || (!p.signedIn ? p.initialLink : "")} onStarted={(id) => setScanId(id)} />
+        <LinkBox key={restored} signedIn={p.signedIn} initial={restored || (!p.signedIn ? p.initialLink : "")} onStarting={() => setStarting(true)} onFailed={() => setStarting(false)} onStarted={(id) => setScanId(id)} />
 
         {p.signedIn && p.resumeName ? (
           <div className="mute" style={{ margin: "4px 8px 0", display: "flex", alignItems: "center", gap: 8, fontSize: 14, flexWrap: "wrap" }}>
@@ -205,7 +208,7 @@ export function Home(p: { signedIn: boolean; initialLink?: string; name?: string
           </>
         )}
       </main>
-      {scanId && <ProgressPopup jobId={scanId} email={p.email} onClose={() => { setScanId(null); router.refresh(); }} />}
+      {(starting || scanId) && <ProgressPopup jobId={scanId} email={p.email} onClose={() => { setScanId(null); setStarting(false); router.refresh(); }} />}
     </>
   );
 }

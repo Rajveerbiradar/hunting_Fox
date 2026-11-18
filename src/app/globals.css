@@ -64,6 +64,9 @@ h1, h2, h3 { text-wrap: balance; }
 .addb { background: transparent; color: var(--ink); padding: 0 4px; }
 .danger { background: transparent; color: var(--red); }
 .btn:disabled { cursor: not-allowed; opacity: 0.5; }
+.btn.loading:disabled { opacity: 1; cursor: progress; }
+.gbtn { background: #fff; color: var(--ink); border: 1px solid var(--line-strong); }
+.gbtn:hover { background: var(--sunken); }
 
 .lbl { font-size: 12px; font-weight: 700; color: var(--mute); text-transform: uppercase; letter-spacing: 0.06em; }
 .mute { color: var(--mute); }

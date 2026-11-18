@@ -7,11 +7,13 @@ import { PROBLEMS, STEPS } from "@/lib/status";
 type JobRow = { id: string; status: string; step: number; step_detail?: string | null; error?: string | null; company?: string | null; title?: string | null };
 
 /** Shown after "Show me what to do". Polls the job row and says exactly which step we're on. */
-export function ProgressPopup({ jobId, email, onClose }: { jobId: string; email?: string; onClose: () => void }) {
+/** jobId is null for the second between pressing the button and the server answering: the popup shows straight away. */
+export function ProgressPopup({ jobId, email, onClose }: { jobId: string | null; email?: string; onClose: () => void }) {
   const [job, setJob] = useState<JobRow | null>(null);
   const [details, setDetails] = useState<string[]>([]);
 
   useEffect(() => {
+    if (!jobId) return;
     let alive = true;
     const tick = async () => {
       const r = await fetch(`/api/jobs/${jobId}`, { cache: "no-store" }).catch(() => null);

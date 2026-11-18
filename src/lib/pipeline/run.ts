@@ -300,7 +300,7 @@ export async function writePerson(p: Person, ctx: MsgCtx, rp: ResumeProfile | nu
       connection: p.link || null,
       has_resume: !!ctx.resumeLink,
       student_notes: ctx.studentNotes?.trim() || null,
-    }, 2500, ownAi);
+    }, 1800, ownAi);
     let note = (out.note || "").trim();
     const subject = (out.subject || "").trim().replace(/\s*—\s*/g, ", ").slice(0, 90);
     let body = (out.body || "").trim();

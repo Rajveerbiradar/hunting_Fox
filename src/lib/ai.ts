@@ -71,13 +71,16 @@ async function chat(p: Provider, system: string, user: string, maxTokens: number
       { role: "user" as const, content: user },
     ],
   };
+  // The old flat 60 s limit killed every long reply (a full resume rewrite takes 1–2 minutes on Sonnet), and each
+  // kill was retried 3 times: that was the 5-minute wait and the "no answer". Allow time for the reply's length.
+  const opts = { timeout: Math.min(240_000, 30_000 + maxTokens * 20) };
   let r;
   try {
-    r = await client(p).chat.completions.create({ ...base, response_format: { type: "json_object" } });
+    r = await client(p).chat.completions.create({ ...base, response_format: { type: "json_object" } }, opts);
   } catch (e) {
     const status = (e as { status?: number }).status;
     if (status !== 400 && status !== 422) throw e;
-    r = await client(p).chat.completions.create(base);
+    r = await client(p).chat.completions.create(base, opts);
   }
   // A reply that hit the token limit is cut off mid-JSON: asking again with the same limit only wastes another minute.
   if (r.choices[0]?.finish_reason === "length") throw Object.assign(new Error(`Reply cut off at ${maxTokens} tokens`), { cutOff: true });
@@ -119,7 +122,8 @@ async function run<T>(task: "writer" | "ranker", promptName: string, input: unkn
         const msg = String((e as { message?: string })?.message || e);
         await jlog("warn", "ai", `${promptName} on ${p.name} (${p.model}) failed after ${((Date.now() - t0) / 1000).toFixed(1)}s${status ? ` (${status})` : ""}: ${msg.slice(0, 300)}`);
         // Only a busy or broken provider is worth asking again. A cut-off or unreadable reply would just repeat.
-        const badReply = (e as { cutOff?: boolean }).cutOff || e instanceof SyntaxError || /No JSON/.test(msg);
+        // A timed-out reply would just time out again on the same provider: move on instead.
+        const badReply = (e as { cutOff?: boolean }).cutOff || e instanceof SyntaxError || /No JSON|timed out|timeout/i.test(msg) || (e as { name?: string }).name === "APIConnectionTimeoutError";
         if (badReply) break;
         const worthRetry = status === undefined || status === 408 || status === 429 || status >= 500;
         if (!worthRetry || /quota|insufficient|credit|billing/i.test(msg)) break;

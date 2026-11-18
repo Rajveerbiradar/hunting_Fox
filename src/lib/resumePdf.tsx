@@ -1,21 +1,21 @@
-import path from "node:path";
-import { Document, Font, Page, StyleSheet, Text, View, renderToBuffer } from "@react-pdf/renderer";
+import { Document, Font, Page, StyleSheet, Text, View, pdf } from "@react-pdf/renderer";
 import type { Style } from "@react-pdf/types";
 
-// Our own resume PDF, built on the server from the same lines ResumeDoc draws on screen
-// (# Name, > Headline, @ contact, ## Section, ### Title | Dates, - bullet, plain, **bold**).
-// No browser print dialog, so no date, page title, web address or page numbers added by Chrome.
+// Our own resume PDF, built IN THE STUDENT'S BROWSER (like OpenResume) from the same lines ResumeDoc draws on
+// screen (# Name, > Headline, @ contact, ## Section, ### Title | Dates, - bullet, plain, **bold**).
+// No server function to fail or time out, no print dialog, so no date / title / web address / page numbers.
+// Only ever imported with a dynamic import() from PdfButton, so it never lands in a server bundle.
 
 let fontsReady = false;
 function fonts() {
   if (fontsReady) return;
-  const dir = path.join(process.cwd(), "assets", "fonts");
+  const dir = `${window.location.origin}/fonts`;
   Font.register({
     family: "Reddit Sans",
     fonts: [
-      { src: path.join(dir, "reddit-sans-latin-400-normal.woff"), fontWeight: 400 },
-      { src: path.join(dir, "reddit-sans-latin-600-normal.woff"), fontWeight: 600 },
-      { src: path.join(dir, "reddit-sans-latin-700-normal.woff"), fontWeight: 700 },
+      { src: `${dir}/reddit-sans-latin-400-normal.woff`, fontWeight: 400 },
+      { src: `${dir}/reddit-sans-latin-600-normal.woff`, fontWeight: 600 },
+      { src: `${dir}/reddit-sans-latin-700-normal.woff`, fontWeight: 700 },
     ],
   });
   Font.registerHyphenationCallback((w) => [w]); // never split words with a hyphen
@@ -49,10 +49,10 @@ function Rich({ text, style }: { text: string; style?: Style }) {
   );
 }
 
-export async function resumePdf(lines: string[], title: string): Promise<Buffer> {
+export async function resumePdf(lines: string[], title: string): Promise<Blob> {
   fonts();
   const rows = lines.map((l) => l.trim()).filter(Boolean);
-  return renderToBuffer(
+  return pdf(
     <Document title={title} author={title.split(" - ")[0]} creator="Hunting Fox" producer="Hunting Fox">
       <Page size="A4" style={s.page} wrap>
         {rows.map((l, i) => {
@@ -80,7 +80,7 @@ export async function resumePdf(lines: string[], title: string): Promise<Buffer>
         })}
       </Page>
     </Document>
-  );
+  ).toBlob();
 }
 
 /** "Rajveer Biradar - Resume - Sure.pdf", safe for a download header. */

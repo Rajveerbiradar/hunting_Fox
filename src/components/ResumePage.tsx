@@ -5,6 +5,7 @@ import { BackLink, Header, Icon, copyText, useToast } from "./ui";
 import { ResumeUpload } from "./ResumeUpload";
 import { buildDiff } from "@/lib/resumeDiff";
 import { ResumeDoc, type DocMark } from "./ResumeDoc";
+import { PdfButton } from "./PdfButton";
 import { ADDS_TO_RESUME, SKILL_LEVELS } from "@/lib/status";
 
 type Skill = { name: string; level: number; from_job?: string };
@@ -46,7 +47,7 @@ export function ResumePage({ jobId, company, resume, hasResume, skills, initial,
           </div>
           {diff && (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
-              <a href={`/api/jobs/${jobId}/pdf`} download className={`btn ${unanswered ? "sec" : "lg pri"}`}>{Icon.download()}{unanswered ? "Download anyway" : "Download PDF"}</a>
+              <PdfButton lines={diff?.final} company={company} source={`/api/jobs/${jobId}/resume-lines`} className={`btn ${unanswered ? "sec" : "lg pri"}`}>{Icon.download()}{unanswered ? "Download anyway" : "Download PDF"}</PdfButton>
               <span style={{ fontSize: 14, fontWeight: unanswered ? 600 : 400, color: unanswered ? "var(--ink)" : "var(--mute)" }}>{unanswered ? `Answer ${unanswered} ${unanswered === 1 ? "question" : "questions"} below first` : "Saved here. Come back any time."}</span>
             </div>
           )}

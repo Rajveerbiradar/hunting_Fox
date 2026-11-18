@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { PdfButton } from "./PdfButton";
 import { BackLink, Header, Icon, Spinner, copyText, letterTile, useToast } from "./ui";
 import type { Person } from "@/lib/pipeline/types";
 
@@ -153,7 +154,7 @@ export function ReachOut(p: { jobId: string; company: string; big: boolean; peop
                             <a className="btn sec" href={`mailto:${cur.email}?subject=${enc(cur.subject || "")}&body=${enc(body)}`}>Other mail app</a>
                             <button className="btn sec" onClick={() => copy(`Subject: ${cur.subject}\n\n${body}`, "Email copied")}>Copy email</button>
                           </div>
-                          <p style={{ margin: "12px 0 0", fontSize: 14, lineHeight: 1.5, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}><b>Attach your resume PDF before you send.</b><span className="mute">The email says it&apos;s attached.</span><a href={`/api/jobs/${p.jobId}/pdf`} download style={{ fontWeight: 600 }}>Download the PDF for {p.company}</a></p>
+                          <p style={{ margin: "12px 0 0", fontSize: 14, lineHeight: 1.5, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}><b>Attach your resume PDF before you send.</b><span className="mute">The email says it&apos;s attached.</span><PdfButton source={`/api/jobs/${p.jobId}/resume-lines`} className="btn sec" style={{ minHeight: 36, fontSize: 14 }}>Download the PDF for {p.company}</PdfButton></p>
                         </>
                       ) : (
                         <p className="mute" style={{ margin: "12px 0 0", fontSize: 16 }}>We couldn&apos;t find a work email for {cur.first}. Send the LinkedIn note instead.</p>

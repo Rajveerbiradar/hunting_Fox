@@ -27,5 +27,5 @@ export default async function Page({ params }: { params: Promise<{ token: string
       </main>
     );
   }
-  return <ResumeSheet lines={lines} print={false} pdfHref={`/api/r/${token}/pdf`} />;
+  return <ResumeSheet lines={lines} print={false} pdfSource={`/api/r/${token}/lines`} />;
 }

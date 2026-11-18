@@ -7,7 +7,7 @@ import { buildDiff, type DiffLine } from "@/lib/resumeDiff";
 import { ADDS_TO_RESUME, SKILL_LEVELS } from "@/lib/status";
 
 type Skill = { name: string; level: number; from_job?: string };
-type R = { base_lines: string[]; edits: { old: string; new: string; reason: string }[]; skill_questions: { skill: string; why: string }[]; suggestions: { title: string; why: string }[] };
+type R = { base_lines: string[]; edits: { old: string; new: string; reason: string }[]; skill_questions: { skill: string; why: string }[]; suggestions: { title: string; why: string }[]; keywords?: { term: string; in_resume: boolean }[] };
 
 export function ResumePage({ jobId, company, resume, hasResume, skills, initial, portal }: { jobId: string; company: string; resume: R | null; hasResume: boolean; skills: Skill[]; initial: string; portal: string }) {
   const [mine, setMine] = useState<Skill[]>(skills);
@@ -89,10 +89,23 @@ export function ResumePage({ jobId, company, resume, hasResume, skills, initial,
           </>
         ) : (
           <>
+            {(resume.keywords?.length ?? 0) > 0 && (() => {
+              const kws = resume.keywords!.map((k) => ({ ...k, ok: k.in_resume || diff!.addedSkills.some((a) => a.toLowerCase() === k.term.toLowerCase()) }));
+              const got = kws.filter((k) => k.ok).length;
+              return (
+                <section className="card" style={{ marginTop: 24, padding: 24 }}>
+                  <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Words the job looks for: {got} of {kws.length} on this resume</h2>
+                  <p className="mute" style={{ margin: "6px 0 12px", fontSize: 16 }}>Companies filter resumes by the words in the job post. We used the job&apos;s exact words in your real lines. The missing ones are only added if you&apos;ve really used them.</p>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {kws.map((k) => <span key={k.term} className="tag" style={k.ok ? { background: "var(--green-bg)", color: "#1A6B3C" } : { background: "#EEF1F5", color: "var(--mute)" }}>{k.term}{k.ok ? " ✓" : ""}</span>)}
+                  </div>
+                </section>
+              );
+            })()}
             {qs.length > 0 && (
               <section className="card" style={{ marginTop: 24, padding: 24 }}>
                 <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>{unanswered ? `${unanswered} quick question${unanswered > 1 ? "s" : ""}` : "Your skill answers"}</h2>
-                <p className="mute" style={{ margin: "6px 0 0", fontSize: 16 }}>People on this team list these skills. We only add one if you&apos;ve at least used it in a project. Your answers are saved in your account under Skills.</p>
+                <p className="mute" style={{ margin: "6px 0 0", fontSize: 16 }}>The job asks for these, or people in this same role at {company} use them. They&apos;re not on your resume, so we won&apos;t add any unless you say you&apos;ve used it in at least a project. Your answers are saved in your account under Skills.</p>
                 {qs.map((q, i) => {
                   const lv = levels[q.skill.toLowerCase()];
                   const open = lv === undefined || editing[q.skill];
@@ -131,7 +144,7 @@ export function ResumePage({ jobId, company, resume, hasResume, skills, initial,
             {resume.suggestions?.length > 0 && (
               <section className="card" style={{ marginTop: 16, padding: 24 }}>
                 <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Suggestions</h2>
-                <p className="mute" style={{ margin: "6px 0 0", fontSize: 16 }}>Ideas from the people we found at {company}. We didn&apos;t make these changes, because only you know if they&apos;re true for you.</p>
+                <p className="mute" style={{ margin: "6px 0 0", fontSize: 16 }}>Ideas for this job. We didn&apos;t make these changes, because only you know if they&apos;re true for you.</p>
                 {resume.suggestions.map((s, i) => (
                   <div key={i} style={{ padding: "14px 0", borderTop: i ? "1px solid var(--line)" : undefined, display: "flex", flexDirection: "column", gap: 4 }}>
                     <b style={{ fontSize: 16 }}>{s.title}</b><span className="mute" style={{ fontSize: 16 }}>{s.why}</span>

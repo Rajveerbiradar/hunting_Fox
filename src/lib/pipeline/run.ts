@@ -9,7 +9,7 @@ import { clefConfig, clefRank } from "@/lib/clef";
 import { setting } from "@/lib/secrets";
 import { sendEmail } from "@/lib/email";
 import { fetchLinkedIn, fetchNaukri, fetchPeople } from "./fetchers";
-import { buildMessages, checkCompany, knownSkills, sizeBand, skillQuestions, teamSummary } from "./rules";
+import { buildMessages, checkCompany, confirmedSkills, knownSkills, mentions, saidNoSkills, sameRole, sameRoleSummary, sizeBand, skillQuestions } from "./rules";
 import type { Person, ResumePart, ResumeProfile } from "./types";
 
 const SITE = () => (process.env.NEXT_PUBLIC_SITE_URL || "").replace(/\/$/, "");
@@ -128,21 +128,47 @@ async function scan(job: any) {
     past_companies: [],
   };
 
+  // Resume changes: the job post first (exact ATS words), same-role people only as a hint.
+  // Nothing new goes in without the student's yes: unconfirmed skills become questions, never edits.
   const resumeTask = (async (): Promise<ResumePart | null> => {
     if (!lines.length) return null;
-    const out = await writer<{ edits: ResumePart["edits"]; suggestions: ResumePart["suggestions"] }>("resume-changes", {
+    const confirmed = confirmedSkills(profile || {});
+    const saidNo = saidNoSkills(profile || {});
+    const peers = sameRole(jd.title, people);
+    await jlog("info", "resume", `Same role as "${jd.title}": ${peers.length} of ${people.length} people`);
+    type Out = { keywords?: string[]; edits?: ResumePart["edits"]; ask?: ResumePart["skill_questions"]; suggestions?: ResumePart["suggestions"] };
+    const out = await writer<Out>("resume-changes", {
       resume_lines: lines,
-      job: { title: jd.title, key_skills: jd.keySkills, description: jd.description.slice(0, 3000) },
-      team: teamSummary(people),
-    }, 1200, own.ai).catch(async (e) => { await jlog("warn", "resume", `Resume changes skipped: ${String(e?.message || e).slice(0, 200)}`); return { edits: [], suggestions: [] }; });
-    // Anti-invention guard: an edit must replace a line that really exists.
-    const edits = (out.edits || []).filter((e) => lines.includes(e.old) && e.new && e.new !== e.old).slice(0, 4);
-    return {
-      base_lines: lines,
-      edits,
-      skill_questions: skillQuestions(jd, people, student.skills),
-      suggestions: (out.suggestions || []).slice(0, 3),
-    };
+      confirmed_skills: confirmed,
+      said_no: saidNo,
+      job: { title: jd.title, key_skills: jd.keySkills, description: jd.description.slice(0, 6000) },
+      same_role: sameRoleSummary(peers),
+    }, 2000, own.ai).catch(async (e) => { await jlog("warn", "resume", `Resume changes skipped: ${String(e?.message || e).slice(0, 200)}`); return null; });
+
+    const resumeText = lines.join("\n");
+    const have = (t: string) => mentions(resumeText, t) || confirmed.some((c) => c.trim().toLowerCase() === t.trim().toLowerCase());
+    const no = new Set(saidNo.map((x) => x.trim().toLowerCase()));
+
+    // Every skill-like word we know about for this job. An edit that brings in one the student hasn't got is dropped.
+    const vocab = [...new Set([...(out?.keywords || []), ...jd.keySkills, ...peers.flatMap((p) => p.skills), ...(out?.ask || []).map((q) => q.skill)].map((x) => String(x || "").trim()).filter((x) => x.length > 1))];
+    const edits = (out?.edits || []).filter((e) => {
+      if (!e?.old || !e?.new || e.new === e.old || !lines.includes(e.old)) return false;
+      const sneaked = vocab.find((t) => mentions(e.new, t) && !mentions(e.old, t) && !have(t));
+      if (sneaked) { void jlog("info", "resume", `Dropped an edit that added "${sneaked}" without asking`); return false; }
+      return true;
+    }).slice(0, 5);
+
+    const asked = new Set<string>();
+    const skill_questions = (out ? out.ask || [] : skillQuestions(jd, confirmed, saidNo))
+      .filter((q) => q?.skill && !have(q.skill) && !no.has(q.skill.trim().toLowerCase()))
+      .filter((q) => { const k = q.skill.trim().toLowerCase(); if (asked.has(k)) return false; asked.add(k); return true; })
+      .slice(0, 5)
+      .map((q) => ({ skill: q.skill.trim(), why: q.why || "The job post asks for it." }));
+
+    const keywords = (out?.keywords?.length ? out.keywords : jd.keySkills).slice(0, 12).map((t) => String(t).trim()).filter(Boolean)
+      .map((term) => ({ term, in_resume: have(term) || edits.some((e) => mentions(e.new, term)) }));
+
+    return { base_lines: lines, edits, skill_questions, suggestions: (out?.suggestions || []).slice(0, 3), keywords };
   })();
 
   const rankTask = (async (): Promise<Ranked> => {

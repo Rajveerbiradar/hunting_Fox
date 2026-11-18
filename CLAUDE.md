@@ -80,7 +80,7 @@ Server-only tables have RLS on and no policies; the app reads them with the serv
 0. Read job (LinkedIn/Naukri actor) — `fetchers.ts`
 1. Check company — `rules.ts` `checkCompany` (fake / closed / agency stop here; they don't count as a search)
 2. Find people — `fetchPeople` (b2bsearch by domain, harvestapi fallback), cached per company for 7 days, minus `blocked_people`
-3. Resume changes ∥ rank people — two AI calls in parallel (`prompts/resume-changes.md`, `prompts/rank-people.md`); each falls back silently
+3. Resume changes ∥ rank people — run in parallel; each falls back silently. Resume (`prompts/resume-changes.md`, `resumeTask` in run.ts): the **job description is the main source** — AI pulls the exact ATS words (`keywords`) and rewrites only real lines (resume text + skills the student confirmed at level 2+). People in the **same role** (`sameRole` in rules.ts, seniority ignored) are only a hint. Any skill not on the resume becomes a question (`ask` → `skill_questions`), never an edit; code drops any edit that adds a known skill word the student hasn't got, and never re-asks skills they said no to. Fallback questions = job post's key skills only
 4. Write messages — AI writes each person's LinkedIn note (≤200 chars) and email from their profile (title, headline, about, skills, career) and the student's real details (`prompts/write-messages.md`, `writePerson` in run.ts). Top 2 at scan time, the rest on "Show more people" (`/api/jobs/[id]/more`). The resume link is added only if the student has a resume. Template in `rules.ts` is only the fallback if every AI provider fails
 5. Done → `reports` row, `events` "finished"
 

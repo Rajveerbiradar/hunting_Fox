@@ -58,6 +58,8 @@ export type ResumePart = {
   edits: { old: string; new: string; reason: string }[];
   skill_questions: { skill: string; why: string }[];
   suggestions: { title: string; why: string }[];
+  /** The job's exact screening words and whether this copy of the resume has each one. */
+  keywords?: { term: string; in_resume: boolean }[];
 };
 
 export type ResumeProfile = {

@@ -47,39 +47,50 @@ export function sizeBand(company: CompanyData): "small" | "big" {
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9+#.]/g, "");
 
 /** Skills the team or job lists that the student hasn't told us about. Code only. */
-export function skillQuestions(job: JobData, people: Person[], known: string[]) {
-  const knownSet = new Set(known.map(norm));
-  const counts = new Map<string, { name: string; n: number }>();
-  people.forEach((p) =>
-    new Set(p.skills.map((s) => s.trim())).forEach((s) => {
-      const k = norm(s);
-      if (!k) return;
-      counts.set(k, { name: counts.get(k)?.name || s, n: (counts.get(k)?.n || 0) + 1 });
-    })
-  );
-  const total = people.length;
-  const out: { skill: string; why: string; score: number }[] = [];
-  counts.forEach((v, k) => {
-    if (knownSet.has(k) || v.n < 2) return;
-    out.push({ skill: v.name, why: `${v.n} of the ${total} people on this team list it.`, score: v.n + (job.keySkills.some((s) => norm(s) === k) ? 2 : 0) });
-  });
-  job.keySkills.forEach((s) => {
-    const k = norm(s);
-    if (!k || knownSet.has(k) || counts.has(k)) return;
-    out.push({ skill: s, why: "The job post asks for it.", score: 1.5 });
-  });
-  return out.sort((a, b) => b.score - a.score).slice(0, 3).map(({ skill, why }) => ({ skill, why }));
+/** Fallback questions when the AI is down: only skills the job post itself lists that the student hasn't confirmed or turned down. */
+export function skillQuestions(job: JobData, known: string[], answered: string[] = []) {
+  const skip = new Set([...known, ...answered].map(norm));
+  return job.keySkills
+    .filter((s) => norm(s) && !skip.has(norm(s)))
+    .slice(0, 5)
+    .map((skill) => ({ skill, why: "The job post asks for it." }));
 }
 
-/** Team summary passed to the resume-changes prompt. */
-export function teamSummary(people: Person[]) {
-  const counts = new Map<string, number>();
-  people.forEach((p) => p.skills.forEach((s) => counts.set(s, (counts.get(s) || 0) + 1)));
+const SENIORITY = /\b(senior|sr|junior|jr|intern|internship|trainee|associate|graduate|fresher|entry|level|lead|principal|staff|head|i|ii|iii|iv|1|2|3)\b/g;
+const roleWords = (t: string) =>
+  new Set((t || "").split(/ at | @ | - | \| |,/i)[0].toLowerCase().replace(/[()]/g, " ").replace(SENIORITY, " ").split(/[^a-z0-9+#]+/).filter((w) => w.length > 1));
+
+/** People whose title is the same role as the job (seniority ignored), e.g. "Product Manager" for "Associate Product Manager". */
+export function sameRole(jobTitle: string, people: Person[]) {
+  const want = roleWords(jobTitle);
+  if (!want.size) return [];
+  return people.filter((p) => {
+    const have = roleWords(p.title);
+    const hit = [...want].filter((w) => have.has(w)).length;
+    return hit === want.size || (want.size >= 3 && hit / want.size >= 0.67);
+  });
+}
+
+/** Same-role people's skills, counted, for the resume prompt. Hints only. */
+export function sameRoleSummary(peers: Person[]) {
+  const counts = new Map<string, { name: string; n: number }>();
+  peers.forEach((p) => new Set(p.skills.map((s) => s.trim())).forEach((s) => {
+    const k = norm(s);
+    if (k) counts.set(k, { name: counts.get(k)?.name || s, n: (counts.get(k)?.n || 0) + 1 });
+  }));
   return {
-    people_found: people.length,
-    titles: people.map((p) => p.title),
-    skill_counts: [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 15).map(([skill, n]) => ({ skill, n })),
+    people: peers.length,
+    titles: peers.map((p) => p.title).slice(0, 10),
+    skills: [...counts.values()].sort((a, b) => b.n - a.n).slice(0, 20).map(({ name, n }) => ({ skill: name, listed_by: n })),
   };
+}
+
+/** True if `term` appears in `text` as a whole word/phrase (case-insensitive). */
+export function mentions(text: string, term: string) {
+  const t = term.trim().toLowerCase();
+  if (!t) return false;
+  const esc = t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(^|[^a-z0-9])${esc}($|[^a-z0-9])`, "i").test(text.toLowerCase());
 }
 
 /** The fixed message template. AI only supplies `line` when there's a real connection. */
@@ -108,6 +119,16 @@ export function buildMessages(
     ctx.studentName,
   ].join("\n");
   return { note, subject, body };
+}
+
+/** Skills the student said they've used at project level or more, plus what their resume lists. */
+export function confirmedSkills(profile: { skills?: { name: string; level: number }[] | null; resume_profile?: ResumeProfile | null }) {
+  return [...(profile.skills || []).filter((s) => s.level >= 2).map((s) => s.name), ...(profile.resume_profile?.skills || [])];
+}
+
+/** Skills the student said they haven't really used (never asked again, never added). */
+export function saidNoSkills(profile: { skills?: { name: string; level: number }[] | null }) {
+  return (profile.skills || []).filter((s) => s.level < 2).map((s) => s.name);
 }
 
 export function knownSkills(profile: { skills?: { name: string; level: number }[] | null; resume_profile?: ResumeProfile | null }) {

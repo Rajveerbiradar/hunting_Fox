@@ -16,12 +16,17 @@ You decide which people at a company a student should message first about one jo
 
 *Step 1: Sort each person into a type* from their title and headline: hiring manager or team lead for this role, peer in the same role, recruiter or HR, founder or CXO, someone in another team.
 
-*Step 2: Rank* using these rules, in order:
-1. People on the hiring team for this job or in the same role as the job come first.
-2. Then people active on LinkedIn (they actually read messages).
-3. `size_band` "small": founders and team leads are good, they hire directly. `size_band` "big": prefer peers and team leads over executives, who rarely reply.
-4. Recruiters or HR for this kind of role are useful, after the hiring team.
-5. People in unrelated teams go last.
+*Step 2: Rank by how close each person is to THIS job.* Nobody is removed; everyone is ordered. Judge by what the job actually is, not by seniority alone:
+1. Closest: the person who would run or decide this hire, and people doing this exact work. Examples:
+   - Founder's Office, Chief of Staff, Business Associate, Strategy roles: founders, co-founders and the CEO first, then the Chief of Staff, then other leaders. A product manager is far from this job.
+   - Product jobs: product leads and product managers.
+   - Design jobs: the design lead, then designers.
+   - Engineering jobs: the engineering lead, then engineers in that stack.
+   - Sales, marketing, growth jobs: the head of that team, then people in it.
+2. Next: recruiters or HR who hire for this kind of role.
+3. Then: leaders in nearby teams.
+4. Last: people in unrelated functions.
+Inside the same level, people active on LinkedIn come first.
 
 *Step 3: Check the connection* (`link`) for each person. Only these count, and only when the input proves it:
 - `school`: same school or college (same name in both).

@@ -64,10 +64,12 @@ export function worksThere(r: any, company: CompanyData): string | null {
 }
 
 /** Keep the email only if it's on the company's own domain. */
+const FREE = /^(gmail|googlemail|yahoo|ymail|outlook|hotmail|live|icloud|me|proton|protonmail|rediffmail|aol|zoho)\./i;
 function onDomain(email: string, company: CompanyData) {
   const d = email.split("@")[1]?.toLowerCase() || "";
   const domain = (company.domain || "").toLowerCase();
-  return !!domain && (d === domain || d.endsWith("." + domain));
+  if (!d || FREE.test(d)) return false;
+  return domain ? d === domain || d.endsWith("." + domain) : true;
 }
 
 /** LinkedIn: automation_craft/linkedin-job-details-scraper */
@@ -167,7 +169,8 @@ function cleanPerson(r: any, i: number, company: string): Person | null {
   if (!name) return null;
   const positions: any[] = Array.isArray(r.positions) ? r.positions : Array.isArray(r.experience) ? r.experience : [];
   const lc = company.toLowerCase();
-  const current = positions.find((p) => !p.endDate && (!lc || str(p.companyName || p.company).toLowerCase().includes(lc.split(" ")[0]))) || positions[0];
+  const isCurrent = (p: any) => { const e = p.endDate; return !e || /present/i.test(str(e.text || e)); };
+  const current = positions.find((p) => isCurrent(p) && (!lc || str(p.companyName || p.company).toLowerCase().includes(lc.split(" ")[0]))) || positions.find(isCurrent) || positions[0];
   const past = positions
     .filter((p) => p !== current)
     .map((p) => str(p.companyName || p.company))
@@ -180,12 +183,13 @@ function cleanPerson(r: any, i: number, company: string): Person | null {
     .slice(0, 25);
   // Only an address at the company they work at now counts: that's an official email (a real lead).
   const work = Array.isArray(r.workEmails) ? r.workEmails.map(str).filter(Boolean) : [];
-  const email = r.employerMatch === true ? str((r.emailType === "work" && r.email) || work[0] || (Array.isArray(r.emails) && r.emails[0]?.email)) : "";
+  const listed = Array.isArray(r.emails) ? r.emails.filter((e: any) => !e?.status || /valid|verified|deliverable/i.test(str(e.status))).map((e: any) => str(e.email)) : [];
+  const email = r.employerMatch === false ? "" : str((r.emailType === "work" && r.email) || work[0] || listed[0] || "");
   return {
     id: "p" + i,
     name,
     first: name.split(" ")[0],
-    title: str(r.title || current?.title || r.headline).slice(0, 90),
+    title: str(r.title || r.jobTitle || current?.title || current?.position || r.headline).slice(0, 90),
     months: monthsSince(current?.startDate || current?.start),
     active: r.lowSignal ? "Rarely active" : "Active",
     headline: str(r.headline).slice(0, 160) || undefined,
@@ -195,67 +199,61 @@ function cleanPerson(r: any, i: number, company: string): Person | null {
     skills,
     profileUrl: str(r.profileUrl || r.linkedinUrl || r.url) || undefined,
     email: email || undefined,
-    emailFound: email ? /work|verified|valid|found/i.test(str(r.emailType || r.emails?.[0]?.status)) : undefined,
+    emailFound: email ? true : undefined,
   };
 }
 
 /**
- * People to message. Two b2bsearch runs at the same time (both by website domain):
- *  1. people in the job's role (title filter),
- *  2. anyone there with an official work email at this company (a real lead, goes on top).
- * Fewer than we want from both: top up with anyone at the company (small startups often have 1–3 people, none in this role).
- * Last resort: harvestapi by LinkedIn page URL.
+ * People to message, straight from the company's own LinkedIn employee list (harvestapi, by the company's
+ * LinkedIn page URL). No job-title filter: we take everyone we can get and RANK them by how close they are to
+ * the job (rank step), so a founder comes first for a Founder's Office role and a design lead for a design role.
+ * Big companies (201+ people): a second run at the same time, searching that company's employees for the job's
+ * words, so the closest people aren't missed among thousands. Work emails come from the same run.
+ * Only when there's no LinkedIn page (some Naukri jobs): b2bsearch by website, every person cross-checked.
  */
 export async function fetchPeople(company: CompanyData, jobTitle: string, mode: "full" | "lean", own?: string | null): Promise<Person[]> {
   const kw = titleKeywords(jobTitle);
-  const want = mode === "full" ? 5 : 3;
-  const b2b = async (input: Record<string, unknown>, rows: number, what: string) => {
-    try {
-      const { items, label } = await runActor<any>("b2bsearch/company-employees", { companies: [company.domain], profileDetail: "contacts", compact: true, maxRows: rows, ...input }, { timeoutSec: 60, b2bRows: rows, ownToken: own });
-      const found = items.filter((r) => r._status === "found" || (!r._status && (r.fullName || r.name)));
-      await addRows(label, found.length);
-      return found;
-    } catch (e) {
-      console.warn(`b2bsearch (${what}) failed`, e);
-      return [];
-    }
-  };
+  const want = mode === "full" ? 15 : 8;
   let rows: any[] = [];
-  if (company.domain) {
-    const [role, leads] = await Promise.all([
-      kw.length ? b2b({ titleContains: kw }, want, "role") : Promise.resolve([]),
-      b2b({ mustHave: ["currentWorkEmail"] }, mode === "full" ? 3 : 2, "work email"),
+  if (company.linkedinUrl) {
+    const harvest = async (extra: Record<string, unknown>, n: number, what: string) => {
+      try {
+        const { items } = await runActor<any>("harvestapi/linkedin-company-employees", {
+          companies: [company.linkedinUrl],
+          profileScraperMode: "Full + email search ($12 per 1k)",
+          maxItems: n,
+          ...extra,
+        }, { timeoutSec: 240, ownToken: own });
+        await jlog("info", "people", `LinkedIn employees (${what}): ${items.length}`);
+        return items;
+      } catch (e) {
+        await jlog("warn", "people", `LinkedIn employees (${what}) failed: ${String((e as Error)?.message || e).slice(0, 160)}`);
+        return [];
+      }
+    };
+    const big = (company.sizeMin ?? 0) > 200;
+    const [all, close] = await Promise.all([
+      harvest({}, want, "everyone"),
+      big && kw[0] ? harvest({ searchQuery: kw[0] }, mode === "full" ? 10 : 5, `closest to "${kw[0]}"`) : Promise.resolve([]),
     ]);
-    rows = [...leads.map((r) => ({ ...r, _lead: true })), ...role];
-    // Too few (e.g. 1 email lead and nobody in the role): top up with anyone else who works there.
-    if (rows.length < want) rows = [...rows, ...(await b2b({}, want + rows.length, "anyone"))];
-  }
-  if (!rows.length && company.linkedinUrl && mode === "full") {
+    rows = [...close, ...all];
+  } else if (company.domain) {
     try {
-      const { items } = await runActor<any>("harvestapi/linkedin-company-employees", {
-        companies: [company.linkedinUrl],
-        profileScraperMode: "Full + email search ($12 per 1k)",
-        maxItems: want,
-      }, { timeoutSec: 240, ownToken: own });
-      rows = items.map((r) => ({ ...r, employerMatch: true, email: Array.isArray(r.emails) ? r.emails.find((e: any) => /valid|verified/i.test(e.status))?.email : undefined, emailType: "verified" }));
+      const { items, label } = await runActor<any>("b2bsearch/company-employees", { companies: [company.domain], profileDetail: "contacts", compact: true, maxRows: want }, { timeoutSec: 60, b2bRows: want, ownToken: own });
+      rows = items.filter((r) => r._status === "found" || (!r._status && (r.fullName || r.name)));
+      await addRows(label, rows.length);
+      // Linked to the company only by its website, which can be wrong: keep people who really work there now.
+      const dropped: string[] = [];
+      rows = rows.filter((r) => { const ok = !!worksThere(r, company); if (!ok) dropped.push(str(r.fullName || r.name)); return ok; });
+      if (dropped.length) await jlog("warn", "people", `Dropped ${dropped.length} who don't work at ${company.name} now: ${dropped.join(", ").slice(0, 300)}`);
     } catch (e) {
-      console.warn("harvestapi failed", e);
+      console.warn("b2bsearch failed", e);
     }
   }
-  // Same person from both runs: keep one (the lead copy, which has the email).
+  // The same person from both runs: keep one.
   const seen = new Set<string>();
-  rows = rows.filter((r) => { const k = str(r.profileUrl || r.slug || r.fullName).toLowerCase(); if (!k || seen.has(k)) return false; seen.add(k); return true; });
-  // Cross-check every person: keep only people who really work there now (work email on the company's domain,
-  // a current job at a company with the same name, or a headline naming it). Emails off the domain are dropped.
-  const dropped: string[] = [];
-  rows = rows.filter((r) => {
-    const why = worksThere(r, company);
-    if (!why) dropped.push(`${str(r.fullName || r.name)} (${str((Array.isArray(r.positions) ? r.positions.find((p: any) => !p.endDate) : null)?.company) || "no current job listed"})`);
-    return !!why;
-  });
-  if (dropped.length) await jlog("warn", "people", `Dropped ${dropped.length} who don't work at ${company.name} now: ${dropped.join(", ").slice(0, 400)}`);
+  rows = rows.filter((r) => { const k = str(r.linkedinUrl || r.profileUrl || r.publicIdentifier || r.slug || r.fullName || [r.firstName, r.lastName].join(" ")).toLowerCase(); if (!k || seen.has(k)) return false; seen.add(k); return true; });
   return rows
-    .filter((r) => !r.lowSignal || rows.length <= 2)
     .map((r, i) => cleanPerson(r, i, company.name))
     .filter((p): p is Person => !!p)
     .map((p) => (p.email && !onDomain(p.email, company) ? { ...p, email: undefined, emailFound: undefined } : p));

@@ -99,8 +99,8 @@ export async function clefRank(cfg: ClefConfig, job: { title: string; key_skills
   people.forEach((_, i) => {
     questions[`fit_${i}`] = {
       type: "score",
-      instructions: `How useful is the person with i=${i} in \`people\` for the student to message about \`job\`? Best: people on the hiring team or in the same role as the job, and people active on LinkedIn. At a small \`job.size_band\` company, founders and team leads are fine; at a big one, prefer peers and team leads over executives. Recruiters for this team are useful too.`,
-      criteria: ["Not useful", "A little useful", "Useful", "Very useful"],
+      instructions: `How close is the person with i=${i} in \`people\` to \`job\`, as someone the student should message about it? Judge by what the job actually is, not by seniority alone. Closest: the person who would run or decide this hire, and people doing this exact work. Examples: for a Founder's Office, Chief of Staff or Business Associate job, the founders, co-founders and CEO are closest, then the Chief of Staff, then other leaders; a product manager is far. For a product job, product leads and product managers are closest. For a design job, the design lead and designers. For an engineering job, the engineering lead and engineers in that stack. Recruiters and HR who hire for this kind of role come next. People in unrelated functions are least close. Being active on LinkedIn helps a little.`,
+      criteria: ["Unrelated to this job", "A little related", "Close to this job", "Closest: runs or does this job"],
     };
     questions[`link_${i}`] = {
       type: "choice",

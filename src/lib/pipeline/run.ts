@@ -102,7 +102,7 @@ async function scan(job: any) {
   let cachedRanking: Ranked | null = null;
   // Per company AND role: a designer search and a developer search at the same company want different people.
   const base = company.domain || company.linkedinUrl;
-  const key = base ? `${base}#v3#${jd.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 60)}` : undefined;
+  const key = base ? `${base}#v4#${jd.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 60)}` : undefined;
   if (verdict !== "agency" && key) {
     const { data: cache } = await sb.from("company_cache").select("*").eq("key", key).maybeSingle();
     const fresh = cache && Date.now() - new Date(cache.fetched_at).getTime() < CACHE_DAYS * 86400_000;

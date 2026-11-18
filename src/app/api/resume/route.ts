@@ -27,10 +27,23 @@ export async function POST(req: Request) {
   if (!(file instanceof File) || file.size === 0) return NextResponse.json({ error: "no_file" }, { status: 400 });
   if (file.size > 5_000_000) return NextResponse.json({ error: "too_big" }, { status: 400 });
 
-  const raw = (await textOf(file)).replace(/\u0000/g, "").trim();
+  let raw = "";
+  try {
+    raw = (await textOf(file)).replace(/\u0000/g, "").trim();
+  } catch (e) {
+    console.error("[resume] couldn't read the file", e);
+    return NextResponse.json({ error: "unreadable" }, { status: 400 });
+  }
   if (raw.length < 80) return NextResponse.json({ error: "unreadable" }, { status: 400 });
 
-  const profile = await writer<ResumeProfile>("resume-profile", { resume_text: raw.slice(0, 12000) }, 2500);
+  let profile: ResumeProfile;
+  try {
+    profile = await writer<ResumeProfile>("resume-profile", { resume_text: raw.slice(0, 12000) }, 2500);
+  } catch (e) {
+    const msg = String((e as Error)?.message || e);
+    console.error("[resume] AI failed:", msg);
+    return NextResponse.json({ error: /No AI provider/i.test(msg) ? "no_ai" : "ai_failed", detail: msg.slice(0, 200) }, { status: 503 });
+  }
   const lines = (profile.lines || raw.split("\n")).map((l) => l.trim()).filter(Boolean);
 
   const sb = adminClient();

@@ -25,7 +25,7 @@ export function ResumeUpload({ signedIn, compact, current, onDone }: { signedIn:
     const r = await fetch("/api/resume", { method: "POST", body: fd });
     const d = await r.json().catch(() => ({}));
     if (!r.ok) {
-      setErr(d.error === "unreadable" ? "We couldn't read any text in that file. If it's a scanned image, export it again as a PDF with text." : d.error === "too_big" ? "That file is over 5 MB. Try a smaller PDF." : "Something went wrong reading it. Try again.");
+      setErr(d.error === "unreadable" ? "We couldn't read any text in that file. If it's a scanned image, export it again as a PDF with text." : d.error === "too_big" ? "That file is over 5 MB. Try a smaller PDF." : d.error === "no_ai" ? "Hunting Fox isn't fully set up yet (no AI key). Rajveer is on it, so try again a bit later." : d.error === "ai_failed" ? "Our AI couldn't read it just now. Try again in a minute." : "Something went wrong reading it. Try again.");
       return setState("error");
     }
     setLines(d.lines || []);

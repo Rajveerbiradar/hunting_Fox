@@ -58,6 +58,16 @@ export type CompareRow = { left: string; right: string; changed: boolean; mark?:
  * Before and after, side by side, row by row: the resume as it is on the left, this job's version on the
  * right. Changed rows are lined up, red on the left and green on the right. On a phone the two stack.
  */
+/** "?" in a circle: hover or tap shows why we changed the line. */
+function Why({ text }: { text: string }) {
+  return (
+    <span className="rcq">
+      <button type="button" className="rcact q" aria-label="Why we changed this" onClick={(e) => e.currentTarget.parentElement?.classList.toggle("open")}>?</button>
+      <span className="rcqt" role="tooltip">{text}</span>
+    </span>
+  );
+}
+
 export function CompareDoc({ rows, leftTitle, rightTitle, onCopy }: { rows: CompareRow[]; leftTitle: string; rightTitle: string; onCopy?: (t: string) => void }) {
   return (
     <article className="rdoc rcmp">
@@ -70,17 +80,16 @@ export function CompareDoc({ rows, leftTitle, rightTitle, onCopy }: { rows: Comp
           <div key={i} className="rcrow ch">
             <div><div className="rcold">{r.left.trim() ? lineEl(r.left, i) : <p className="rnone">Not on your resume</p>}</div></div>
             <div>
-              {/* Only the resume line sits in the green box; why we changed it and Keep / Drop sit under it. */}
+              {/* The new line, with small actions in its corner: ? (why), Copy, Drop / Undo. */}
               <div className={m?.off ? "rcnew off" : "rcnew"}>
                 {r.right.trim() ? lineEl(r.right, i) : <p className="rnone">Removed (folded into the new summary)</p>}
-                {onCopy && r.right.trim() && <button className="cbtn noprint" onClick={() => onCopy(plainLine(r.right.trim()))}>Copy</button>}
-              </div>
-              {(m?.reason || m?.extra) && (
-                <div className="rcwhy noprint">
-                  {m?.reason && <p><span>Why:</span> {m.reason}</p>}
+                {m?.off && <p className="rnone">Dropped: your old line stays</p>}
+                <span className="rcacts noprint">
+                  {m?.reason && <Why text={m.reason} />}
+                  {onCopy && r.right.trim() && !m?.off && <button type="button" className="rcact" onClick={() => onCopy(plainLine(r.right.trim()))}>Copy</button>}
                   {m?.extra}
-                </div>
-              )}
+                </span>
+              </div>
             </div>
           </div>
         );

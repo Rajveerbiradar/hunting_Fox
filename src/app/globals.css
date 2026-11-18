@@ -229,7 +229,7 @@ h1, h2, h3 { text-wrap: balance; }
 .rcmp .ch { margin: 4px 0; }
 .rcmp .rcold { background: #fdecef; border-radius: 8px; padding: 4px 10px; color: #5b6472; }
 .rcmp .rcold > :first-child { text-decoration: line-through; text-decoration-color: #b8132f; }
-.rcmp .rcnew { background: var(--green-bg); border-radius: 8px; padding: 4px 64px 4px 10px; }
+.rcmp .rcnew { position: relative; background: var(--green-bg); border-radius: 8px; padding: 4px 150px 4px 10px; }
 .rcmp .rcnew.off { background: #eef1f5; }
 .rcmp .rcnew.off > :first-child { opacity: .55; text-decoration: line-through; }
 .rcmp .rnone { font-style: italic; color: #5b6472; font-size: 13px; }
@@ -255,3 +255,15 @@ h1, h2, h3 { text-wrap: balance; }
 .hback:hover { background: #f7f8fa; }
 .hback svg { flex: none; }
 @media (max-width: 640px) { .logo.slim .wm { display: none; } .hjobs span { display: none; } .hback span { max-width: 46vw; } }
+
+/* Compare view: actions in the corner of each new line */
+.rcmp .rcacts { position: absolute; top: 4px; right: 6px; display: flex; gap: 4px; align-items: center; }
+.rcmp .rcact { min-height: 28px; padding: 0 9px; border: 0; border-radius: 9px; background: #fff; font: inherit; font-size: 12.5px; font-weight: 600; color: #1a6b3c; cursor: pointer; }
+.rcmp .rcact:hover { background: #f7f8fa; }
+.rcmp .rcact.undo { color: #101828; }
+.rcmp .rcact.q { width: 26px; min-height: 26px; padding: 0; border-radius: 50%; border: 1.5px solid #1a6b3c; background: transparent; font-weight: 700; }
+.rcmp .rcq { position: relative; display: inline-flex; }
+.rcmp .rcqt { display: none; position: absolute; top: 32px; right: -6px; z-index: 6; width: 260px; padding: 10px 12px; border-radius: 12px; background: #101828; color: #fff; font-size: 13px; line-height: 1.45; font-weight: 400; box-shadow: 0 8px 24px rgba(16,24,40,.18); }
+.rcmp .rcq:hover .rcqt, .rcmp .rcq:focus-within .rcqt, .rcmp .rcq.open .rcqt { display: block; }
+.rcmp .rcnew.off .rcacts { opacity: 1; text-decoration: none; }
+@media (max-width: 860px) { .rcmp .rcnew { padding-right: 10px; padding-top: 38px; } .rcmp .rcqt { right: auto; left: -120px; } }

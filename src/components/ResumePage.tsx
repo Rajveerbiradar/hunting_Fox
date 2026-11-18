@@ -52,11 +52,8 @@ export function ResumePage({ jobId, company, resume: start, hasResume, skills, i
   const kept = keys.filter((k) => decisions[k] !== false).length;
   const dirty = !appliedAt || keys.some((k) => (decisions[k] !== false) !== ((resume?.decisions || {})[k] !== false));
   // Keep / Drop only change this list (saved when the student taps Apply); say so on every press.
-  function decide(k: string, keep: boolean) {
-    const was = decisions[k] !== false;
-    setDecisions({ ...decisions, [k]: keep });
-    toast.show(keep ? (was ? "Already kept. Tap Apply to put it in your resume" : "Kept. Tap Apply to put it in your resume") : "Dropped. Your old line stays");
-  }
+  // Every change starts kept; the only choice is to drop one (and undo that). The row itself shows the state.
+  const decide = (k: string, keep: boolean) => setDecisions({ ...decisions, [k]: keep });
   const marks: Record<number, DocMark> = {};
   preview?.right.forEach((r, i) => {
     if (r.kind !== "add") return;
@@ -66,10 +63,9 @@ export function ResumePage({ jobId, company, resume: start, hasResume, skills, i
       reason: r.reason || (r.skills ? "Skills you said you've used" : undefined),
       off: !!k && decisions[k] === false,
       extra: review && k ? (
-        <div className="rkeep noprint">
-          <button type="button" aria-pressed={decisions[k] !== false} onClick={() => decide(k, true)}>{decisions[k] !== false ? "✓ Kept" : "Keep"}</button>
-          <button type="button" aria-pressed={decisions[k] === false} onClick={() => decide(k, false)}>{decisions[k] === false ? "✕ Dropped" : "Drop"}</button>
-        </div>
+        decisions[k] === false
+          ? <button type="button" className="rcact undo" onClick={() => decide(k, true)}>Undo</button>
+          : <button type="button" className="rcact" onClick={() => decide(k, false)}>Drop</button>
       ) : undefined,
     };
   });

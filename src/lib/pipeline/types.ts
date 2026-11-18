@@ -25,6 +25,10 @@ export type CompanyData = {
   hq?: string;
   rating?: number;
   reviews?: number;
+  /** What the company says about itself (LinkedIn "About", tagline, specialties). Feeds "what they believe". */
+  about?: string;
+  tagline?: string;
+  specialties?: string[];
 };
 
 export type Check = { group: "The company" | "Who posted the job" | "The people we found"; text: string; result: "pass" | "warn" | "unknown" };
@@ -75,6 +79,8 @@ export type ResumePart = {
   priorities?: { need: string; proof: string; strength: "strong" | "weak" | "none" }[];
   /** Questions about experience the resume doesn't show yet. Answers are saved on profiles.facts. */
   gaps?: { id: string; question: string; why: string }[];
+  /** What the company believes, what it's building, and what this student would deliver there (shown on the page). */
+  company_brief?: { believes: string; building: string; deliver: string };
   /** The AI couldn't write the changes (why, short). The page offers "Try again". */
   failed?: string;
 };

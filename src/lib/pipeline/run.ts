@@ -10,7 +10,7 @@ import { setting } from "@/lib/secrets";
 import { sendEmail } from "@/lib/email";
 import { fetchLinkedIn, fetchNaukri, fetchPeople } from "./fetchers";
 import { buildMessages, checkCompany, knownSkills, sizeBand } from "./rules";
-import { makeResume } from "./resume";
+import { companyInput, makeResume } from "./resume";
 import type { Person, ResumePart, ResumeProfile } from "./types";
 
 const SITE = () => (process.env.NEXT_PUBLIC_SITE_URL || "").replace(/\/$/, "");
@@ -101,7 +101,7 @@ async function scan(job: any) {
   // The resume starts now, in parallel with finding people: it only needs the job and the student's resume.
   const rp: ResumeProfile | null = profile?.resume_profile || null;
   const lines: string[] = (profile?.resume_text || "").split("\n").filter((l: string) => l.trim());
-  const resumeTask: Promise<ResumePart | null> = makeResume(lines, profile, jd, own.ai).catch(() => null);
+  const resumeTask: Promise<ResumePart | null> = makeResume(lines, profile, jd, own.ai, company).catch(() => null);
 
   // 3. People (cached per company for 7 days, shared across students)
   let people: Person[] = [];
@@ -213,6 +213,7 @@ async function scan(job: any) {
     portfolio: (profile?.links || [])[0]?.url,
     student: { skills: student.skills, projects: rp?.projects, education: student.education, resume: lines },
     job: { key_skills: jd.keySkills, description: jd.description },
+    companyInfo: companyInput(company),
   };
   const pending = ordered.map((p) => ({ ...p, written: false, note: undefined, subject: undefined, body: undefined }));
   await sb.from("reports").update({ people: pending, resume, checks }).eq("job_id", job.id);
@@ -273,6 +274,8 @@ export type MsgCtx = Parameters<typeof buildMessages>[1] & {
   /** What the student wants to say to this person, in their own rough words. Empty = our suggested message. */
   studentNotes?: string;
   job?: { key_skills?: string[]; description?: string };
+  /** The company as the prompt sees it (companyInput). */
+  companyInfo?: ReturnType<typeof companyInput>;
 };
 
 /**
@@ -282,7 +285,7 @@ export type MsgCtx = Parameters<typeof buildMessages>[1] & {
 export async function writePerson(p: Person, ctx: MsgCtx, rp: ResumeProfile | null, ownAi?: Provider | null): Promise<Person> {
   try {
     const out = await writer<{ note: string; subject: string; body: string }>("write-messages", {
-      job: { title: ctx.role, company: ctx.company, key_skills: ctx.job?.key_skills?.slice(0, 12), description: ctx.job?.description?.slice(0, 2500), ask: ctx.big ? "referral" : "pass_on" },
+      job: { title: ctx.role, company: ctx.company, key_skills: ctx.job?.key_skills?.slice(0, 12), description: ctx.job?.description?.slice(0, 4000), ask: ctx.big ? "referral" : "pass_on" },
       student: {
         name: ctx.studentName,
         headline: ctx.headline || rp?.headline,
@@ -293,10 +296,11 @@ export async function writePerson(p: Person, ctx: MsgCtx, rp: ResumeProfile | nu
         projects: ctx.student?.resume?.length ? undefined : (ctx.student?.projects || rp?.projects || []).slice(0, 4),
       },
       person: { first: p.first, title: p.title, months_at_company: p.months, headline: p.headline, about: p.about?.slice(0, 1200), skills: p.skills?.slice(0, 15), schools: p.schools, past_companies: p.pastCompanies, activity: p.active },
+      company: ctx.companyInfo || { name: ctx.company },
       connection: p.link || null,
       has_resume: !!ctx.resumeLink,
       student_notes: ctx.studentNotes?.trim() || null,
-    }, 1400, ownAi);
+    }, 2500, ownAi);
     let note = (out.note || "").trim();
     const subject = (out.subject || "").trim().replace(/\s*—\s*/g, ", ").slice(0, 90);
     let body = (out.body || "").trim();

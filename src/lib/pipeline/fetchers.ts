@@ -93,6 +93,9 @@ export async function fetchLinkedIn(url: string, own?: string | null): Promise<{
     founded: c.foundedYear ? Number(c.foundedYear) : undefined,
     industry: str(c.industry) || undefined,
     hq: str(c.headquarters) || undefined,
+    about: str(c.description || c.about || c.overview).slice(0, 2000) || undefined,
+    tagline: str(c.tagline || c.slogan) || undefined,
+    specialties: Array.isArray(c.specialties) ? c.specialties.map(str).filter(Boolean).slice(0, 12) : typeof c.specialties === "string" ? c.specialties.split(/,\s*/).filter(Boolean).slice(0, 12) : undefined,
   };
   const job: JobData = {
     title: str(j.title || j.jobTitle),
@@ -124,6 +127,7 @@ export async function fetchNaukri(url: string, own?: string | null): Promise<{ j
     domain: domainOf(website),
     rating: ab.rating ? Number(ab.rating) : undefined,
     reviews: ab.reviewsCount ? Number(ab.reviewsCount) : undefined,
+    about: str(j.companyDetail?.details || j.aboutCompany || j.companyDescription).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 2000) || undefined,
   };
   const job: JobData = {
     title: str(j.title || j.jobTitle),

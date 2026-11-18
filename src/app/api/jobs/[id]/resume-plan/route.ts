@@ -22,7 +22,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const { data: job } = await own.from("jobs").select("id").eq("id", id).maybeSingle();
   if (!job) return NextResponse.json({ error: "not_found" }, { status: 404 });
   const sb = adminClient();
-  const { data: report } = await sb.from("reports").select("resume,job_data").eq("job_id", id).single();
+  const { data: report } = await sb.from("reports").select("resume,job_data,company_data").eq("job_id", id).single();
   const b = await req.json().catch(() => ({}));
 
   if (b.action === "apply") {
@@ -46,7 +46,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     await sb.from("profiles").update({ facts }).eq("id", user.id);
     const lines: string[] = (profile?.resume_text || "").split("\n").filter((l: string) => l.trim());
     const keys = await ownKeys(user.id).catch(() => ({ ai: null }));
-    const next = await makeResume(lines, { ...profile, facts }, report!.job_data, keys.ai);
+    const next = await makeResume(lines, { ...profile, facts }, report!.job_data, keys.ai, report?.company_data);
     if (!next || next.failed) return NextResponse.json({ error: "ai_failed" }, { status: 503 });
     await sb.from("reports").update({ resume: next }).eq("job_id", id);
     return NextResponse.json({ resume: next });
@@ -58,7 +58,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const lines: string[] = (profile?.resume_text || "").split("\n").filter((l: string) => l.trim());
     if (!lines.length) return NextResponse.json({ error: "no_resume" }, { status: 400 });
     const keys = await ownKeys(user.id).catch(() => ({ ai: null }));
-    const next = await makeResume(lines, profile, report!.job_data, keys.ai);
+    const next = await makeResume(lines, profile, report!.job_data, keys.ai, report?.company_data);
     if (!next || next.failed) return NextResponse.json({ error: "ai_failed", detail: next?.failed }, { status: 503 });
     await sb.from("reports").update({ resume: next }).eq("job_id", id);
     return NextResponse.json({ resume: next });

@@ -1,3 +1,4 @@
+import { companyInput } from "@/lib/pipeline/resume";
 import { NextResponse } from "next/server";
 import { adminClient, currentUser } from "@/lib/supabase/clients";
 import { access } from "@/lib/limits";
@@ -34,6 +35,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     resumeLink: profile?.resume_text || profile?.resume_profile ? `${(process.env.NEXT_PUBLIC_SITE_URL || "").replace(/\/$/, "")}/r/${report?.share_token}` : "",
     portfolio: (profile?.links || [])[0]?.url,
     job: { key_skills: report?.job_data?.keySkills, description: report?.job_data?.description },
+    companyInfo: companyInput(report?.company_data, job.company),
     student: { skills: knownSkills(profile || {}), projects: profile?.resume_profile?.projects, resume: (profile?.resume_text || "").split("\n").filter((l: string) => l.trim()), education: (profile?.education?.length ? profile.education : profile?.resume_profile?.education || []).map((e: { school: string }) => e.school) },
   };
   const b = await req.json().catch(() => ({}));

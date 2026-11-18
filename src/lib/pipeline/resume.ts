@@ -2,12 +2,24 @@
 import { writer, type Provider } from "@/lib/ai";
 import { jlog } from "@/lib/joblog";
 import { confirmedSkills, mentions, saidNoSkills, skillQuestions } from "./rules";
-import type { JobData, ResumePart } from "./types";
+import type { CompanyData, JobData, ResumePart } from "./types";
+
+/** The company as both prompts see it: who they are and what they say they believe. */
+export const companyInput = (c?: Partial<CompanyData> | null, name?: string) => ({
+  name: c?.name || name || "",
+  about: c?.about || null,
+  tagline: c?.tagline || null,
+  specialties: c?.specialties || [],
+  industry: c?.industry || null,
+  size: c?.sizeText || null,
+  founded: c?.founded || null,
+});
 
 /** A true fact the student told us in their own words, answering a gap question. Saved on profiles.facts. */
 export type Fact = { q: string; a: string; at?: string };
 
 type Out = {
+  company_brief?: { believes?: string; building?: string; deliver?: string };
   priorities?: { need: string; proof: string; strength?: string }[];
   perfect_match?: boolean;
   summary?: string; summary_reason?: string;
@@ -21,7 +33,7 @@ type Out = {
  * in the job's language, gap questions for what the resume doesn't show. Returns SUGGESTIONS only
  * (v: 2, applied: false): nothing reaches Final or the PDF until the student taps "Apply changes".
  */
-export async function makeResume(lines: string[], profile: any, jd: JobData, own?: Provider | null): Promise<ResumePart | null> {
+export async function makeResume(lines: string[], profile: any, jd: JobData, own?: Provider | null, company?: Partial<CompanyData> | null): Promise<ResumePart | null> {
   if (!lines.length) return null;
   const confirmed = confirmedSkills(profile || {});
   const saidNo = saidNoSkills(profile || {});
@@ -32,6 +44,7 @@ export async function makeResume(lines: string[], profile: any, jd: JobData, own
     confirmed_skills: confirmed,
     said_no: saidNo,
     job: { title: jd.title, key_skills: jd.keySkills, description: jd.description.slice(0, 7000) },
+    company: companyInput(company, jd.company),
   };
   // A long rewrite can run past the token limit and come back as broken JSON: one more full try before giving up.
   let failed = "";
@@ -104,5 +117,6 @@ export async function makeResume(lines: string[], profile: any, jd: JobData, own
     base_lines: lines, edits, skill_questions, suggestions: [],
     priorities: (out?.priorities || []).slice(0, 5).map((p) => ({ need: clean(p.need), proof: clean(p.proof || ""), strength: (["strong", "weak", "none"].includes(String(p.strength)) ? p.strength : "weak") as "strong" | "weak" | "none" })),
     gaps, summary_insert,
+    company_brief: out.company_brief?.believes || out.company_brief?.deliver ? { believes: clean(out.company_brief.believes || ""), building: clean(out.company_brief.building || ""), deliver: clean(out.company_brief.deliver || "") } : undefined,
   };
 }

@@ -16,6 +16,7 @@ type R = {
   priorities?: { need: string; proof: string; strength: "strong" | "weak" | "none" }[];
   gaps?: { id: string; question: string; why: string }[];
   failed?: string;
+  company_brief?: { believes: string; building: string; deliver: string };
 };
 
 export function ResumePage({ jobId, company, resume: start, hasResume, skills, initial, portal }: { jobId: string; company: string; resume: R | null; hasResume: boolean; skills: Skill[]; initial: string; portal: string }) {
@@ -155,6 +156,21 @@ export function ResumePage({ jobId, company, resume: start, hasResume, skills, i
                     : <><b>We suggested {changed} {changed === 1 ? "change" : "changes"} for {company}.</b> Keep or drop each one in your resume below, then tap <b>Apply changes</b>. Nothing changes on your resume until you do.</>}
                 </span>
               </div>
+            )}
+
+            {!broke && resume.company_brief && (
+              <section className="card" style={{ marginTop: 24, padding: 24 }}>
+                <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>What {company} believes, and what you&apos;d bring</h2>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16, marginTop: 14 }}>
+                  {[["They believe", resume.company_brief.believes], ["They're building", resume.company_brief.building], ["You'd bring", resume.company_brief.deliver]].filter(([, t]) => t).map(([l, t]) => (
+                    <div key={l} style={{ minWidth: 0 }}>
+                      <div className="lbl">{l}</div>
+                      <div style={{ fontSize: 16, lineHeight: 1.5, marginTop: 4 }}>{t}</div>
+                    </div>
+                  ))}
+                </div>
+                <p className="mute" style={{ margin: "12px 0 0", fontSize: 14 }}>Your new summary ends with this, and your messages to people at {company} use it too.</p>
+              </section>
             )}
 
             {(resume.priorities?.length ?? 0) > 0 && (

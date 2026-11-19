@@ -13,7 +13,7 @@ Hunting Fox helps Indian college students get noticed for a job. A student paste
 
 It's Rajveer's free personal project, built for Beep's Founder's Office task (deadline Fri 20 Nov 2026). Students need admin approval and get a set number of "searches".
 
-- Live: https://hunterfox.journeytix.com (also https://huntingfox.vercel.app)
+- Live: https://huntingfox.journeytix.com (also https://huntingfox.vercel.app)
 - Repo: github.com/Rajveerbiradar/hunting_Fox (branch `main`, Vercel auto-deploys on push)
 - Owner/admin: Rajveer · rajveerbiradar360@gmail.com · WhatsApp +91 80974 74757
 
@@ -44,7 +44,7 @@ For Google sign-in to work locally, Supabase → Authentication → URL Configur
 |---|---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | Config | `https://bordbhjvnstmvjcicrhy.supabase.co` |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Config | Supabase **Publishable** key (`sb_publishable_…`) |
-| `NEXT_PUBLIC_SITE_URL` | Config | `https://hunterfox.journeytix.com` (no trailing slash) |
+| `NEXT_PUBLIC_SITE_URL` | Config | `https://huntingfox.journeytix.com` (no trailing slash) |
 | `SUPABASE_SERVICE_ROLE_KEY` | Secret | Supabase **Secret** key (`sb_secret_…`). Server only. |
 | `ADMIN_EMAILS` | Secret | comma-separated admin Gmails |
 | `KEYS_SECRET` | Secret | AES key material for keys saved in /admin. **Never change** once keys are saved. |

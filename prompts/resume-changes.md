@@ -36,16 +36,24 @@ If nothing real is said anywhere, use what the job post shows they care about. N
 
 *Step 3: Find the student's evidence for each priority.* Search `resume_lines` and `student_facts` for real proof: things they owned, built, ran, measured, launched, grew, decided. Re-read real work through this job's lens (a developer who shipped an app alone "owned a product end to end"; one who ran a tester program "worked with users and acted on feedback"). Rate each proof: strong, weak or none.
 
+*Step 3b: Think like the person deciding whether to hire.* The goal is not to list everything relevant; it is to get THIS student hired for THIS job. Ask: "What on this resume would make the hiring manager hesitate?" and fix how it's told. Common traps:
+- **Applying as an employee while calling yourself a founder.** A Founder's Office, Chief of Staff or any team role wants someone who will commit to THEIR company and learn from the founders. "Founder and solo builder" reads as "will leave to run their own startup" and "won't take direction". Never use "Founder" as the student's identity in the headline or the summary's first sentence. Tell the same work as something they built: "Built and launched Amchi Local, a transit app, on my own" goes in as proof, not identity. The entry title can stay as it is (it's a fact), but its bullets lead with what the student did and learned, not with the title.
+- **Overqualified or too senior a picture** for an intern/fresher role: lead with eagerness to learn and to own a piece of the work, not with running everything.
+- **Wrong identity for the role:** a designer applying for growth leads with growth work, not "designer". The headline uses the job's own role name as the identity when it is true enough (e.g. "Aspiring Founder's Office associate | builds and ships products end to end").
+- **Scattered identity** ("Android dev | UI/UX designer | GTM engineer") for a role that wants one thing: lead with the one the job wants, put the rest as range.
+- **Flight risk signals** (very short stints, side businesses): frame as learning and range, never hide facts.
+The hiring manager should finish reading and think "this person wants to work HERE, on OUR problems, and has done real things".
+
 *Step 4: Decide what the student would deliver.* In one sentence, the concrete contribution the student could make at THIS company in their first months, tied to `believes` and the role, resting on their strongest real proof. A plan, never a promised number.
 
 *Step 5: Plan the rewrite.* The default is to change things. Only skip a line if it already says, in this job's language, exactly what this job wants. Plan:
-- `> Headline`: position the student for THIS role using only true identities.
+- `> Headline`: position the student as the person this job is hiring (Step 3b), using only true identities. Never "Founder" for an employee role.
 - The summary (Step 6).
 - Every bullet or entry line that supports a priority: lead with the outcome and the job's language, keep every real fact and number, start with a strong past-tense verb, put what this job cares about first.
 - Bullets that don't help this job: shorten so the strong ones stand out (keep the facts; never delete a whole entry).
 
 *Step 6: Write the summary for this company.* Always return `summary`: exactly 3 sentences, 45 to 70 words, `**bold**` on the 2 or 3 phrases a hiring manager must see.
-- Sentence 1: who the student is for THIS role (true identities only). Do NOT open with a past employer ("Former intern at X").
+- Sentence 1: who the student is for THIS role, as someone who wants to join and grow in it (true identities only). Do NOT open with a past employer ("Former intern at X") or with "Founder" for an employee role (Step 3b).
 - Sentence 2: the strongest 1 or 2 proofs for the top priorities, with numbers. Past employers may appear here, as proof only.
 - Sentence 3: what they want to deliver at `company.name`, connected to what the company believes (e.g. "Wants to bring this **user-first design** to Kaarya's mission of agency-level design for small brands."). Name the company. A plan, not a promise.
 Also return `summary_reason`: ONE plain sentence, under 25 words, that a student understands (e.g. "Leads with what Treelife's Founder's Office needs: someone who owns things end to end."). Never explain sentence by sentence.
@@ -78,6 +86,7 @@ Also return `summary_reason`: ONE plain sentence, under 25 words, that a student
 6. *Use the job's and the company's language, not buzzwords.* No "passionate", "hardworking", "results-driven", "go-getter", "synergy", "dynamic", "seeking an opportunity". No "I".
 7. *Change by default.* `perfect_match: true` only if the headline, summary and every relevant bullet already speak this job's language. That should almost never happen.
 8. *Zero em dashes ("—")* anywhere.
+9. *Write to get hired, not to list what's relevant.* Every line must make the hiring manager more likely to say yes. Anything that signals "will leave", "won't take direction" or "wrong person for this seat" (e.g. "Founder" as the identity for a Founder's Office or team role) is reframed per Step 3b.
 
 ---
 
@@ -103,6 +112,14 @@ BAD edit (keyword stuffing): `**Design:** Figma, Compose` → `**Design:** Figma
 GOOD edit: `- Built a Mumbai train app in Kotlin with Room, tested with 40+ people` → `- Designed and shipped a transit app **end to end**, running a **40+ person tester program** and acting on their feedback`
 
 GOOD headline: `> Android Developer | UI/UX Designer` → `> Product designer who ships with real users | UI/UX & Android | 40+ tester launch`
+
+Job: Founder's Office Associate at Sure. The student built their own app.
+
+BAD summary opening: "**Founder and solo builder** who takes vague problems from idea to launch."
+Why: tells a Founder's Office that the student is a founder who will leave; the hiring manager hesitates.
+
+GOOD summary: "**Builder who gets things done end to end**, eager to learn how a company is run from the founders' side. Built and launched a transit app alone, running a **40+ person tester program** and closing 20+ issues, and built AI-assisted workflows for a sales team. Wants to take messy problems off Sure's founders' plates and see them through."
+
 
 ---
 

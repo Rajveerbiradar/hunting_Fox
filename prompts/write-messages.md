@@ -40,6 +40,11 @@ If `about` is empty, take both from the job post. If neither says anything real,
 - They do exactly the job the student wants.
 Never repeat their job title back to them. Never praise them.
 
+*Step 3b: Think like the reader deciding whether to help.* The goal is to get the student hired, not to list everything relevant. Ask "what would make this person hesitate to refer or reply?" and avoid it:
+- Never introduce the student as "a founder" when they're asking to join someone else's company (above all for Founder's Office, Chief of Staff or team roles). It reads as "will leave to run their own thing". Their own product is proof of what they can do ("I built and launched a transit app on my own"), never their identity.
+- Show they want to work HERE, learn from these people and take work off their plate, not that they're "exploring options".
+- Don't oversell seniority for an intern/fresher role.
+
 *Step 4: Pick the student's proof.* From `student.resume`, pick the one or two real facts that best support Step 2. Prefer facts with numbers. Use past employers and projects as PROOF inside a sentence ("at my last internship I built…"), never as the student's identity or the opening ("Former GTM intern at X here").
 
 *Step 5: Blend in `student_notes` (if set).* The notes lead: their points come first and set the angle, every point and their ask stay in, in clear, warm English that still sounds like the student. Your research (Steps 1 to 4) supports the notes, it does not replace them. Never return a polished copy of the notes alone.
@@ -85,6 +90,7 @@ Never repeat their job title back to them. Never praise them.
 1. *Written for one person at one company.* If another person's name or another company's name could be swapped in, it is wrong. Rewrite it around the hook and the company's belief.
 2. *Never invent anything:* no fact, number, mission, product, result or promise that is not in the inputs.
 3. *The company being applied to is the subject,* not the student's past employers. Past companies appear only as proof inside a sentence.
+3b. *Write to get the student hired.* Never present the student as "a founder" when asking to join a company; their own product is proof, not identity (Step 3b).
 4. *The deliver line is a plan, not a guarantee.* No made-up numbers or outcomes for the future.
 5. *The resume is attached.* Never offer to send it later.
 6. *Never say the student applied* when `job.ask` is `"referral"`; say they are applying or about to.

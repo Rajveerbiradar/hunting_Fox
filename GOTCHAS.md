@@ -76,6 +76,12 @@ Commit hashes point to the fix on `main`.
 - **Changed:** both prompts work out what the company believes and what the student would deliver there, and Step 3b thinks like the person deciding whether to hire. Past employers and the student's own product are proof, never identity. (`9ad0497`, `dfd0ab1`)
 - **Rule:** prompts write to get the student hired, not to list everything relevant.
 
+### 10b. The email copied the student's voice-typed notes, misheard words and all
+- **What broke:** the Treelife email opened "I watched your TED talk and read your articles… stayed with me", quoted "the importance of precautions" (a misheard "Constitution"), retold the founder his own company's origin story, and said "I know the role asks for more years".
+- **Why:** the prompt told the AI the notes lead and every point must stay in, but never said the notes are rough, often voice-typed instructions to interpret. Nothing banned flattery openers, self-undermining lines or retelling the company's story.
+- **Changed:** `write-messages.md` Step 5a: understand the notes first (fix misheard words when obvious, drop what's still unclear, treat "say hi…" as instructions, turn self-praise into resume proof). New critical rules 13 to 16: never point out a weakness, don't open by praising their content, don't retell the company's story, never copy notes word for word. Shorter body (90 to 140 words). This exact failure is now the BAD vs GOOD example.
+- **Rule:** student input is raw material to understand, not text to paste.
+
 ### 11. LinkedIn note had a link; emails said "happy to send my resume"
 - **Changed:** the note never has a link; every email says "I've attached my resume." and code rewrites any "happy to send" line. (`670568f`, `b19169d`)
 
@@ -229,6 +235,7 @@ Every reply from Claude ended with "Assumptions I made". These are the ones that
 | 28 | The page's back link is enough | "When I scroll down I don't see the back button" | Back button in the sticky top bar |
 | 29 | The list updates when the popup closes | New search not shown until refresh | Lists update live |
 | 30 | The effort report as Markdown | It was meant to be HTML | HTML report |
+| 32 | "The notes lead and every point stays in" meant using the student's words as written | "Such a bullshit copy… started with your TED talk stayed with me" | Notes are interpreted (misheard words fixed or dropped); no flattery opener, no weakness, no retelling their story |
 | 31 | Pushing after every change without asking | "Build it but ask me before pushing" (for that batch) | Asked before that push |
 
 Assumptions that held (not wrong, kept): admin approval before searching; students send messages themselves; Mumbai region; one gradient button per screen; light mode only.

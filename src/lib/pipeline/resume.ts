@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { writerBuilt, type Provider } from "@/lib/ai";
+import { writerBuilt, type BuildOpts, type Provider } from "@/lib/ai";
 import { jlog } from "@/lib/joblog";
 import { confirmedSkills, mentions, saidNoSkills, skillQuestions } from "./rules";
 import type { CompanyData, JobData, ResumePart } from "./types";
@@ -33,7 +33,7 @@ type Out = {
  * in the job's language, gap questions for what the resume doesn't show. Returns SUGGESTIONS only
  * (v: 2, applied: false): nothing reaches Final or the PDF until the student taps "Apply changes".
  */
-export async function makeResume(lines: string[], profile: any, jd: JobData, own?: Provider | null, company?: Partial<CompanyData> | null): Promise<ResumePart | null> {
+export async function makeResume(lines: string[], profile: any, jd: JobData, own?: Provider | null, company?: Partial<CompanyData> | null, opts?: BuildOpts & { onRaw?: (out: unknown) => void }): Promise<ResumePart | null> {
   if (!lines.length) return null;
   const confirmed = confirmedSkills(profile || {});
   const saidNo = saidNoSkills(profile || {});
@@ -50,10 +50,11 @@ export async function makeResume(lines: string[], profile: any, jd: JobData, own
   // unreadable reply here only made the student wait minutes for the same failure.
   let failed = "";
   const t0 = Date.now();
-  let out: Out | null = await writerBuilt<Out>("resume-changes", input, own).catch(async (e) => {
+  let out: Out | null = await writerBuilt<Out>("resume-changes", input, own, opts).catch(async (e) => {
     failed = e?.budget ? "budget" : String(e?.message || e).slice(0, 200);
     return null;
   });
+  opts?.onRaw?.(out);
   if (out && !(out.edits?.length || out.priorities?.length || out.summary)) { failed = "The AI sent back an empty answer"; out = null; }
   await jlog(out ? "info" : "warn", "resume", `Resume changes ${out ? "written" : "failed"} in ${Math.round((Date.now() - t0) / 1000)}s${failed ? `: ${failed}` : ""}`);
   if (!out) {

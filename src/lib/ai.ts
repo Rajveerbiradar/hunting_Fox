@@ -192,10 +192,20 @@ export function writer<T>(promptName: string, input: unknown, _maxTokens?: numbe
  * for this exact task (prompts/build-prompt.md, Morning Espresso structure, using the task's own prompt file
  * as the rules it must keep). Then a second call follows that prompt. No two prompts are the same.
  */
-export async function writerBuilt<T>(promptName: string, input: unknown, own?: Provider | null): Promise<T> {
-  const built = await run<{ system_prompt: string }>("writer", "build-prompt", { task: promptName, rules: prompt(promptName), data: input }, own);
+export type BuildOpts = {
+  /** Test only (/api/admin/test): use this text instead of prompts/<task>.md as the rules. */
+  rules?: string;
+  /** Test only: use this text instead of prompts/build-prompt.md. */
+  builder?: string;
+  /** Called with the prompt the first step wrote. */
+  onBuilt?: (systemPrompt: string) => void;
+};
+
+export async function writerBuilt<T>(promptName: string, input: unknown, own?: Provider | null, opts?: BuildOpts): Promise<T> {
+  const built = await run<{ system_prompt: string }>("writer", "build-prompt", { task: promptName, rules: opts?.rules ?? prompt(promptName), data: input }, own, opts?.builder);
   const sys = (built?.system_prompt || "").trim();
   if (sys.length < 400) throw new Error("The prompt-writing step returned an empty prompt");
+  opts?.onBuilt?.(sys);
   await jlog("info", "ai", `Built a ${sys.length}-character prompt for ${promptName}`);
   return run<T>("writer", promptName, input, own, sys);
 }

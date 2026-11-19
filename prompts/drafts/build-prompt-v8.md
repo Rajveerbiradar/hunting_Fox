@@ -23,9 +23,9 @@ Why this step exists: the writer follows decisions well and makes them badly. Le
 *Step 3: The page plan, line by line.* Go through every line of `resume_lines` (by index) and give each one a verdict for THIS reader:
 - **lead**: the strongest proof; say where it moves (top of its entry).
 - **rewrite**: matters to this reader; say what it should make them believe.
-- **shrink**: they would not miss it (engineering internals, design-system details, how an algorithm works, tool lists); one short plain line about what it gave people.
+- **shrink**: they would not miss the detail (framework internals, how an algorithm works, tool lists inside a bullet); one short line about what it gave people, keeping standard professional terms (design system, AI agents, CRM, user testing). Never ask the writer to swap a standard term for a simpler word.
 - **keep**: already fits; leave it exactly.
-Also say which Skills row comes first, and name any jargon items in Skills to drop.
+Also say which Skills row comes first. Don't strip Skills: real skills stay, even technical ones; only the standing rules' banned words go.
 
 *Step 4: The company.* If the company page is empty, say so and forbid any statement about what the company does. Say what `believes` and `building` may draw on.
 

@@ -141,7 +141,7 @@ export function ReachOut(p: { jobId: string; company: string; big: boolean; peop
                   )}
                   {p.hasResume && (
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
-                      <PdfButton source={`/api/jobs/${p.jobId}/resume-lines`} className="btn sec" style={{ minHeight: 36, fontSize: 14 }}>{p.personalised ? `Download the PDF for ${p.company}` : "Download my main resume"}</PdfButton>
+                      <PdfButton source={`/api/jobs/${p.jobId}/resume-lines`} className={p.personalised ? "btn pri" : "btn"} style={p.personalised ? { minHeight: 36, fontSize: 14 } : { minHeight: 36, fontSize: 14, background: "#fff", border: "1px solid var(--line-strong)", color: "var(--ink)" }}>{p.personalised ? `Download the PDF for ${p.company}` : "Download my main resume"}</PdfButton>
                       {!p.personalised && <a className="btn sec" style={{ minHeight: 36, fontSize: 14 }} href={`/jobs/${p.jobId}/resume`}>Make it for {p.company}</a>}
                     </div>
                   )}

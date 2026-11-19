@@ -147,8 +147,14 @@ export function ResumePage({ jobId, company, resume: start, hasResume, skills, i
   const doneHere = [...new Map([...(resume?.answered || []), ...(resume?.gaps || []).map((g) => done.find((f) => f.q.trim().toLowerCase() === g.question.trim().toLowerCase())).filter(Boolean) as { q: string; a: string }[]].map((f) => [f.q, f])).values()];
   const ready = gaps.filter((g) => (answers[g.id] || "").trim().length >= 10);
   const rewrite = () => startRewrite({ action: "answers", answers: ready.map((g) => ({ q: g.question, a: answers[g.id] })) });
+  // Customised = the PDF really differs from the main resume (changes applied, or skills added).
+  const norm = (a: string[]) => a.map((l) => l.trim()).filter(Boolean).join("\n");
+  const custom = !!diff && norm(diff.final) !== norm(resume?.base_lines || []);
   const download = (where: string) => (
-    <PdfButton key={where} lines={diff?.final.filter((l) => l.trim())} company={company} source={`/api/jobs/${jobId}/resume-lines`} className={`btn ${review && !appliedAt ? "sec" : where === "top" ? "lg pri" : "lg sec"}`}>{Icon.download()}{review && !appliedAt ? "Download without changes" : "Download PDF"}</PdfButton>
+    <div key={where} style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+      <PdfButton lines={diff?.final.filter((l) => l.trim())} company={company} source={`/api/jobs/${jobId}/resume-lines`} className={custom ? "btn lg pri" : "btn lg"} style={custom ? undefined : { background: "#fff", border: "1px solid var(--line-strong)", color: "var(--ink)" }}>{Icon.download()}Download PDF</PdfButton>
+      {!custom && <span className="mute" style={{ fontSize: 13 }}>Not customised for {company} yet{review && !appliedAt ? ": apply the changes first" : ""}</span>}
+    </div>
   );
   const status = (
     <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
@@ -168,7 +174,6 @@ export function ResumePage({ jobId, company, resume: start, hasResume, skills, i
         {/* Title with the download right beside it; the status and "make main" sit under the subtitle. */}
         <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
           <h1 style={{ margin: 0, fontSize: "clamp(30px,4vw,36px)", lineHeight: 1.1, fontWeight: 700, letterSpacing: "-.03em", minWidth: 0 }}>Your resume for {company}</h1>
-          {diff && download("top")}
         </div>
         <p className="mute" style={{ margin: "8px 0 0", fontSize: 16 }}>This copy is just for {company}. Your main resume doesn&apos;t change.</p>
         {diff && <div style={{ marginTop: 10 }}>{status}</div>}
@@ -339,14 +344,17 @@ export function ResumePage({ jobId, company, resume: start, hasResume, skills, i
             )}
 
             <section className="card" style={{ marginTop: 24, padding: "20px 16px 24px" }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", padding: "0 8px 16px" }}>
-                <div style={{ minWidth: 0 }}>
+              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap", padding: "0 8px 14px" }}>
+                <div style={{ minWidth: 0, flex: "1 1 280px" }}>
                   <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Your resume for {company}</h2>
                   <p className="mute" style={{ margin: "4px 0 0", fontSize: 14 }}>{clean ? (review && !appliedAt ? "Nothing applied yet: this is your resume as it is. The PDF looks exactly like this." : "This is exactly what the PDF looks like.") : review ? `${changed} suggested ${changed === 1 ? "change" : "changes"}. Your resume now on the left, the version for ${company} on the right. Keep or drop each one.` : `${changed} ${changed === 1 ? "line" : "lines"} changed. Your resume now on the left, the version for ${company} on the right.`}</p>
                 </div>
-                <div role="radiogroup" aria-label="View" style={{ display: "flex", gap: 6 }}>
-                  <button className="opt" role="radio" aria-checked={!clean} onClick={() => setClean(false)}>Show changes</button>
-                  <button className="opt" role="radio" aria-checked={clean} onClick={() => setClean(true)}>Final</button>
+                {diff && download("top")}
+              </div>
+              <div style={{ padding: "0 8px 16px" }}>
+                <div className="seg" role="tablist" aria-label="View">
+                  <button role="tab" aria-selected={!clean} onClick={() => setClean(false)}>Show changes</button>
+                  <button role="tab" aria-selected={clean} onClick={() => setClean(true)}>Final</button>
                 </div>
               </div>
               {review && !clean && changed > 0 && !busy && (

@@ -54,7 +54,7 @@ export function pageProblems(before: string[], out: { lines?: string[]; summary?
   page.forEach((l, i) => {
     if (i < after.length && !changed[i] && !/^\*\*[^*]+:\*\*/.test(l)) return; // unchanged non-skills lines: the student's own words
     const low = l.toLowerCase();
-    for (const t of TELLS) if (new RegExp(`(^|[^a-z])${t.replace(/[-]/g, "[- ]")}s?([^a-z]|$)`).test(low)) found.push(`Line ${i < after.length ? i : "summary"} uses "${t}": "${l.slice(0, 90)}"`);
+    for (const t of TELLS) if (new RegExp(`(^|[^a-z])${t.includes("-") ? t : t.replace(/ /g, "[- ]")}s?([^a-z]|$)`).test(low)) found.push(`Line ${i < after.length ? i : "summary"} uses "${t}": "${l.slice(0, 90)}"`);
     for (const v of UPGRADES) if (new RegExp(`\\b${v}\\b`).test(low) && !new RegExp(`\\b${v}\\b`).test(oldAll)) found.push(`Line ${i < after.length ? i : "summary"} says "${v}", which claims more than the resume does: "${l.slice(0, 90)}"`);
     if (/^- \w+( and \w+)? it\b/i.test(l)) found.push(`Line ${i} starts with a vague "it": "${l.slice(0, 90)}"`);
     if (/\b(a |the )?(person|people|human)s? (still |must |needs? to |has to |have to )+(still )?check/i.test(l)) found.push(`Line ${i < after.length ? i : "summary"} is chatty ("a person must check"): say "human review" or cut it`);
@@ -63,11 +63,13 @@ export function pageProblems(before: string[], out: { lines?: string[]; summary?
   if (solo > 1) found.push(`"solo"/"alone" appears ${solo} times on the page; keep it once at most (the entry title already says it)`);
   // Phrases of 5+ words kept from the old version of a line the writer changed.
   after.forEach((l, i) => {
-    if (!changed[i] || /^(# |@ |## |\*\*[^*]+:\*\*)/.test(l)) return;
+    // Titles and skills rows keep names on purpose; names (capitalised words in the old line) may stay too.
+    if (!changed[i] || /^(# |@ |## |### |\*\*[^*]+:\*\*)/.test(l)) return;
+    const names = new Set((before[i].match(/(?<!^[-•] )\b[A-Z][\w.]*[A-Za-z0-9]/g) || []).map((n) => n.toLowerCase().replace(/[^a-z0-9+\- ]/g, " ").trim()).flatMap((n) => n.split(/\s+/)));
     const a = words(l), b = words(before[i]).join(" ");
     for (let k = 0; k + 5 <= a.length; k++) {
       const g = a.slice(k, k + 5).join(" ");
-      if (!/\d/.test(g) && b.includes(g)) { found.push(`Line ${i} keeps the old wording "${g}": say it in new words or cut it`); break; }
+      if (!/\d/.test(g) && !a.slice(k, k + 5).some((w) => names.has(w)) && b.includes(g)) { found.push(`Line ${i} keeps the old wording "${g}": say it in new words or cut it`); break; }
     }
   });
   return [...new Set(found)].slice(0, 20);

@@ -101,7 +101,7 @@ async function chat(p: Provider, system: string, user: string, maxTokens: number
     if (Date.now() - t0 > cap) throw new Error(`Still writing after ${Math.round(cap / 1000)}s, gave up`);
   }
   // A reply that hit the token limit is cut off mid-JSON: asking again with the same limit only wastes time.
-  if (finish === "length") throw Object.assign(new Error(`Reply cut off at ${maxTokens} tokens`), { cutOff: true });
+  if (finish === "length") throw Object.assign(new Error(`Reply cut off at ${maxTokens} tokens`), { cutOff: true, partial: text.slice(0, 300) });
   return text;
 }
 
@@ -130,12 +130,15 @@ async function run<T>(task: "writer" | "ranker", promptName: string, input: unkn
   for (const p of ordered) {
     // Same provider, up to 3 tries, but only when it's busy or broken right now (network, 408, 429, 5xx)
     // or replied with something that isn't JSON. A wrong key, missing model or no credit moves on at once.
+    // Room for the reply. Newer models (Sonnet 5.5) can spend part of it thinking before they write, so a
+    // reply that hits the limit gets one more try with 3x the room (you only pay for what's used).
+    let room = maxTokens;
     for (let attempt = 1; attempt <= 3; attempt++) {
       if (attempt > 1) { await sleep(attempt === 2 ? 1000 : 3000); await jlog("info", "ai", `Retrying ${promptName} on ${p.name} (try ${attempt} of 3)`); }
       const t0 = Date.now();
       try {
         // Messages need variety and a human voice; everything else stays steady.
-        const text = await chat(p, prompt(promptName), JSON.stringify(input), maxTokens, promptName === "write-messages" ? 0.7 : 0.3);
+        const text = await chat(p, prompt(promptName), JSON.stringify(input), room, promptName === "write-messages" ? 0.7 : 0.3);
         const out = parseJson<T>(text);
         await jlog("info", "ai", `${promptName} on ${p.name} (${p.model}) OK in ${((Date.now() - t0) / 1000).toFixed(1)}s, ${text.length} characters`);
         if (p.id !== "own") void markProvider(p.id, true);
@@ -149,6 +152,11 @@ async function run<T>(task: "writer" | "ranker", promptName: string, input: unkn
         await jlog("warn", "ai", `${promptName} on ${p.name} (${p.model}) failed after ${((Date.now() - t0) / 1000).toFixed(1)}s${status ? ` (${status})` : ""}: ${msg.slice(0, 300)}`);
         // Only a busy or broken provider is worth asking again. A cut-off or unreadable reply would just repeat.
         // A timed-out reply would just time out again on the same provider: move on instead.
+        if ((e as { cutOff?: boolean }).cutOff && room === maxTokens) {
+          await jlog("warn", "ai", `${promptName} hit ${room} tokens; it had written: ${String((e as { partial?: string }).partial || "").replace(/\s+/g, " ").slice(0, 200)}`);
+          room = Math.min(maxTokens * 3, 24000);
+          continue;
+        }
         const badReply = (e as { cutOff?: boolean }).cutOff || e instanceof SyntaxError || /No JSON|timed out|timeout|gave up/i.test(msg) || (e as { name?: string }).name === "APIConnectionTimeoutError";
         if (badReply) break;
         const worthRetry = status === undefined || status === 408 || status === 429 || status >= 500;

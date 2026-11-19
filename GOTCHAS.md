@@ -14,6 +14,12 @@ Commit hashes point to the fix on `main`.
 - **Changed:** replies are **streamed** (`stream: true`), so length never hits a request timeout. We only give up if nothing starts within 60 s, or the reply passes `60 s + 40 ms × max_tokens` (max 280 s). A timed-out, cut-off (`finish_reason: length`) or non-JSON reply is **not** retried on the same provider. `makeResume` makes one call. (`a5c7045`, `f334707`, `eb44f66`)
 - **Rule:** never put a flat timeout on AI calls; never retry a reply that failed because of its own size or shape.
 
+### 1b. "Reply cut off at 1800 tokens" on a short email
+- **What broke:** Jitesh's email failed after 15 s: "Reply cut off at 1800 tokens". The email itself is ~200 words.
+- **Why:** the limits were tight (1,800 for messages, 8,000 for the resume), and the reply also carries hidden working notes (`brief`). Newer models can spend part of the limit thinking before they write. Long student notes make that worse. A cut-off was never retried.
+- **Changed:** messages get 4,000 tokens and the resume 12,000 (you only pay for what's used). A cut-off gets one more try with 3× the room, and the job log shows what the model had written when it was cut off, so the real cause is visible.
+- **Rule:** set the token limit with a lot of headroom; a tight limit saves nothing and breaks replies.
+
 ### 2. Sonnet 5.5 refused every request: "`temperature` is deprecated for this model"
 - **What broke:** every resume rewrite and every email failed within 1 second.
 - **Why:** we sent `temperature` on every call; newer models reject it with a 400.

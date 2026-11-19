@@ -64,8 +64,8 @@ export function ResumePage({ jobId, company, resume: start, hasResume, skills, i
       off: !!k && decisions[k] === false,
       extra: review && k ? (
         decisions[k] === false
-          ? <button type="button" className="rcact undo" onClick={() => decide(k, true)}>Undo</button>
-          : <button type="button" className="rcact" onClick={() => decide(k, false)}>Drop</button>
+          ? <button type="button" className="rcico undo" aria-label="Bring this change back" title="Bring this change back" onClick={() => decide(k, true)}>↺</button>
+          : <button type="button" className="rcico x" aria-label="Drop this change" title="Drop this change" onClick={() => decide(k, false)}>✕</button>
       ) : undefined,
     };
   });

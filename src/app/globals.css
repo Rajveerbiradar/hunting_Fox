@@ -229,7 +229,7 @@ h1, h2, h3 { text-wrap: balance; }
 .rcmp .ch { margin: 4px 0; }
 .rcmp .rcold { background: #fdecef; border-radius: 8px; padding: 4px 10px; color: #5b6472; }
 .rcmp .rcold > :first-child { text-decoration: line-through; text-decoration-color: #b8132f; }
-.rcmp .rcnew { position: relative; background: var(--green-bg); border-radius: 8px; padding: 4px 150px 4px 10px; }
+.rcmp .rcnew { position: relative; background: var(--green-bg); border-radius: 8px; padding: 4px 10px; }
 .rcmp .rcnew.off { background: #eef1f5; }
 .rcmp .rcnew.off > :first-child { opacity: .55; text-decoration: line-through; }
 .rcmp .rnone { font-style: italic; color: #5b6472; font-size: 13px; }
@@ -276,3 +276,13 @@ h1, h2, h3 { text-wrap: balance; }
 .rcmp .rcstack .ch > div { margin: 4px 0; }
 .rcmp .rchead.new { color: #1a6b3c; }
 @media (max-width: 860px) { .rcmp .rccols { display: none; } .rcmp .rcstack { display: block; } }
+
+/* The ? and ✕ sit outside the resume, in a narrow gutter beside the changed line */
+.rdoc.rcmp { padding-right: 52px; }
+.rcmp .rcacts { top: 4px; right: -34px; flex-direction: column; gap: 4px; }
+.rcmp .rcico { width: 22px; height: 22px; padding: 0; border-radius: 50%; border: 1.5px solid #c9d0d9; background: #fff; font: inherit; font-size: 12px; font-weight: 700; line-height: 1; color: #5b6472; cursor: pointer; display: grid; place-items: center; }
+.rcmp .rcico:hover { border-color: #101828; color: #101828; }
+.rcmp .rcico.x:hover { border-color: #b8132f; color: #b8132f; }
+.rcmp .rcico.undo { color: #1a6b3c; border-color: #1a6b3c; }
+.rcmp .rcqt { top: 0; right: 30px; }
+@media (max-width: 860px) { .rdoc.rcmp { padding-right: 44px; } .rcmp .rcnew { padding-top: 4px; } .rcmp .rcqt { left: auto; right: 30px; width: 220px; } }

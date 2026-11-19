@@ -62,7 +62,7 @@ export type CompareRow = { left: string; right: string; changed: boolean; mark?:
 function Why({ text }: { text: string }) {
   return (
     <span className="rcq">
-      <button type="button" className="rcact q" aria-label="Why we changed this" onClick={(e) => e.currentTarget.parentElement?.classList.toggle("open")}>?</button>
+      <button type="button" className="rcico" aria-label="Why we changed this" title="Why we changed this" onClick={(e) => e.currentTarget.parentElement?.classList.toggle("open")}>?</button>
       <span className="rcqt" role="tooltip">{text}</span>
     </span>
   );
@@ -78,7 +78,6 @@ export function CompareDoc({ rows, leftTitle, rightTitle, onCopy }: { rows: Comp
         {m?.off && <p className="rnone">Dropped: your old line stays</p>}
         <span className="rcacts noprint">
           {m?.reason && <Why text={m.reason} />}
-          {onCopy && r.right.trim() && !m?.off && <button type="button" className="rcact" onClick={() => onCopy(plainLine(r.right.trim()))}>Copy</button>}
           {m?.extra}
         </span>
       </div>

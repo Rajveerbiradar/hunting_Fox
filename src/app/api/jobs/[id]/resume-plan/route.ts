@@ -1,5 +1,5 @@
 import { NextResponse, after } from "next/server";
-import { jobCtx } from "@/lib/joblog";
+import { jlog, jobCtx } from "@/lib/joblog";
 import { adminClient, currentUser, userClient } from "@/lib/supabase/clients";
 import { makeResume, type Fact } from "@/lib/pipeline/resume";
 import { finalLines } from "@/lib/resumeDiff";
@@ -53,6 +53,16 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   // "Make this my main resume": the student's main resume becomes this job's final version (applied changes +
   // confirmed skills). The old main resume is kept on this job's report, so "Undo" can put it back.
+  // What the student is typing into the questions, saved as they type, so a refresh never loses it.
+  if (b.action === "draft") {
+    const r = report?.resume as ResumePart | null;
+    if (!r) return NextResponse.json({ error: "no_resume" }, { status: 400 });
+    const drafts: Record<string, string> = {};
+    Object.entries(b.drafts || {}).slice(0, 8).forEach(([k, v]) => { if (/^g\d{1,2}$/.test(k) && typeof v === "string" && v.trim()) drafts[k] = v.slice(0, 800); });
+    await sb.from("reports").update({ resume: { ...r, drafts } }).eq("job_id", id);
+    return NextResponse.json({ ok: true });
+  }
+
   if (b.action === "make_main" || b.action === "undo_main") {
     const r = report?.resume as (ResumePart & { main_before?: string; made_main_at?: string }) | null;
     if (!r) return NextResponse.json({ error: "no_resume" }, { status: 400 });
@@ -83,6 +93,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const lines: string[] = (profile?.resume_text || "").split("\n").filter((l: string) => l.trim());
     if (!lines.length) return NextResponse.json({ error: "no_resume" }, { status: 400 });
     let facts: Fact[] = Array.isArray(profile?.facts) ? profile.facts : [];
+    let answeredHere: Fact[] = [];
     if (b.action === "answers") {
       const answers: Fact[] = (Array.isArray(b.answers) ? b.answers : [])
         .map((x: Fact) => ({ q: String(x?.q || "").trim().slice(0, 300), a: String(x?.a || "").trim().slice(0, 800), at: new Date().toISOString() }))
@@ -90,10 +101,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         .slice(0, 6);
       if (!answers.length) return NextResponse.json({ error: "no_answers" }, { status: 400 });
       facts = [...facts.filter((f) => !answers.some((a) => a.q.toLowerCase() === f.q.toLowerCase())), ...answers].slice(-40);
-      await sb.from("profiles").update({ facts }).eq("id", user.id);
+      const { error: factErr } = await sb.from("profiles").update({ facts }).eq("id", user.id);
+      if (factErr) await jlog("error", "resume", `Couldn't save answers to the profile (run supabase/migrations/007_facts.sql?): ${factErr.message}`, id);
+      answeredHere = answers;
     }
     // Saved on the server first, so the student can leave: coming back shows "Rewriting…" until it's done.
-    const base = { ...(r || { base_lines: lines, edits: [], skill_questions: [], suggestions: [], v: 2 as const }), rewrite_error: undefined };
+    const prev = (r as ResumePart & { answered?: Fact[] } | null)?.answered || [];
+    const answered = [...prev.filter((p) => !answeredHere.some((a) => a.q === p.q)), ...answeredHere].slice(-20);
+    const base = { ...(r || { base_lines: lines, edits: [], skill_questions: [], suggestions: [], v: 2 as const }), rewrite_error: undefined, answered, drafts: {} };
     const busy = { ...base, rewriting: { at: new Date().toISOString(), kind: b.action as "answers" | "redo" } };
     await sb.from("reports").update({ resume: busy }).eq("job_id", id);
     const keys = await ownKeys(user.id).catch(() => ({ ai: null }));
@@ -102,7 +117,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         const next = await makeResume(lines, { ...profile, facts }, report!.job_data, keys.ai, report?.company_data).catch(() => null);
         const ok = next && !next.failed;
         // A failed rewrite keeps the old suggestions and says why; a failed retry stays failed.
-        const save = ok ? next : { ...base, rewriting: undefined, rewrite_error: next?.failed || "The AI didn't answer", failed: b.action === "redo" ? next?.failed || base.failed || "unknown" : base.failed };
+        const save = ok ? { ...next, answered } : { ...base, rewriting: undefined, rewrite_error: next?.failed || "The AI didn't answer", failed: b.action === "redo" ? next?.failed || base.failed || "unknown" : base.failed };
         await sb.from("reports").update({ resume: save }).eq("job_id", id);
       });
     });

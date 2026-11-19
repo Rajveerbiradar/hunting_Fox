@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Header, Icon, copyText, useToast } from "./ui";
 import { ResumeUpload } from "./ResumeUpload";
 import { appliedUse, buildDiff } from "@/lib/resumeDiff";
@@ -19,6 +19,7 @@ type R = {
   company_brief?: { believes: string; building: string; deliver: string };
   rewriting?: { at: string; kind: "answers" | "redo" };
   main_before?: string; made_main_at?: string;
+  answered?: { q: string; a: string }[]; drafts?: Record<string, string>;
   rewrite_error?: string;
 };
 
@@ -128,13 +129,22 @@ export function ResumePage({ jobId, company, resume: start, hasResume, skills, i
   }
 
   // Gap questions: the student's own rough answers become new facts (saved for every job) and a fresh rewrite.
-  const [answers, setAnswers] = useState<Record<string, string>>({});
+  // Typed answers come back after a refresh: saved on the server as you type (a second after you stop).
+  const [answers, setAnswers] = useState<Record<string, string>>(start?.drafts || {});
+  const draftTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  function type(id: string, text: string) {
+    const next = { ...answers, [id]: text };
+    setAnswers(next);
+    if (draftTimer.current) clearTimeout(draftTimer.current);
+    draftTimer.current = setTimeout(() => { void fetch(`/api/jobs/${jobId}/resume-plan`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "draft", drafts: next }) }).catch(() => null); }, 1000);
+  }
   const [skipped, setSkipped] = useState<Record<string, boolean>>({});
   // Questions already answered (saved on the profile, also from other jobs) never come back as empty boxes.
-  const [done, setDone] = useState<{ q: string; a: string }[]>(answered);
+  const [done, setDone] = useState<{ q: string; a: string }[]>([...(start?.answered || []), ...answered]);
   const isDone = (q: string) => done.some((f) => f.q.trim().toLowerCase() === q.trim().toLowerCase());
   const gaps = (resume?.gaps || []).filter((g) => !skipped[g.id] && !isDone(g.question));
-  const doneHere = (resume?.gaps || []).map((g) => done.find((f) => f.q.trim().toLowerCase() === g.question.trim().toLowerCase())).filter(Boolean) as { q: string; a: string }[];
+  // Everything answered for this job stays listed, even when a rewrite asks new questions.
+  const doneHere = [...new Map([...(resume?.answered || []), ...(resume?.gaps || []).map((g) => done.find((f) => f.q.trim().toLowerCase() === g.question.trim().toLowerCase())).filter(Boolean) as { q: string; a: string }[]].map((f) => [f.q, f])).values()];
   const ready = gaps.filter((g) => (answers[g.id] || "").trim().length >= 10);
   const rewrite = () => startRewrite({ action: "answers", answers: ready.map((g) => ({ q: g.question, a: answers[g.id] })) });
   return (
@@ -268,7 +278,7 @@ export function ResumePage({ jobId, company, resume: start, hasResume, skills, i
                   <div key={g.id} style={{ padding: "16px 0", borderTop: i ? "1px solid var(--line)" : undefined, marginTop: i ? 0 : 10 }}>
                     <label htmlFor={`gap-${g.id}`} style={{ display: "block", fontSize: 16, fontWeight: 600 }}>{g.question}</label>
                     {g.why && <div className="mute" style={{ fontSize: 14, marginTop: 2 }}>{g.why}</div>}
-                    <textarea id={`gap-${g.id}`} className="ta" rows={3} maxLength={800} style={{ marginTop: 10 }} value={answers[g.id] || ""} onChange={(e) => setAnswers({ ...answers, [g.id]: e.target.value })} placeholder="Write it your way, in a few rough lines. Numbers help." />
+                    <textarea id={`gap-${g.id}`} className="ta" rows={3} maxLength={800} style={{ marginTop: 10 }} value={answers[g.id] || ""} onChange={(e) => type(g.id, e.target.value)} placeholder="Write it your way, in a few rough lines. Numbers help." />
                     <button className="btn ghost" style={{ marginTop: 4 }} onClick={() => setSkipped({ ...skipped, [g.id]: true })}>No, skip this</button>
                   </div>
                 ))}

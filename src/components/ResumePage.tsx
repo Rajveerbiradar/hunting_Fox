@@ -179,7 +179,7 @@ export function ResumePage({ jobId, company, resume: start, hasResume, skills, i
         {diff && <div style={{ marginTop: 10 }}>{status}</div>}
 
         {/* The people page lists the skills people at the company have; the ones the student really has come back here as skill questions. */}
-        <a href={`/jobs/${jobId}/reach-out#skills`} className="card" style={{ marginTop: 20, display: "flex", alignItems: "center", gap: 14, padding: "16px 20px", textDecoration: "none", color: "inherit" }}>
+        <a href={`/jobs/${jobId}/reach-out#skills`} className="card glow" style={{ marginTop: 20, display: "flex", alignItems: "center", gap: 14, padding: "16px 20px", textDecoration: "none", color: "inherit" }}>
           <span aria-hidden style={{ width: 40, height: 40, flex: "0 0 40px", borderRadius: 12, background: "var(--tile)", display: "grid", placeItems: "center" }}>{Icon.people()}</span>
           <span style={{ flex: 1, minWidth: 0 }}>
             <b style={{ display: "block", fontSize: 16 }}>See what people at {company} know</b>

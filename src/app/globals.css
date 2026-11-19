@@ -286,3 +286,15 @@ h1, h2, h3 { text-wrap: balance; }
 .rcmp .rcico.undo { color: #1a6b3c; border-color: #1a6b3c; }
 .rcmp .rcqt { top: 0; right: 30px; }
 @media (max-width: 860px) { .rdoc.rcmp { padding-right: 44px; } .rcmp .rcnew { padding-top: 4px; } .rcmp .rcqt { left: auto; right: 30px; width: 220px; } }
+
+/* Attention card: a brand-gradient outline that runs around the edge (the people-skills link on the resume page). */
+@property --glow-a { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+.glow {
+  border: 2px solid transparent !important;
+  background:
+    linear-gradient(#fff, #fff) padding-box,
+    conic-gradient(from var(--glow-a), #0a2a6b, #2a74e6, #9cc2ff, #2a74e6, #0a2a6b) border-box !important;
+  animation: glow-spin 1.4s linear infinite;
+}
+@keyframes glow-spin { to { --glow-a: 360deg; } }
+@media (prefers-reduced-motion: reduce) { .glow { animation: none; } }

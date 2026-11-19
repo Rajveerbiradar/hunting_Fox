@@ -1,6 +1,6 @@
 # Hunting Fox — notes for Claude Code
 
-Read this first. It's the whole project in one place.
+Read this first. It's the whole project in one place. Then read `GOTCHAS.md`: everything that broke, why, and the rule that keeps it fixed.
 
 ## What it is
 

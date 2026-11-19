@@ -24,6 +24,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
       personalised={personalised}
       mine={(profile?.skills || []).filter((s: { level: number }) => s.level >= 2).map((s: { name: string }) => s.name)}
       resumeText={base.join("\n")}
+      job={report?.job_data || null}
       asked={(report?.resume?.skill_questions || []).map((q: { skill: string }) => q.skill)}
     />
   );

@@ -93,6 +93,23 @@ Commit hashes point to the fix on `main`.
 - **Changed:** per-student AI budget (default 250,000 tokens, never shown as a number), counted from every call's real token usage; calls stop at the limit with a clear message; warnings at 10% left; admin top-ups. Usage and cost per model in Admin → API keys. (migration 008)
 - **Rule:** every paid call must be counted against someone's budget before it's made.
 
+### 10e. Emails and resumes were written in resume shorthand nobody can read
+- **What broke:** the Garima email said "On Amchi Local, a Mumbai local-train trip-planning app, I took the idea into testing alone, ran a 40+ person tester program, held 25+ feedback conversations and closed 20+ reported issues", plus "AI-assisted workflows… sends them to Slack", "comfortable with PowerPoint and Google Sheets", "your team is very experienced", "I want to learn a lot". The tailored resume lines were just as dense.
+- **Why:** the writer copied resume lines straight into the email; the prompts asked for "proof with numbers" and "the job's language" but never for simple language. Names of the student's own app and past company mean nothing to a stranger.
+- **Changed:** a PLAIN ENGLISH section in `write-messages.md`, `resume-changes.md` and `build-prompt.md`: A2 to B1 level, short sentences, common words, no resume shorthand, no names of the student's own projects or small past companies in emails (say what they are), outcome not mechanism, one or two proofs each with why it matters, at most one "+", need first then proof, no skill claims without proof, no praise of the team, no "I want to learn". Resume bullets: one idea per line, at most one number, say what a project is the first time. The Garima email is now the BAD example, with a plain-English GOOD version.
+- **Rule:** every sentence must be understood in one read by someone reading English as a second language.
+
+### 10f. The LinkedIn note was forced even when there was nothing personal to say
+- **What broke:** for people whose profile shows only a job title, the note came out generic.
+- **Changed:** the note is written only when there's something real about the person (a connection, what they work on, their path, or the student's notes about them). Otherwise the AI returns an empty note with a reason (`note_skipped`), and the reach-out page says "No note for {name}. {reason}". **The email is always written and always personal.** If the person has no email, the note is always written (it's the only way to reach them).
+- **Rule:** a note is optional; an email never is.
+
+### 10g. The test run copied the prompt's own GOOD example into every email
+- **What broke:** in the first local test of 10e/10f, both the Garima and the Jitesh emails reused the GOOD example's sentences word for word ("I have done this kind of work on my own… keep many small things moving until they are done"). A concrete example became a template again.
+- **Changed:** rule 17 in `write-messages.md`: never reuse example sentences; two emails must not share a sentence beyond the greeting, "I've attached my resume." and the sign-off. `build-prompt.md` must not paste example lines into the prompt it writes. Rule 18: if the person posted the job, ask them to look at it, not to "pass it to whoever is reviewing".
+- **Second try still copied:** the examples were written about Rajveer himself (Mumbai train app, about 40 testers), so the writer reused them as his real lines. Every example in `write-messages.md`, `resume-changes.md` and `build-prompt.md` now uses made-up students with different facts (Meera and Kirana Pay, a college fest, a bakery). Only the BAD example keeps the real failed email.
+- **Rule:** examples show the level, never the words.
+
 ### 11. LinkedIn note had a link; emails said "happy to send my resume"
 - **Changed:** the note never has a link; every email says "I've attached my resume." and code rewrites any "happy to send" line. (`670568f`, `b19169d`)
 
@@ -251,6 +268,9 @@ Every reply from Claude ended with "Assumptions I made". These are the ones that
 | 34 | One fixed prompt file per task is enough | "Every time there should be a new prompt… like Morning Espresso… use all the data we scrape" | Two-step writing: build a detailed prompt from all the data, then write |
 | 35 | Students can use the AI freely | "Every account should have a token limit… I can't bear everyone's cost" | Per-student AI budget, % shown, warnings at 10%, admin top-ups |
 | 36 | In voice, "Clef" meant Claude, then Cloudflare | "I asked about Clef, the ranking model in admin" | Clef is Cloudflare's decision model, used to rank people when "Ranking people" is set to Clef |
+| 37 | Proof with numbers and "the job's language" made a good email | "Use low cognitive load, A1/A2 English… why are you mentioning Amchi Local… who writes like this" | Plain English rules in every writing prompt; no own-project names in emails; one or two proofs told as a story |
+| 38 | The TED talk was Jitesh's (from voice notes) | "The TED talk was Garima's, I mistakenly said Jitesh" | Examples now use Garima |
+| 39 | A LinkedIn note must always be written | "If there is less to personalise, don't do it for the LinkedIn message; it's mandatory for the email" | Note optional with a reason; email always written |
 | 31 | Pushing after every change without asking | "Build it but ask me before pushing" (for that batch) | Asked before that push |
 
 Assumptions that held (not wrong, kept): admin approval before searching; students send messages themselves; Mumbai region; one gradient button per screen; light mode only.

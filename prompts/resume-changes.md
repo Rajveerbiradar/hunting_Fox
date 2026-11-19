@@ -37,7 +37,7 @@ If nothing real is said anywhere, use what the job post shows they care about. N
 *Step 3: Find the student's evidence for each priority.* Search `resume_lines` and `student_facts` for real proof: things they owned, built, ran, measured, launched, grew, decided. Re-read real work through this job's lens (a developer who shipped an app alone "owned a product end to end"; one who ran a tester program "worked with users and acted on feedback"). Rate each proof: strong, weak or none.
 
 *Step 3b: Think like the person deciding whether to hire.* The goal is not to list everything relevant; it is to get THIS student hired for THIS job. Ask: "What on this resume would make the hiring manager hesitate?" and fix how it's told. Common traps:
-- **Applying as an employee while calling yourself a founder.** A Founder's Office, Chief of Staff or any team role wants someone who will commit to THEIR company and learn from the founders. "Founder and solo builder" reads as "will leave to run their own startup" and "won't take direction". Never use "Founder" as the student's identity in the headline or the summary's first sentence. Tell the same work as something they built: "Built and launched Amchi Local, a transit app, on my own" goes in as proof, not identity. The entry title can stay as it is (it's a fact), but its bullets lead with what the student did and learned, not with the title.
+- **Applying as an employee while calling yourself a founder.** A Founder's Office, Chief of Staff or any team role wants someone who will commit to THEIR company and learn from the founders. "Founder and solo builder" reads as "will leave to run their own startup" and "won't take direction". Never use "Founder" as the student's identity in the headline or the summary's first sentence. Tell the same work as something they built: "Built and launched a transit app alone" goes in as proof, not identity. The entry title can stay as it is (it's a fact), but its bullets lead with what the student did and learned, not with the title.
 - **Overqualified or too senior a picture** for an intern/fresher role: lead with eagerness to learn and to own a piece of the work, not with running everything.
 - **Wrong identity for the role:** a designer applying for growth leads with growth work, not "designer". The headline uses the job's own role name as the identity when it is true enough (e.g. "Aspiring Founder's Office associate | builds and ships products end to end").
 - **Scattered identity** ("Android dev | UI/UX designer | GTM engineer") for a role that wants one thing: lead with the one the job wants, put the rest as range.
@@ -66,12 +66,26 @@ Also return `summary_reason`: ONE plain sentence, under 25 words, that a student
 
 ---
 
+*PLAIN ENGLISH (applies to every line you write):*
+
+A person reads a resume in seconds, often in their second language. Every line must be understood in ONE read. Write at a simple, everyday level (CEFR A2 to B1).
+
+- One idea per bullet, about 20 words or fewer. Never stack four claims in one line ("took the idea into testing alone, ran a 40+ person tester program, held 25+ feedback conversations and closed 20+ issues" is four lines squeezed into one: pick the one or two that matter for this job).
+- Common words: "built", "ran", "fixed", "talked to", "kept on track", not "spearheaded", "leveraged", "streamlined", "AI-assisted workflows", "cross-functional".
+- Say what a project IS the first time it appears, in a few words: "Udaan, our college fest" or "Kaarya, a design studio for small brands". A name alone means nothing to a stranger.
+- Say the outcome, not how it worked inside: "cut the sales team's manual LinkedIn work", not "drafts LinkedIn comments and routes them to Slack for review".
+- At most one number per bullet, and use exact numbers where the inputs have them. Not every number needs a "+".
+- Use the job's words only when they are plain. If the job post uses jargon, say the same thing in simple words.
+- The summary follows the same rules: short sentences a busy person understands at once.
+
+---
+
 *RULES FOR EDITS:*
 
 - `old`: copied EXACTLY from `resume_lines`, character for character, including its `- `, `### ` or `> ` at the start.
 - `new`: the same kind of line with the same marker. About the same length or shorter; fits one printed line where possible.
 - Bold (`**`) only the 1 or 2 phrases per line that matter most for this job: a number, an outcome, or a priority in the job's words.
-- `reason`: one plain sentence, under 25 words, that a student understands, naming the job priority or company belief it serves (e.g. "Kaarya hires designers who work with real users, so this leads with your 40+ tester program.").
+- `reason`: one plain sentence, under 25 words, that a student understands, naming the job priority or company belief it serves (e.g. "Kaarya hires designers who work with real users, so this leads with the user tests you ran.").
 - Up to 12 edits. Never edit `# Name`, `@ contact`, `## Section` lines, or the Summary lines (Step 6 covers the summary).
 
 ---
@@ -83,6 +97,7 @@ Also return `summary_reason`: ONE plain sentence, under 25 words, that a student
 3. *The company being applied to leads, past employers support.* The headline and the summary's first sentence never open with a past employer; the summary's last sentence names the company being applied to.
 4. *Unconfirmed tools go in `ask`,* never in an edit or the summary. The app throws away any edit that adds one.
 5. *`old` must match a line exactly,* or the edit is thrown away.
+5b. *Plain English (A2 to B1).* One idea per line, common words, say what a project is, outcome not mechanism, at most one number per bullet. See PLAIN ENGLISH.
 6. *Use the job's and the company's language, not buzzwords.* No "passionate", "hardworking", "results-driven", "go-getter", "synergy", "dynamic", "seeking an opportunity". No "I".
 7. *Change by default.* `perfect_match: true` only if the headline, summary and every relevant bullet already speak this job's language. That should almost never happen.
 8. *Zero em dashes ("—")* anywhere.
@@ -92,7 +107,7 @@ Also return `summary_reason`: ONE plain sentence, under 25 words, that a student
 
 *TONE:*
 
-- Confident, specific, outcome-first resume language. Verbs and numbers, not adjectives.
+- Confident, specific, outcome-first, and simple. Plain verbs and one clear number, not adjectives or jargon.
 - Sounds like the student on their best day, not a marketing brochure.
 - Shows homework: a hiring manager should feel the student understands their company.
 
@@ -105,20 +120,25 @@ Job: Product Designer at Kaarya ("we believe small brands deserve agency-level d
 BAD summary opening: "Android developer, UI/UX designer and GTM engineer, and former GTM Engineering Intern at Otto."
 Why: a list of identities plus another company; nothing about Kaarya.
 
-GOOD summary: "**Product designer and Android developer** who designs with real users from day one. Shipped a transit app shaped by a **40+ person tester program** and 20+ resolved issues, and built AI-assisted workflows for a sales team. Wants to bring this **user-first design** to Kaarya's mission of agency-level design for small brands."
+GOOD summary: "**Product designer** who designs with real users from day one. Designed **15 screens** for a food delivery app and changed them after watching people use them. Wants to bring this **user-first design** to Kaarya's small-brand clients."
 
 BAD edit (keyword stuffing): `**Design:** Figma, Compose` → `**Design:** Figma, Compose, Branding, Strategy`
 
-GOOD edit: `- Built a Mumbai train app in Kotlin with Room, tested with 40+ people` → `- Designed and shipped a transit app **end to end**, running a **40+ person tester program** and acting on their feedback`
+GOOD edit: `- Made app screens in Figma for a food delivery startup, 15 screens, user testing` → `- Designed **15 screens** for a food delivery app and changed them after watching real users try them`
 
-GOOD headline: `> Android Developer | UI/UX Designer` → `> Product designer who ships with real users | UI/UX & Android | 40+ tester launch`
+GOOD headline: `> Android Developer | UI/UX Designer` → `> Product designer who tests with real users | UI/UX & Android`
 
 Job: Founder's Office Associate at Sure. The student built their own app.
 
 BAD summary opening: "**Founder and solo builder** who takes vague problems from idea to launch."
 Why: tells a Founder's Office that the student is a founder who will leave; the hiring manager hesitates.
 
-GOOD summary: "**Builder who gets things done end to end**, eager to learn how a company is run from the founders' side. Built and launched a transit app alone, running a **40+ person tester program** and closing 20+ issues, and built AI-assisted workflows for a sales team. Wants to take messy problems off Sure's founders' plates and see them through."
+GOOD summary: "**Gets things done from start to finish**, and wants to learn how a company is run from the founders' side. Ran ticket sales for a college fest and sold **about 900 tickets** in two weeks. Wants to take follow-ups and tracking off Sure's founders and see each project through."
+
+BAD bullet (resume shorthand, too much in one line): `- Led Fest Tix from ideation to GTM; ran 12+ vendor partnerships, 900+ ticket sales, 3x YoY growth, 40+ volunteer ops`
+GOOD bullet: `- Ran ticket sales for **Udaan**, our college fest, and sold **about 900 tickets** in two weeks`
+GOOD next bullet: `- Managed 40 volunteers and kept every stall on schedule on the day`
+(Made-up student. Never copy these lines; rewrite the real student's lines in this plain style.)
 
 
 ---

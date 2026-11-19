@@ -246,7 +246,7 @@ export type MsgCtx = {
 export async function writePerson(p: Person, ctx: MsgCtx, rp: ResumeProfile | null, ownAi?: Provider | null): Promise<Person> {
   try {
     // Two steps: a fresh prompt is written for this person from everything we know, then followed.
-    const out = await writerBuilt<{ note: string; subject: string; body: string }>("write-messages", {
+    const out = await writerBuilt<{ note: string; note_skipped?: string | null; subject: string; body: string }>("write-messages", {
       job: { title: ctx.role, company: ctx.company, key_skills: ctx.job?.key_skills?.slice(0, 20), description: ctx.job?.description?.slice(0, 9000), ask: ctx.big ? "referral" : "pass_on" },
       student: {
         name: ctx.studentName,
@@ -262,12 +262,18 @@ export async function writePerson(p: Person, ctx: MsgCtx, rp: ResumeProfile | nu
       connection: p.link || null,
       team: ctx.team || [],
       has_resume: !!ctx.resumeLink,
+      has_email: !!p.email,
       student_notes: ctx.studentNotes?.trim() || null,
     }, ownAi);
     let note = (out.note || "").trim();
     const subject = (out.subject || "").trim().replace(/\s*—\s*/g, ", ").slice(0, 90);
     let body = (out.body || "").trim();
-    if (!note || !body) throw new Error("empty message");
+    // The email is mandatory. The note may be skipped when nothing personal is known about the person,
+    // but only if there's an email to send instead.
+    if (!body) throw new Error("empty email");
+    if (!note && !p.email) throw new Error("empty note and no email for this person");
+    const noteSkipped = note ? null : (out.note_skipped || "").trim() || "We didn't find anything personal about this person for a short note. Send the email.";
+    if (noteSkipped) await jlog("info", "messages", `No LinkedIn note for ${p.first}: ${noteSkipped}`);
     // The note never carries a link (a bare link from a stranger looks like spam). Its length is the prompt's
     // job (strict rule: 200 characters); code never cuts it, so no sentence is ever chopped off.
     note = note.replace(/https?:\/\/\S+/g, "").replace(/\s*—\s*/g, ", ").replace(/\s+/g, " ").trim();
@@ -283,7 +289,7 @@ export async function writePerson(p: Person, ctx: MsgCtx, rp: ResumeProfile | nu
       body = at > 0 ? `${body.slice(0, at)}\n\n${line}${body.slice(at)}` : `${body}\n\n${line}`;
     }
     body = body.replace(/\n{3,}/g, "\n\n").trim();
-    return { ...p, line: undefined, note, subject: subject || `${ctx.role} at ${ctx.company}`, body, written: true };
+    return { ...p, line: undefined, note, note_skipped: noteSkipped, subject: subject || `${ctx.role} at ${ctx.company}`, body, written: true };
   } catch (e: any) {
     // There is no template to fall back to: a failed message is reported to the student, never faked.
     await jlog("error", "messages", `AI couldn't write for ${p.first}: ${String(e?.message || e).slice(0, 300)}`);

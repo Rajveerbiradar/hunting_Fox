@@ -156,6 +156,16 @@ export function ReachOut(p: { jobId: string; company: string; big: boolean; peop
                   </div>
                 ) : (
                   <>
+                    {!cur.note && cur.note_skipped && !notes[cur.id] ? (
+                      <div style={{ marginTop: 26 }}>
+                        <span className="lbl">LinkedIn note</span>
+                        <p className="mute" style={{ margin: "10px 0 0", fontSize: 16, lineHeight: 1.5 }}>No note for {cur.first}. {cur.note_skipped}</p>
+                        <div style={{ marginTop: 12, display: "flex", gap: 10, flexWrap: "wrap" }}>
+                          <button className="btn ghost" onClick={() => setComposing({ ...composing, [cur.id]: true })}>Write it again</button>
+                        </div>
+                      </div>
+                    ) : (
+                    <>
                     <div style={{ marginTop: 26, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
                       <span className="lbl">LinkedIn note, sent with a connection request</span>
                       <span style={{ fontSize: 14, fontWeight: 700, color: note.length > 200 ? "var(--red)" : "var(--mute)" }}>{note.length} / 200</span>
@@ -167,6 +177,9 @@ export function ReachOut(p: { jobId: string; company: string; big: boolean; peop
                       <button className="btn dark" onClick={() => (note.length > 200 ? toast.show("Make it 200 characters or less first") : copy(note, "Note copied"))}>Copy note</button>
                       <button className="btn ghost" onClick={() => setComposing({ ...composing, [cur.id]: true })}>Write it again</button>
                     </div>
+
+                    </>
+                    )}
 
                     <div style={{ marginTop: 30, paddingTop: 26, borderTop: "1px solid var(--line)" }}>
                       <span className="lbl">Email</span>

@@ -61,7 +61,9 @@ Write it long and specific. A good prompt here is usually 700 to 1,500 words. Le
 2. *Keep every hard rule from `rules`,* and copy its OUTPUT FORMAT exactly. The app reads the writer's reply by that format.
 3. *No templates.* Do not prescribe a fixed paragraph order or a fill-in shape. Give the writer the facts, the story and the rules, and let the shape follow the story.
 4. *Write for getting the student hired,* not for listing everything relevant.
-5. *Plain English,* no em dashes.
+5. *Plain English,* no em dashes. Your prompt must tell the writer to write at a simple, everyday level (A2 to B1): short sentences, common words, no resume shorthand, no names of the student's own projects or small past companies (say what they are instead), outcomes not mechanisms. Write your prompt's own facts the same way, so the writer copies plain language, not resume lines.
+7. *Don't hand the writer sentences to copy.* Describe the story and the proof in your own words; never paste the example lines from `rules` into your prompt. The writer must write new sentences every time.
+6. *Keep the note rule.* For messages, the LinkedIn note is written only when there is something personal about this person (or no email); otherwise it is empty with a reason. The email is always written and always personal. Say clearly in your prompt which case this is.
 
 ---
 
@@ -76,7 +78,7 @@ Direct and specific, like a senior recruiter briefing a writer about one candida
 BAD: "Write a personalised email. Mention the company's mission and the student's skills. Keep it professional."
 Why: could be used for anyone; gives the writer nothing.
 
-GOOD: "Jitesh co-founded Treelife, which brings a founder's CA, legal and compliance work under one roof. He posted the Founder's Office role himself, so he is the hiring manager. Rajveer found the post while looking for Founder's Office roles, then read Treelife's blogs and watched Jitesh's TED talk on the Constitution and what being a citizen of the world's largest democracy asks of us. The role is about owning projects end to end, investor decks and follow-ups. Rajveer's strongest proof: he took a Mumbai local-train app from idea to testing alone, with a 40+ person tester program and 20+ issues closed. Never call him a founder; he is asking to join Jitesh's company."
+GOOD: "Rohan leads shop onboarding at Kirana Pay, which lets small shops get paid and get credit on the phone. He posted the operations role, so he is the hiring manager: write a short note too. Meera's notes say her uncle runs a shop in Pune and still keeps loans in a notebook; that is how she found the company, and it is the heart of the story. Her strongest proof: last summer she got 30 shops near her college taking UPI and went back every week until each used it alone. That is exactly the role's 'onboard and retain shops'. Say what her college project was in plain words; don't name it. Write in short, simple sentences."
 
 ---
 

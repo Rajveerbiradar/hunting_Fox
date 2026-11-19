@@ -229,7 +229,7 @@ async function scan(job: any) {
 
 export type MsgCtx = {
   role: string; company: string; big: boolean; studentName: string; headline?: string; resumeLink: string; portfolio?: string;
-  student?: { skills?: string[]; projects?: { title: string; detail: string }[]; education?: string[]; resume?: string[] };
+  student?: { skills?: string[]; projects?: { title: string; detail: string }[]; education?: string[]; resume?: string[]; facts?: { q: string; a: string }[] };
   /** What the student wants to say to this person, in their own rough words. Empty = our suggested message. */
   studentNotes?: string;
   job?: { key_skills?: string[]; description?: string };
@@ -246,7 +246,7 @@ export type MsgCtx = {
 export async function writePerson(p: Person, ctx: MsgCtx, rp: ResumeProfile | null, ownAi?: Provider | null): Promise<Person> {
   try {
     // Two steps: a fresh prompt is written for this person from everything we know, then followed.
-    const out = await writerBuilt<{ note: string; note_skipped?: string | null; subject: string; body: string }>("write-messages", {
+    const out = await writerBuilt<{ note: string; note_skipped?: string | null; story_tip?: string | null; subject: string; body: string }>("write-messages", {
       job: { title: ctx.role, company: ctx.company, key_skills: ctx.job?.key_skills?.slice(0, 20), description: ctx.job?.description?.slice(0, 9000), ask: ctx.big ? "referral" : "pass_on" },
       student: {
         name: ctx.studentName,
@@ -255,6 +255,7 @@ export async function writePerson(p: Person, ctx: MsgCtx, rp: ResumeProfile | nu
         skills: (ctx.student?.skills || rp?.skills || []).slice(0, 25),
         portfolio: ctx.portfolio || null,
         resume: (ctx.student?.resume || []).join("\n").slice(0, 5000) || null,
+        facts: (ctx.student?.facts || []).filter((f) => f?.a?.trim()).slice(-20).map((f) => ({ q: f.q, a: f.a })),
         projects: ctx.student?.resume?.length ? undefined : (ctx.student?.projects || rp?.projects || []).slice(0, 4),
       },
       person: { first: p.first, title: p.title, months_at_company: p.months, headline: p.headline, about: p.about?.slice(0, 1200), skills: p.skills?.slice(0, 15), schools: p.schools, past_companies: p.pastCompanies, activity: p.active },
@@ -289,7 +290,7 @@ export async function writePerson(p: Person, ctx: MsgCtx, rp: ResumeProfile | nu
       body = at > 0 ? `${body.slice(0, at)}\n\n${line}${body.slice(at)}` : `${body}\n\n${line}`;
     }
     body = body.replace(/\n{3,}/g, "\n\n").trim();
-    return { ...p, line: undefined, note, note_skipped: noteSkipped, subject: subject || `${ctx.role} at ${ctx.company}`, body, written: true };
+    return { ...p, line: undefined, note, note_skipped: noteSkipped, story_tip: (out.story_tip || "").trim() || null, subject: subject || `${ctx.role} at ${ctx.company}`, body, written: true };
   } catch (e: any) {
     // There is no template to fall back to: a failed message is reported to the student, never faked.
     await jlog("error", "messages", `AI couldn't write for ${p.first}: ${String(e?.message || e).slice(0, 300)}`);

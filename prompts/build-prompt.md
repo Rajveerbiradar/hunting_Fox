@@ -15,7 +15,7 @@ Why this step exists: a fixed prompt produces fixed, template-shaped output. A p
 3. `data`: everything we know, for example:
    - the job post (title, key skills, the full description, often with an "About us");
    - the company (its own LinkedIn "About", tagline, specialties, industry, size, founded);
-   - the student (name, full resume lines, skills, education, portfolio, facts they told us, and their own rough notes);
+   - the student (name, full resume lines, skills, education, portfolio, `facts` they told us in their own words, often real moments, and their own rough notes);
    - for messages: the one person (title, headline, about, skills, schools, past companies, how long at the company, how active), any real connection to the student, and the team around them (other people at the company and their roles).
 
 ---
@@ -30,7 +30,7 @@ Why this step exists: a fixed prompt produces fixed, template-shaped output. A p
 
 *Step 4: Research the student.* What have they really done that proves they can do this job? Pick the strongest 2 or 3 real proofs with numbers. Read their rough notes (often voice-typed, with misheard words) and work out what they MEAN: how they found the company, what struck them, what they want. Note anything that would hurt them if said the wrong way (for example calling themselves a founder when asking to join a company).
 
-*Step 5: Find the story.* What is the true, specific story that connects this student to this company and this person? For example: how they came across the role, what they found when they looked into the company, what struck them, and why their real work fits what the role needs. This story is different every time. Write it down in plain words as the heart of the prompt. Do not turn it into a fixed order of sections.
+*Step 5: Find the story.* Search the student's `facts`, notes and resume for ONE real moment that shows they can do what this role needs: a situation, a problem, what they did, what changed. A stat line ("ran a 40-person tester group") is not a story. Write the moment down in plain words, with every real detail the data gives, as the heart of the prompt. If the data has no real moment, say so plainly in the prompt: the writer must keep the email short, tell the most concrete fact plainly, and return a `story_tip` question for the student. Never invent a moment.
 
 *Step 6: Write the prompt* in the structure below, filled with everything from Steps 1 to 5.
 
@@ -42,9 +42,9 @@ Why this step exists: a fixed prompt produces fixed, template-shaped output. A p
 
 1. A title line: `*SYSTEM PROMPT: <task> for <student> → <person or company>*`
 2. **Purpose**: what to produce and what it must achieve (for messages: get this person to reply or pass the resume on; for resumes: get this student shortlisted for this job).
-3. **What we know**: the research from Steps 1 to 4, written out in full as facts the writer can use: the company and its belief, the role and its priorities, the person and the hook, the student's strongest proofs, and what the student's notes mean. Several paragraphs, not a few lines.
+3. **What we know**: the research from Steps 1 to 4, written out in full: the company and the role (as background for the writer's judgement; for messages, say clearly that the reader works there, so the email must never explain the company to them), the person and the hook, the student's real moments, and what the student's notes mean. Several paragraphs, not a few lines.
 4. **The story to tell**: from Step 5, in plain words. Say clearly that it is a guide to the meaning, not a script and not an order of paragraphs.
-5. **Workflow**: numbered steps for the writer, specific to this situation (for example "open with how you found the role on LinkedIn and went to Treelife's site", not "write an opening").
+5. **Workflow**: steps for the writer's THINKING, specific to this situation. Never a list of paragraphs to write in order: no "first say how you found the role, then what the company does, then your proof, then your plan". The story decides the shape.
 6. **Output rules**: what each output must do and must not do, specific to this case, plus every hard rule from `rules`.
 7. **Critical rules**: all of the hard rules from `rules`, plus anything specific you found (for example "never call the student a founder", "the misheard word 'precautions' means 'Constitution'; don't use it").
 8. **Tone**: for this reader.
@@ -59,7 +59,7 @@ Write it long and specific. A good prompt here is usually 700 to 1,500 words. Le
 
 1. *Never invent anything.* Every fact in your prompt must be in `data`. If something isn't known, say it isn't known, so the writer doesn't guess.
 2. *Keep every hard rule from `rules`,* and copy its OUTPUT FORMAT exactly. The app reads the writer's reply by that format.
-3. *No templates.* Do not prescribe a fixed paragraph order or a fill-in shape. Give the writer the facts, the story and the rules, and let the shape follow the story.
+3. *No templates.* Do not prescribe a fixed paragraph order or a fill-in shape, and never ask for a company-summary, skills, plan or "what I'd like to learn" paragraph. Give the writer the facts, the story and the rules, and let the shape follow the story.
 4. *Write for getting the student hired,* not for listing everything relevant.
 5. *Plain English,* no em dashes. Your prompt must tell the writer to write at a simple, everyday level (A2 to B1): short sentences, common words, no resume shorthand, no names of the student's own projects or small past companies (say what they are instead), outcomes not mechanisms. Write your prompt's own facts the same way, so the writer copies plain language, not resume lines.
 7. *Don't hand the writer sentences to copy.* Describe the story and the proof in your own words; never paste the example lines from `rules` into your prompt. The writer must write new sentences every time.
@@ -78,7 +78,7 @@ Direct and specific, like a senior recruiter briefing a writer about one candida
 BAD: "Write a personalised email. Mention the company's mission and the student's skills. Keep it professional."
 Why: could be used for anyone; gives the writer nothing.
 
-GOOD: "Rohan leads shop onboarding at Kirana Pay, which lets small shops get paid and get credit on the phone. He posted the operations role, so he is the hiring manager: write a short note too. Meera's notes say her uncle runs a shop in Pune and still keeps loans in a notebook; that is how she found the company, and it is the heart of the story. Her strongest proof: last summer she got 30 shops near her college taking UPI and went back every week until each used it alone. That is exactly the role's 'onboard and retain shops'. Say what her college project was in plain words; don't name it. Write in short, simple sentences."
+GOOD: "Rohan leads shop onboarding at Kirana Pay (background only: he works there, so the email must never explain Kirana Pay to him). He posted the operations role, so he is the hiring manager and a short note makes sense. The role is really about keeping shops using the app after they sign up. Meera's facts hold the story: last summer most shops near her college said yes to UPI and stopped within a week; she went back every Saturday, sat with each owner and fixed what was stopping them, and 30 shops ended up taking payments on their own. Tell that moment; it shows the job better than any claim. No company paragraph, no plan paragraph, no wish line. Short, simple sentences."
 
 ---
 

@@ -143,7 +143,7 @@ export function ReachOut(p: { jobId: string; company: string; big: boolean; peop
                     )}
                     <label htmlFor="ask" className="lbl" style={{ display: "block" }}>Add what only you know <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400 }}>(optional, but it makes the email much better)</span></label>
                     <textarea id="ask" className="ta" rows={4} maxLength={MAX} style={{ marginTop: 10 }} value={asks[cur.id] || ""} onChange={(e) => setAsks({ ...asks, [cur.id]: e.target.value })}
-                      placeholder={`Why ${p.company || "this company"}, something you noticed about ${cur.first} or their work, what you're hoping for. Rough lines are fine. We'll combine it with ${cur.first}'s profile, the job and your resume.`} />
+                      placeholder={`One real moment from your work: what was hard, what you did, what changed. Also how you found ${p.company || "this company"}, or something you noticed about ${cur.first}. Rough lines are fine.`} />
                     <div className="mute" style={{ marginTop: 6, fontSize: 14, display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
                       <span>{(asks[cur.id] || "").trim() ? `Your points lead the email. We add ${cur.first}'s profile and your resume around them.` : `Empty is fine: we'll write it from ${cur.first}'s profile and your resume.`}</span>
                       <span>{(asks[cur.id] || "").length} / {MAX}</span>
@@ -183,6 +183,11 @@ export function ReachOut(p: { jobId: string; company: string; big: boolean; peop
 
                     <div style={{ marginTop: 30, paddingTop: 26, borderTop: "1px solid var(--line)" }}>
                       <span className="lbl">Email</span>
+                      {cur.story_tip && (
+                        <div style={{ marginTop: 12, padding: "12px 16px", borderRadius: 14, background: "var(--info-bg, #e7effa)", color: "#164a88", fontSize: 15, lineHeight: 1.5 }}>
+                          <b>Make it stronger:</b> <span style={{ color: "var(--ink)" }}>{cur.story_tip} Tap <b>Write it again</b> and add your answer in a few rough lines.</span>
+                        </div>
+                      )}
                       {cur.email ? (
                         <>
                           <div className="mute" style={{ marginTop: 12, fontSize: 14 }}>To <b style={{ color: "var(--ink)" }}>{cur.email}</b></div>

@@ -41,7 +41,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     job: { key_skills: report?.job_data?.keySkills, description: report?.job_data?.description },
     companyInfo: companyInput(report?.company_data, job.company),
     team: people.slice(0, 12).map((x) => ({ name: x.name || x.first, title: x.title, headline: x.headline, months: x.months })),
-    student: { skills: knownSkills(profile || {}), projects: profile?.resume_profile?.projects, resume: (profile?.resume_text || "").split("\n").filter((l: string) => l.trim()), education: (profile?.education?.length ? profile.education : profile?.resume_profile?.education || []).map((e: { school: string }) => e.school) },
+    student: { facts: Array.isArray(profile?.facts) ? profile.facts : [], skills: knownSkills(profile || {}), projects: profile?.resume_profile?.projects, resume: (profile?.resume_text || "").split("\n").filter((l: string) => l.trim()), education: (profile?.education?.length ? profile.education : profile?.resume_profile?.education || []).map((e: { school: string }) => e.school) },
   };
   const b = await req.json().catch(() => ({}));
   const ids: string[] = Array.isArray(b.ids) ? b.ids.slice(0, 1) : [];

@@ -50,7 +50,7 @@ export async function makeResume(lines: string[], profile: any, jd: JobData, own
   // unreadable reply here only made the student wait minutes for the same failure.
   let failed = "";
   const t0 = Date.now();
-  let out: Out | null = await writer<Out>("resume-changes", input, 12000, own).catch(async (e) => {
+  let out: Out | null = await writer<Out>("resume-changes", input, undefined, own).catch(async (e) => {
     failed = String(e?.message || e).slice(0, 200);
     return null;
   });

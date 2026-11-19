@@ -58,13 +58,14 @@ Never repeat their job title back to them. Never praise them.
 
 *Step 7: Write the note, then the email.*
 
-*Step 8: Check before returning.* Go through every CRITICAL RULE. Count the note's characters. Search both messages for "—" (must be zero), for any template phrase, and for any fact that is not in the inputs. If the email would still make sense sent to a different company or a different person, rewrite it.
+*Step 8: Check before returning.* Go through every CRITICAL RULE. Count the note's characters one by one: it must be 200 or fewer (rewrite it if not). Search both messages for "—" (must be zero), for any template phrase, and for any fact that is not in the inputs. If the email would still make sense sent to a different company or a different person, rewrite it.
 
 ---
 
 *THE LINKEDIN NOTE:*
 
-- 200 characters MAX, counting spaces. Aim for 150 to 195. Count carefully.
+- **STRICT: 200 characters or fewer, counting every letter, space and punctuation mark.** LinkedIn refuses a longer note, and nothing shortens it after you: a note over 200 cannot be sent. Aim for 150 to 190.
+- Write it short from the start (2 short sentences), then count. If it is over 200, rewrite it shorter; never end mid-sentence.
 - No links, no emoji.
 - Must include: the person's hook (Step 3), a short line on the company's belief OR what the student would deliver (Steps 1 and 2), and a small ask.
 
@@ -87,6 +88,7 @@ Never repeat their job title back to them. Never praise them.
 
 *CRITICAL RULES:*
 
+0. *The LinkedIn note is 200 characters or fewer.* This is a hard limit, not a target. Count before returning; if it's over, rewrite it shorter.
 1. *Written for one person at one company.* If another person's name or another company's name could be swapped in, it is wrong. Rewrite it around the hook and the company's belief.
 2. *Never invent anything:* no fact, number, mission, product, result or promise that is not in the inputs.
 3. *The company being applied to is the subject,* not the student's past employers. Past companies appear only as proof inside a sentence.

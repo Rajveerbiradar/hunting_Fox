@@ -259,14 +259,15 @@ export async function writePerson(p: Person, ctx: MsgCtx, rp: ResumeProfile | nu
       connection: p.link || null,
       has_resume: !!ctx.resumeLink,
       student_notes: ctx.studentNotes?.trim() || null,
-    }, 4000, ownAi);
+    }, undefined, ownAi);
     let note = (out.note || "").trim();
     const subject = (out.subject || "").trim().replace(/\s*—\s*/g, ", ").slice(0, 90);
     let body = (out.body || "").trim();
     if (!note || !body) throw new Error("empty message");
-    // The note never carries a link (a bare link from a stranger looks like spam). Keep it within LinkedIn's 200.
+    // The note never carries a link (a bare link from a stranger looks like spam). Its length is the prompt's
+    // job (strict rule: 200 characters); code never cuts it, so no sentence is ever chopped off.
     note = note.replace(/https?:\/\/\S+/g, "").replace(/\s*—\s*/g, ", ").replace(/\s+/g, " ").trim();
-    if (note.length > 200) note = note.slice(0, 199).replace(/\s+\S*$/, "").replace(/[,;:]$/, "") + ".";
+    if (note.length > 200) await jlog("warn", "messages", `${p.first}'s note is ${note.length} characters (rule: 200)`);
     // The resume is attached by the student. Never "happy to send" / "will send": say it's attached.
     body = body.replace(/https?:\/\/\S*\/r\/\S+/g, "").replace(/\[RESUME\]/g, "").replace(/\s*—\s*/g, ", ");
     body = body.replace(/[^.\n]*\b(happy to (send|share)|(can|will|could) (send|share)|let me know if you('d| would)? like)[^.\n]*(my )?(resume|cv)[^.\n]*\.?/gi, "I've attached my resume.");

@@ -15,10 +15,16 @@ Commit hashes point to the fix on `main`.
 - **Rule:** never put a flat timeout on AI calls; never retry a reply that failed because of its own size or shape.
 
 ### 1b. "Reply cut off at 1800 tokens" on a short email
-- **What broke:** Jitesh's email failed after 15 s: "Reply cut off at 1800 tokens". The email itself is ~200 words.
-- **Why:** the limits were tight (1,800 for messages, 8,000 for the resume), and the reply also carries hidden working notes (`brief`). Newer models can spend part of the limit thinking before they write. Long student notes make that worse. A cut-off was never retried.
-- **Changed:** messages get 4,000 tokens and the resume 12,000 (you only pay for what's used). A cut-off gets one more try with 3× the room, and the job log shows what the model had written when it was cut off, so the real cause is visible.
-- **Rule:** set the token limit with a lot of headroom; a tight limit saves nothing and breaks replies.
+- **What broke:** Jitesh's email failed after 15 s: "Reply cut off at 1800 tokens".
+- **Why:** every task had its own small output limit (1,800 for messages, 8,000 for the resume). The reply also carries hidden working notes (`brief`), and newer models can spend part of the limit thinking.
+- **First fix (wrong):** bigger limits plus a retry with 3× the room. Rajveer pointed out that retrying spends money twice, and a cap only breaks replies.
+- **Now:** **no per-task caps.** Every call may write up to the model's own limit (32,000, or lower if the model's 400 says so). You only pay for what it writes. No total-time cap: we only give up if nothing starts within 60 s. No retry on a cut-off. Length is controlled by the prompts. (`see "AI: no caps"` commit)
+- **Rule:** control length in the prompt, never by cutting the reply or capping tokens.
+
+### 1c. The LinkedIn note was chopped in code
+- **What broke:** a note over 200 characters was cut in code (`note.slice(0, 199)`), which could end mid-thought.
+- **Now:** the 200-character limit is a **strict rule in the prompt** (critical rule 0, counted in the self-check). Code never cuts it; an over-long note is only logged.
+- **Rule:** limits on what the AI writes belong in the prompt, as strict rules.
 
 ### 2. Sonnet 5.5 refused every request: "`temperature` is deprecated for this model"
 - **What broke:** every resume rewrite and every email failed within 1 second.
@@ -183,3 +189,46 @@ Commit hashes point to the fix on `main`.
 - **A student's own AI key always goes first**, before Admin's choice. Remove it from Account → Use your own keys to test Admin's model.
 - **Fluid Compute must be on in Vercel** (Settings → Functions). Without it, Hobby stops every function at 60 s, whatever `maxDuration` says.
 - **`KEYS_SECRET` must never change** once keys are saved, or every saved key becomes unreadable.
+
+
+---
+
+## Where Claude was wrong: assumptions vs what Rajveer said
+
+Every reply from Claude ended with "Assumptions I made". These are the ones that turned out wrong, what Rajveer said, and what was done. Use this list to avoid repeating them.
+
+| # | Claude assumed | Rajveer's response | What we did |
+|---|---|---|---|
+| 1 | A website listed on the LinkedIn page is proof a company is real | ThinkNova is fake and still went through | A website is only "unknown"; no people + no poster + 51+ employees stops as fake |
+| 2 | People should be filtered by job title | "Rank, don't filter. For a Founder's Office a founder is more relevant than a PM" | No title filter; ranked by closeness to the job |
+| 3 | A website-based people search is fine | "We need employees from LinkedIn only" (Rahul @ credfine didn't work there) | People come from the company's own LinkedIn list |
+| 4 | Chrome's print dialog is good enough for the PDF | "Why is there this watermark?" | Our own PDF download |
+| 5 | A server-made PDF works on Vercel because it worked locally | Download failed on the live site | PDF made in the browser (like OpenResume) |
+| 6 | Messages could be written up front for everyone | Too slow; wanted to pick a person and write on request | Messages written one person at a time, on request |
+| 7 | A fixed email shape and a backup template were acceptable | "Every email should be personalised; structure only as a loose reference" | Personal prompt; later the template was deleted completely |
+| 8 | Student's notes OR our suggested email (either/or) | "Mix it with our intelligence; AI is bad at knowing what to say, the human adds insight" | Notes are blended, one Write my email button |
+| 9 | A minimum length on the student's notes (60, then 10 characters) | "Why is there a limit on the minimum words?" | No minimum |
+| 10 | Every change needs Keep and Drop buttons, plus a toast | "What is this Kept alert? Why are you asking Kept?" | Every change starts kept; one ✕ to drop, ↺ to undo, no pop-ups |
+| 11 | The reason for a change belongs in a box under the line | "Put it in a ? circle, reveal on hover or click" | Small ? beside the line |
+| 12 | Old and new lines should line up row by row | "Why leave white space on the left just to match heights?" | Both columns flow on their own |
+| 13 | Copy and Drop buttons inside the resume were useful | "Remove Copy and Drop; just a ✕, outside the resume" | Small ? and ✕ in a gutter outside the resume |
+| 14 | Answers only need hiding by exact question text | Answers vanished after refresh | Drafts saved as you type; answers kept on the job |
+| 15 | Rewrites can run in the browser request | Leaving the page lost the retry | Rewrites and messages run on the server and save state |
+| 16 | 60 s is enough time for an AI reply | Resume took 5–6 minutes, then failed | Streaming; no total time cap |
+| 17 | Retrying a failed reply 3× on the same AI helps | Same: 5–6 minute waits | No retry for cut-off, timeout or unreadable replies |
+| 18 | Falling back to other AI providers is helpful | "Why, when I chose Sonnet, was it using DeepSeek?" | Only the chosen AI is used; errors list every attempt |
+| 19 | All models accept `temperature` | Every request failed: "temperature is deprecated for this model" | Rejected settings are dropped and the request resent |
+| 20 | Small per-task token limits (1,800 / 8,000) save money | Email cut off at 1,800 tokens | Raised, with a retry (see 21) |
+| 21 | A retry with 3× the room is a safe fix for cut-offs | "No cap on things. I am spending money on it, this is not a play thing" | No caps, no cut-off retry; length set by prompts |
+| 22 | Cutting the LinkedIn note in code to 200 is fine | "It should be a strict rule in the prompt, not a check that cuts the response" | Strict prompt rule; code never cuts |
+| 23 | Listing everything relevant makes a good resume ("Founder and solo builder") | "Will a Founder's Office hire me if I say I'm a founder?" | Step 3b: write to get hired; own product is proof, not identity |
+| 24 | Leading with the past employer (Otto) is fine | "Write the company we're applying to, what they believe, what we'd deliver" | Company belief + what the student would deliver lead |
+| 25 | The prompts' structure was enough | "I need Morning Espresso level of detail" | Prompts rewritten with must-include steps, self-check, examples, test input |
+| 26 | "My jobs" in the header only after the first applied job | New account had no way to reach jobs | Always in the header, plus an empty state |
+| 27 | A "New search" button is enough on My jobs | "Why a button and not the search bar itself?" | Paste box on My jobs and stopped job pages |
+| 28 | The page's back link is enough | "When I scroll down I don't see the back button" | Back button in the sticky top bar |
+| 29 | The list updates when the popup closes | New search not shown until refresh | Lists update live |
+| 30 | The effort report as Markdown | It was meant to be HTML | HTML report |
+| 31 | Pushing after every change without asking | "Build it but ask me before pushing" (for that batch) | Asked before that push |
+
+Assumptions that held (not wrong, kept): admin approval before searching; students send messages themselves; Mumbai region; one gradient button per screen; light mode only.

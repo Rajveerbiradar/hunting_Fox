@@ -64,18 +64,24 @@ export function parseJson<T>(text: string): T {
 /** Settings a model refused (e.g. Sonnet 5.5: "`temperature` is deprecated for this model"), per model. Never sent again. */
 const refused = new Map<string, Set<string>>();
 
-async function chat(p: Provider, system: string, user: string, maxTokens: number, temperature = 0.3) {
+/**
+ * No per-task caps: every call may write up to the model's own output limit (you pay only for what it writes).
+ * If a model's limit is lower, its 400 names it and we use the lower number. Length is controlled by the prompts.
+ */
+const OUT = 32_000;
+const outLimit = new Map<string, number>();
+
+async function chat(p: Provider, system: string, user: string, temperature = 0.3) {
   const base = {
     model: p.model,
-    max_tokens: maxTokens,
+    max_tokens: outLimit.get(p.model) || OUT,
     messages: [
       { role: "system" as const, content: system },
       { role: "user" as const, content: user },
     ],
   };
-  // Streamed: the reply arrives piece by piece, so a long answer is never cut off by a request timeout (that
-  // was "Request timed out"). We only give up if nothing starts within 60 s, or the whole reply passes the cap.
-  const cap = Math.min(280_000, 60_000 + maxTokens * 40);
+  // Streamed: the reply arrives piece by piece, so a long answer is never cut off by a request timeout.
+  // We only give up if nothing starts within 60 s.
   const t0 = Date.now();
   const open = (body: object) => client(p).chat.completions.create({ ...base, ...body, stream: true } as never, { timeout: 60_000 }) as unknown as Promise<AsyncIterable<{ choices: { delta?: { content?: string | null }; finish_reason?: string | null }[] }>>;
   // Optional extras. Newer models reject some of them with a 400: drop the one the error names (or JSON mode
@@ -90,6 +96,8 @@ async function chat(p: Provider, system: string, user: string, maxTokens: number
       const status = (e as { status?: number }).status;
       const msg = String((e as Error)?.message || "");
       const left = Object.keys(body);
+      const lim = /max_tokens/i.test(msg) ? Number((msg.match(/(\d{3,6})(?!.*\d{3,6})/) || [])[1]) : 0;
+      if ((status === 400 || status === 422) && lim && lim < (outLimit.get(p.model) || OUT) && i < 3) { outLimit.set(p.model, lim); base.max_tokens = lim; continue; }
       if ((status !== 400 && status !== 422) || !left.length || i > 2) throw e;
       no.add(left.find((k) => msg.includes(k)) || (left.includes("response_format") ? "response_format" : left[0]));
     }
@@ -98,10 +106,9 @@ async function chat(p: Provider, system: string, user: string, maxTokens: number
   for await (const chunk of stream) {
     text += chunk.choices?.[0]?.delta?.content || "";
     finish = chunk.choices?.[0]?.finish_reason || finish;
-    if (Date.now() - t0 > cap) throw new Error(`Still writing after ${Math.round(cap / 1000)}s, gave up`);
   }
   // A reply that hit the token limit is cut off mid-JSON: asking again with the same limit only wastes time.
-  if (finish === "length") throw Object.assign(new Error(`Reply cut off at ${maxTokens} tokens`), { cutOff: true, partial: text.slice(0, 300) });
+  if (finish === "length") throw Object.assign(new Error(`Reply reached the model's output limit (${outLimit.get(p.model) || OUT} tokens)`), { cutOff: true });
   return text;
 }
 
@@ -115,7 +122,7 @@ async function markProvider(id: string, ok: boolean, err?: string) {
  * it never quietly falls back to another model (a free DeepSeek writing in place of the Sonnet you chose).
  * With nothing picked, every provider is tried in order. A student's own key always goes first.
  */
-async function run<T>(task: "writer" | "ranker", promptName: string, input: unknown, maxTokens: number, own?: Provider | null): Promise<T> {
+async function run<T>(task: "writer" | "ranker", promptName: string, input: unknown, own?: Provider | null): Promise<T> {
   const list = await providers();
   const pick = await setting(task === "writer" ? "writer_provider" : "ranker_provider", "");
   const chosen = list.filter((p) => p.id === pick);
@@ -130,15 +137,12 @@ async function run<T>(task: "writer" | "ranker", promptName: string, input: unkn
   for (const p of ordered) {
     // Same provider, up to 3 tries, but only when it's busy or broken right now (network, 408, 429, 5xx)
     // or replied with something that isn't JSON. A wrong key, missing model or no credit moves on at once.
-    // Room for the reply. Newer models (Sonnet 5.5) can spend part of it thinking before they write, so a
-    // reply that hits the limit gets one more try with 3x the room (you only pay for what's used).
-    let room = maxTokens;
     for (let attempt = 1; attempt <= 3; attempt++) {
       if (attempt > 1) { await sleep(attempt === 2 ? 1000 : 3000); await jlog("info", "ai", `Retrying ${promptName} on ${p.name} (try ${attempt} of 3)`); }
       const t0 = Date.now();
       try {
         // Messages need variety and a human voice; everything else stays steady.
-        const text = await chat(p, prompt(promptName), JSON.stringify(input), room, promptName === "write-messages" ? 0.7 : 0.3);
+        const text = await chat(p, prompt(promptName), JSON.stringify(input), promptName === "write-messages" ? 0.7 : 0.3);
         const out = parseJson<T>(text);
         await jlog("info", "ai", `${promptName} on ${p.name} (${p.model}) OK in ${((Date.now() - t0) / 1000).toFixed(1)}s, ${text.length} characters`);
         if (p.id !== "own") void markProvider(p.id, true);
@@ -152,11 +156,6 @@ async function run<T>(task: "writer" | "ranker", promptName: string, input: unkn
         await jlog("warn", "ai", `${promptName} on ${p.name} (${p.model}) failed after ${((Date.now() - t0) / 1000).toFixed(1)}s${status ? ` (${status})` : ""}: ${msg.slice(0, 300)}`);
         // Only a busy or broken provider is worth asking again. A cut-off or unreadable reply would just repeat.
         // A timed-out reply would just time out again on the same provider: move on instead.
-        if ((e as { cutOff?: boolean }).cutOff && room === maxTokens) {
-          await jlog("warn", "ai", `${promptName} hit ${room} tokens; it had written: ${String((e as { partial?: string }).partial || "").replace(/\s+/g, " ").slice(0, 200)}`);
-          room = Math.min(maxTokens * 3, 24000);
-          continue;
-        }
         const badReply = (e as { cutOff?: boolean }).cutOff || e instanceof SyntaxError || /No JSON|timed out|timeout|gave up/i.test(msg) || (e as { name?: string }).name === "APIConnectionTimeoutError";
         if (badReply) break;
         const worthRetry = status === undefined || status === 408 || status === 429 || status >= 500;
@@ -170,13 +169,13 @@ async function run<T>(task: "writer" | "ranker", promptName: string, input: unkn
 }
 
 /** Writing tasks: resume profile, resume changes, personal lines. */
-export function writer<T>(promptName: string, input: unknown, maxTokens = 1200, own?: Provider | null) {
-  return run<T>("writer", promptName, input, maxTokens, own);
+export function writer<T>(promptName: string, input: unknown, _maxTokens?: number, own?: Provider | null) {
+  return run<T>("writer", promptName, input, own);
 }
 
 /** Small decisions: ranking people. Can point at a cheaper or free model. */
 export function decide<T>(promptName: string, input: unknown, own?: Provider | null) {
-  return run<T>("ranker", promptName, input, 800, own);
+  return run<T>("ranker", promptName, input, own);
 }
 
 /** Test a provider before it's saved: one tiny request that must come back in the OpenAI chat format. */

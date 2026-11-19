@@ -28,7 +28,7 @@ type Status = { status: "reading" | "done" | "failed"; file_name: string; starte
 async function readResume(userId: string, raw: string, path: string, fileName: string) {
   const sb = adminClient();
   try {
-    const structured = await writer<StructuredResume>("resume-profile", { resume_text: raw.slice(0, 15000) }, 4000);
+    const structured = await writer<StructuredResume>("resume-profile", { resume_text: raw.slice(0, 15000) });
     const lines = toLines(structured);
     const profile: ResumeProfile = toProfile(structured);
     if (lines.length < 3) throw new Error("The AI returned an empty resume");

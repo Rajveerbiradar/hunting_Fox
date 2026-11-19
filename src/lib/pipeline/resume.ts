@@ -24,6 +24,9 @@ type Out = {
   perfect_match?: boolean;
   summary?: string; summary_reason?: string;
   edits?: { old: string; new: string; reason: string }[];
+  /** v6 prompt: the whole page after the rewrite, same length and order as the input, plus a reason per changed line. */
+  lines?: string[];
+  reasons?: Record<string, string>;
   gaps?: { question: string; why: string }[];
   ask?: { skill: string; why: string }[];
 };
@@ -55,6 +58,23 @@ export async function makeResume(lines: string[], profile: any, jd: JobData, own
     return null;
   });
   opts?.onRaw?.(out);
+  // A full-page answer (prompt v6+): every line comes back, so no line can be skipped. Turn it into edits.
+  if (out && Array.isArray(out.lines)) {
+    if (out.lines.length === lines.length) {
+      const fixed = (l: string) => /^(# |@ |## )/.test(l);
+      const sumHead = lines.findIndex((l) => /^## (professional )?(summary|profile|about( me)?|objective|career objective)\b/i.test(l));
+      let sumEnd = sumHead;
+      if (sumHead >= 0) while (sumEnd + 1 < lines.length && !lines[sumEnd + 1].startsWith("## ")) sumEnd++;
+      out.edits = out.lines.flatMap((n, i) => {
+        const o = lines[i];
+        const nn = String(n ?? "").replace(/\s+/g, " ").trim();
+        if (!nn || nn === o.trim() || fixed(o) || (sumHead >= 0 && i > sumHead && i <= sumEnd)) return [];
+        return [{ old: o, new: nn, reason: out!.reasons?.[String(i)] || "Written for this job" }];
+      });
+    } else {
+      await jlog("warn", "resume", `The AI returned ${out.lines.length} lines for a ${lines.length}-line resume, so the page couldn't be lined up`);
+    }
+  }
   if (out && !(out.edits?.length || out.priorities?.length || out.summary)) { failed = "The AI sent back an empty answer"; out = null; }
   await jlog(out ? "info" : "warn", "resume", `Resume changes ${out ? "written" : "failed"} in ${Math.round((Date.now() - t0) / 1000)}s${failed ? `: ${failed}` : ""}`);
   if (!out) {
@@ -80,7 +100,7 @@ export async function makeResume(lines: string[], profile: any, jd: JobData, own
     const sneaked = vocab.find((t) => mentions(e.new, t) && !mentions(e.old, t) && !have(t));
     if (sneaked) { void jlog("info", "resume", `Dropped an edit that added "${sneaked}" without asking`); return false; }
     return true;
-  }).map((e): { old: string; new: string; reason: string; group?: string } => ({ old: e.old, new: clean(e.new), reason: e.reason || "Written for this job" })).slice(0, 16);
+  }).map((e): { old: string; new: string; reason: string; group?: string } => ({ old: e.old, new: clean(e.new), reason: e.reason || "Written for this job" })).slice(0, 40);
 
   // The summary, written for this job: replaces the resume's summary lines, or is added after the contact line.
   let summary_insert: ResumePart["summary_insert"];

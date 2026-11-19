@@ -126,6 +126,12 @@ Commit hashes point to the fix on `main`.
 - **Changed:** `skillsLineIndex` picks the general line (Tools / Software / Other / General), else the last line of the section, and adds the skills at the end of it.
 - **Rule:** never put a skill under a label it doesn't belong to.
 
+### 10k. Resume rewrites: patching rules per critique didn't converge (v3 to v5)
+- **What broke:** each critique became a new banned word or micro-rule, often tied to one resume ("no Jakob's Law", "40+ at most twice"). The prompts grew past 2,000 words with rules repeated in 3 places, and the writer still opened with "Android app developer", skipped lines (one bullet left in engineer voice), copied phrasing from our own prompt ("comparison cases", "Product builder") and went casual ("Made a second tool").
+- **Root causes:** (1) positioning was left to the writer, which falls back on the student's old titles; (2) edits were line by line with a cap, so some lines never got rewritten and the page had two voices; (3) the prompt writer re-worded the student's lines in its own prompt, and the writer copied that wording; (4) prompt bloat and repeated rules cause skipped instructions; (5) "plain" was read as "casual".
+- **Changed (draft v6):** a short principle-based rules file and a prompt writer that DECIDES the reader, the positioning, the proof order and the page plan, points at lines instead of re-wording them, states every rule once (600 to 1,000 words), and uses examples from a different field. The writer returns the whole page (`lines`), so every line is considered.
+- **Rule:** fix the cause, not the sentence. A rule that names one student's words is a patch.
+
 ### 11. LinkedIn note had a link; emails said "happy to send my resume"
 - **Changed:** the note never has a link; every email says "I've attached my resume." and code rewrites any "happy to send" line. (`670568f`, `b19169d`)
 
@@ -291,6 +297,7 @@ Every reply from Claude ended with "Assumptions I made". These are the ones that
 | 41 | One strong stat is enough proof | "'I ran a 40-person tester group' is not a story… it's data to a fixed structure" | Proof is one real moment; the writer gets the student's saved answers; asks for a moment when none exists |
 | 42 | The emails were close; a few more prompt fixes would get there | "Remove email writing and LinkedIn writing" | Message writing removed; the page shows people, LinkedIn and work emails |
 | 43 | Garima was an employee whose role we didn't know | She is a founder | Wrong framing in every draft; another reason to stop guessing |
+| 44 | Each critique should become a new rule in the prompt | "Are you just mentioning the facts as rules not to do, or understanding the pattern?" | v6 rebuilt from root causes; tested on four jobs |
 | 31 | Pushing after every change without asking | "Build it but ask me before pushing" (for that batch) | Asked before that push |
 
 Assumptions that held (not wrong, kept): admin approval before searching; students send messages themselves; Mumbai region; one gradient button per screen; light mode only.

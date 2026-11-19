@@ -31,16 +31,16 @@ export function ReachOut(p: { jobId: string; company: string; big: boolean; peop
     if (!r || !r.ok) { setAdded((a) => a.filter((x) => x !== sk.toLowerCase())); toast.show("Couldn't add it. Try again."); return; }
     toast.show(`${sk} is on your resume page now. Say how well you know it there.`);
   }
-  const Chip = ({ sk, n, from, info }: { sk: string; n?: number; from?: string; info?: boolean }) => {
+  // A skill chip: a small + in front adds it to this job's resume page (the student says how well they know it there).
+  // Already on the resume → green ✓; already added → blue ✓. Works for every person, related to the job or not.
+  const Chip = ({ sk, n, from }: { sk: string; n?: number; from?: string }) => {
     const own = has(sk); const on = added.includes(sk.toLowerCase());
-    if (info && !own) return <span className="tag" style={{ background: "var(--tile)", color: "var(--mute)" }}>{sk}</span>;
     return (
-      <span className="tag" style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 6px 4px 10px", background: own ? "#e5f3e9" : "var(--tile)", color: own ? "#1a6b3c" : "var(--ink)", fontWeight: 600 }}>
-        {own && "✓ "}{sk}{rel.inPost(sk) && !own ? <span style={{ fontSize: 11, fontWeight: 700, color: "#164a88" }}>IN THE JOB POST</span> : null}{n && n > 1 ? <span className="mute" style={{ fontWeight: 400 }}>· {n}</span> : null}
-        {!own && (on
-          ? <span style={{ fontSize: 12, color: "#164a88", padding: "0 6px" }}>Added</span>
-          : <button onClick={() => addSkill(sk, from)} aria-label={`I have ${sk}: add it to my resume page`} style={{ border: 0, background: "#fff", borderRadius: 999, fontSize: 12, fontWeight: 700, padding: "3px 8px", cursor: "pointer" }}>+ I have this</button>)}
-        {own && <span style={{ width: 4 }} />}
+      <span className="tag" style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: own || on ? "4px 10px" : "3px 10px 3px 3px", background: own ? "#e5f3e9" : on ? "#e7effa" : "var(--tile)", color: own ? "#1a6b3c" : on ? "#164a88" : "var(--ink)", fontWeight: 600 }}>
+        {own || on ? "✓" : (
+          <button onClick={() => addSkill(sk, from)} aria-label={`Add ${sk} to my resume for ${p.company}`} title="Add to my resume" style={{ width: 24, height: 24, flex: "0 0 24px", border: 0, borderRadius: 999, background: "#fff", color: "var(--ink)", fontSize: 16, fontWeight: 700, lineHeight: 1, display: "grid", placeItems: "center", cursor: "pointer", padding: 0 }}>+</button>
+        )}
+        {sk}{rel.inPost(sk) && !own ? <span style={{ fontSize: 11, fontWeight: 700, color: "#164a88" }}>IN THE JOB POST</span> : null}{n && n > 1 ? <span className="mute" style={{ fontWeight: 400 }}>· {n}</span> : null}
       </span>
     );
   };
@@ -88,7 +88,7 @@ export function ReachOut(p: { jobId: string; company: string; big: boolean; peop
             {common.length > 0 && (
               <section id="skills" className="card" style={{ marginTop: 24, padding: 24 }}>
                 <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Skills people at {p.company} list</h2>
-                <p className="mute" style={{ margin: "6px 0 14px", fontSize: 16, lineHeight: 1.5 }}>Only skills that matter for this job: ones the job post asks for, and ones listed by people here who do similar work. <b style={{ color: "#1a6b3c" }}>Green</b> ones are already on your resume. If you really have another one, tap <b>I have this</b> and it goes to your resume page for {p.company}. Sharing their skills helps you match them, but only add what you&apos;ve actually used.</p>
+                <p className="mute" style={{ margin: "6px 0 14px", fontSize: 16, lineHeight: 1.5 }}>Only skills that matter for this job: ones the job post asks for, and ones listed by people here who do similar work. <b style={{ color: "#1a6b3c" }}>Green</b> ones are already on your resume. If you really have another one, tap <b>+</b> and it goes to your resume page for {p.company}. Sharing their skills helps you match them, but only add what you&apos;ve actually used.</p>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>{common.map((c) => <Chip key={c.name} sk={c.name} n={c.n} />)}</div>
                 <a className="btn sec" style={{ marginTop: 16, minHeight: 36, fontSize: 14 }} href={`/jobs/${p.jobId}/resume`}>Go to my resume for {p.company}</a>
               </section>
@@ -124,8 +124,8 @@ export function ReachOut(p: { jobId: string; company: string; big: boolean; peop
                   return (
                     <div style={{ marginTop: 18 }}>
                       <div className="lbl">{cur.first}&apos;s skills · {cur.title}</div>
-                      {!near && <p className="mute" style={{ margin: "6px 0 0", fontSize: 14, lineHeight: 1.45 }}>{cur.first} does a different kind of work from this job, so most of these won&apos;t help your resume here. Only ones the job post asks for can be added.</p>}
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>{[...new Set(cur.skills.map((k) => k.trim()).filter(Boolean))].slice(0, 20).map((k) => <Chip key={k} sk={k} from={cur.first} info={!near && !rel.inPost(k)} />)}</div>
+                      {!near && <p className="mute" style={{ margin: "6px 0 0", fontSize: 14, lineHeight: 1.45 }}>{cur.first} does a different kind of work from this job, so most of these may not help your resume here. You can still add any you really have with <b>+</b>.</p>}
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>{[...new Set(cur.skills.map((k) => k.trim()).filter(Boolean))].slice(0, 20).map((k) => <Chip key={k} sk={k} from={cur.first} />)}</div>
                     </div>
                   );
                 })()}

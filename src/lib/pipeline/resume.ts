@@ -80,7 +80,7 @@ export async function makeResume(lines: string[], profile: any, jd: JobData, own
     const sneaked = vocab.find((t) => mentions(e.new, t) && !mentions(e.old, t) && !have(t));
     if (sneaked) { void jlog("info", "resume", `Dropped an edit that added "${sneaked}" without asking`); return false; }
     return true;
-  }).map((e): { old: string; new: string; reason: string; group?: string } => ({ old: e.old, new: clean(e.new), reason: e.reason || "Written for this job" })).slice(0, 12);
+  }).map((e): { old: string; new: string; reason: string; group?: string } => ({ old: e.old, new: clean(e.new), reason: e.reason || "Written for this job" })).slice(0, 16);
 
   // The summary, written for this job: replaces the resume's summary lines, or is added after the contact line.
   let summary_insert: ResumePart["summary_insert"];

@@ -18,7 +18,7 @@ Commit hashes point to the fix on `main`.
 - **What broke:** Jitesh's email failed after 15 s: "Reply cut off at 1800 tokens".
 - **Why:** every task had its own small output limit (1,800 for messages, 8,000 for the resume). The reply also carries hidden working notes (`brief`), and newer models can spend part of the limit thinking.
 - **First fix (wrong):** bigger limits plus a retry with 3× the room. Rajveer pointed out that retrying spends money twice, and a cap only breaks replies.
-- **Now:** **no per-task caps.** Every call may write up to the model's own limit (32,000, or lower if the model's 400 says so). You only pay for what it writes. No total-time cap: we only give up if nothing starts within 60 s. No retry on a cut-off. Length is controlled by the prompts. (`see "AI: no caps"` commit)
+- **Now:** **no per-task caps.** Every call may write up to the model's own limit (32,000, or lower if the model's 400 says so). You only pay for what it writes. No total-time cap: we only give up if nothing starts within 60 s. No retry on a cut-off. Length is controlled by the prompts. (`b84f968`)
 - **Rule:** control length in the prompt, never by cutting the reply or capping tokens.
 
 ### 1c. The LinkedIn note was chopped in code

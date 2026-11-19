@@ -132,6 +132,11 @@ Commit hashes point to the fix on `main`.
 - **Changed (draft v6):** a short principle-based rules file and a prompt writer that DECIDES the reader, the positioning, the proof order and the page plan, points at lines instead of re-wording them, states every rule once (600 to 1,000 words), and uses examples from a different field. The writer returns the whole page (`lines`), so every line is considered.
 - **Rule:** fix the cause, not the sentence. A rule that names one student's words is a patch.
 
+### 10l. Resume v7: the AI said "all clean" when it wasn't; guardrails varied by job
+- **What broke:** v7 asked the writer to report its own read-through (`checks`). All four runs reported nothing left, yet the pages kept "solo" twice, "a person must still check", "AI CRM", mixed full stops and jargon in Skills. Guardrails also differed between jobs because the prompt writer chose which rules to copy into each prompt. And the writer still wrote for nobody: it rearranged old words.
+- **Changed (v8):** (1) the prompt writer writes only a short brief (a reader card, positioning fragments, a line-by-line verdict: lead / rewrite / shrink / keep); the standing rules are appended in code, word for word (`<!-- APPEND-RULES -->` marker in the rules file), so every job gets every rule. (2) Code checks the page (`pageProblems` in resume.ts: banned words incl. Skills, "solo"/"alone" more than once, bigger verbs than the resume used, bullets starting with "it", "a person must check" wording, 5-word phrases kept from the old line) and sends any problems back for ONE fix call (`check` in `writerBuilt`). (3) Bullet endings are made consistent in code (`evenEndings`).
+- **Rule:** don't trust a model's report of its own work; check in code. Don't let a model decide which rules apply.
+
 ### 11. LinkedIn note had a link; emails said "happy to send my resume"
 - **Changed:** the note never has a link; every email says "I've attached my resume." and code rewrites any "happy to send" line. (`670568f`, `b19169d`)
 

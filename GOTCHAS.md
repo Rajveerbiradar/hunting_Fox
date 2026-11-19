@@ -142,6 +142,11 @@ Commit hashes point to the fix on `main`.
 - **Changed (v9 drafts):** no assumed reader: write for a smart professional who has never heard of the student, reading top to bottom once. One general rule, "warm up before you claim" (rules Step 3b): every name, number and claim reaches the reader after what it means, either set up inside the same sentence or by an earlier line. The builder writes a **setup map** (every cold spot on the page and where it gets set up); the writer reports `cold_spots`. Not a per-entry rule. (Note: `cold_spots` is the writer's own report, which 10l showed is unreliable; there's no code check for it yet.)
 - **Rule:** fix the reading order for a cold reader across the whole page, never one entry. A saved resume can hold AI-written lines; when a student says a line isn't true, the saved resume is what must change.
 
+### 10n. The saved resume taught every job things the student never said
+- **What broke:** every resume prompt treats the saved main resume as the student's own words, but the saved resume was written by AI (the upload reader, or an earlier job's rewrite made main). "Worked on an AI CRM" and "trip-planning app" came from there, and every version kept them. The AI also only knew each project through one or two resume lines, so it explained a notes app (everyone knows one) and described Amchi Local in generic words (it never learned what the project really is).
+- **Changed:** `/resume/setup`: the student checks each part of the saved resume and writes what's wrong or missing; the AI changes only that part and the note is kept as a fact for every future job. The fix is better input from the student, not more prompt rules.
+- **Rule:** the saved resume is only as true as the student has confirmed. Ask the student about their own work; don't make prompts guess it.
+
 ### 11. LinkedIn note had a link; emails said "happy to send my resume"
 - **Changed:** the note never has a link; every email says "I've attached my resume." and code rewrites any "happy to send" line. (`670568f`, `b19169d`)
 
@@ -310,6 +315,7 @@ Every reply from Claude ended with "Assumptions I made". These are the ones that
 | 44 | Each critique should become a new rule in the prompt | "Are you just mentioning the facts as rules not to do, or understanding the pattern?" | v6 rebuilt from root causes; tested on four jobs |
 | 45 | The saved resume's lines are the student's facts ("AI CRM") | "When did I say that I worked on an AI CRM?" | The saved resume was an earlier AI rewrite; lines on it can be invented |
 | 46 | Fix the missing Amchi Local intro with "every entry opens with an intro line" | "This is what we call patching… always warm up sentences… we don't know who is gonna read the resume" | v9: one warm-up rule for the whole page, for an unknown cold reader |
+| 47 | Project details should be one more question box in the job flow | "It should not be an input. Create a resume setup page: show the sections, what you extracted, ask if it's right, and a text box" | `/resume/setup` checks the base resume part by part |
 | 31 | Pushing after every change without asking | "Build it but ask me before pushing" (for that batch) | Asked before that push |
 
 Assumptions that held (not wrong, kept): admin approval before searching; students send messages themselves; Mumbai region; one gradient button per screen; light mode only.

@@ -22,7 +22,7 @@ const ERR: Record<string, string> = {
  * "Is this written right?" and a box to write what's wrong or what to add. The AI changes only that part,
  * and the note is kept as a fact for every future job.
  */
-export function ResumeSetup({ initial }: { initial: string }) {
+export function ResumeSetup({ initial, fresh }: { initial: string; fresh?: boolean }) {
   const [groups, setGroups] = useState<ResumeGroup[] | null>(null);
   const [setup, setSetup] = useState<Setup>({});
   const [open, setOpen] = useState<Record<string, boolean>>({});
@@ -30,10 +30,13 @@ export function ResumeSetup({ initial }: { initial: string }) {
   const [busy, setBusy] = useState<string>("");
   const [err, setErr] = useState<Record<string, string>>({});
   const [last, setLast] = useState<Record<string, Last>>({});
+  // Straight after an upload: a short note on how to use this page.
+  const [intro, setIntro] = useState(!!fresh);
+  const [missing, setMissing] = useState<string[]>([]);
 
   async function load() {
     const d = await fetch("/api/resume/setup", { cache: "no-store" }).then((r) => r.json()).catch(() => null);
-    if (d?.groups) { setGroups(d.groups); setSetup(d.setup || {}); }
+    if (d?.groups) { setGroups(d.groups); setSetup(d.setup || {}); setMissing(d.missing || []); }
     else setGroups([]);
   }
   useEffect(() => { void load(); }, []);
@@ -76,6 +79,12 @@ export function ResumeSetup({ initial }: { initial: string }) {
 
   const done = groups ? groups.filter((g) => setup[g.key]).length : 0;
 
+  function closeIntro() {
+    setIntro(false);
+    // Drop ?new=1 so a refresh doesn't show it again.
+    try { window.history.replaceState(null, "", "/resume/setup"); } catch { /* old browser */ }
+  }
+
   return (
     <>
       <Header signedIn initial={initial} back={{ href: "/account", label: "Back to account" }} />
@@ -87,6 +96,23 @@ export function ResumeSetup({ initial }: { initial: string }) {
           </p>
           {groups && groups.length > 0 && <p style={{ fontSize: 14, fontWeight: 600, margin: "12px 0 0" }}>{done} of {groups.length} parts checked</p>}
         </div>
+
+        {intro && groups && groups.length > 0 && (
+          <div role="dialog" aria-modal="true" aria-labelledby="intro-t" onClick={closeIntro} style={{ position: "fixed", inset: 0, zIndex: 50, background: "rgba(16,24,40,.45)", display: "grid", placeItems: "center", padding: 16 }}>
+            <div className="card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 480, width: "100%", padding: "24px 24px 20px" }}>
+              <h2 id="intro-t" style={{ margin: 0, fontSize: 24, fontWeight: 700, letterSpacing: "-.02em" }}>We read your resume</h2>
+              <p style={{ fontSize: 16, lineHeight: 1.55, margin: "10px 0 0" }}>Go through it part by part and change anything the way you like.</p>
+              <p style={{ fontSize: 16, lineHeight: 1.55, margin: "10px 0 0" }}><b>Don&apos;t worry about spelling or getting the words perfect.</b> Leave that to us. Just write what you want in your own words, and we&apos;ll turn it into a well-written resume.</p>
+              {missing.length > 0 && (
+                <div style={{ marginTop: 14, background: "var(--sunken)", borderRadius: 14, padding: "12px 14px", fontSize: 14, lineHeight: 1.5 }}>
+                  <b>Worth adding</b>
+                  {missing.map((m) => <div key={m}>{m}</div>)}
+                </div>
+              )}
+              <button className="btn lg pri" style={{ marginTop: 18, width: "100%" }} onClick={closeIntro} autoFocus>Start checking</button>
+            </div>
+          </div>
+        )}
 
         {!groups && <div className="card" style={{ marginTop: 20, padding: 24, display: "flex", gap: 12, alignItems: "center" }}><Spinner size={22} label="Loading" /><span className="mute">Loading your resume…</span></div>}
 

@@ -193,26 +193,23 @@ export function ResumePage({ jobId, company, resume: start, hasResume, skills, i
           </>
         ) : (
           <>
-            {resume.rewrite_error && !busy && !broke && (
-              <div className="card" role="alert" style={{ marginTop: 24, padding: "16px 22px", background: "#FDECEF", color: "#B8132F", fontSize: 16, lineHeight: 1.5 }}>
-                {resume.rewrite_error === "budget"
-                  ? <><b>The AI budget allocated to you is finished.</b> <span style={{ color: "var(--ink)" }}>AI credits are separate from your search credits. Hunting Fox is a personal project with a limited budget, so please ask the admin for more AI credits. Your answers are saved.</span></>
-                  : <><b>Our AI couldn&apos;t respond.</b> <span style={{ color: "var(--ink)" }}>Try again. Your answers are saved, and the changes below are the earlier ones.</span></>}
+            {/* A rewrite that didn't finish only tells the student when they asked for it (the toast). Opening the
+                page never shows an error: the earlier changes stay, or the "not made yet" card below. */}
+            {resume.rewrite_error === "budget" && !busy && !broke && (
+              <div className="card" role="status" style={{ marginTop: 24, padding: "16px 22px", background: "#EEF1F5", fontSize: 16, lineHeight: 1.5 }}>
+                <b>The AI budget allocated to you is finished.</b> <span className="mute">AI credits are separate from your search credits. Hunting Fox is a personal project with a limited budget, so please ask the admin for more AI credits. Your answers are saved.</span>
               </div>
             )}
 
             {broke && !busy && (
-              <div className="card" role="alert" style={{ marginTop: 24, padding: "22px 24px", background: "#FDECEF", color: "#B8132F" }}>
+              <div className="card" role="status" style={{ marginTop: 24, padding: "22px 24px" }}>
+                <div style={{ fontSize: 18, fontWeight: 700 }}>Your resume isn&apos;t made for {company} yet</div>
                 {resume.failed === "budget" ? (
-                  <>
-                    <div style={{ fontSize: 18, fontWeight: 700 }}>The AI budget allocated to you is finished</div>
-                    <p style={{ margin: "6px 0 0", fontSize: 16, lineHeight: 1.5, color: "var(--ink)" }}>AI credits are separate from your search credits. Hunting Fox is a personal project with a limited budget, so please ask the admin for more AI credits.</p>
-                  </>
+                  <p className="mute" style={{ margin: "6px 0 0", fontSize: 16, lineHeight: 1.5 }}>The AI budget allocated to you is finished, so we can&apos;t rewrite it right now. AI credits are separate from your search credits. Please ask the admin for more. Below is your main resume, which you can download as it is.</p>
                 ) : (
                   <>
-                    <div style={{ fontSize: 18, fontWeight: 700 }}>Our AI couldn&apos;t respond</div>
-                    <p style={{ margin: "6px 0 14px", fontSize: 16, lineHeight: 1.5, color: "var(--ink)" }}>Try again. It doesn&apos;t use a search.</p>
-                    <button className="btn lg pri" onClick={redo}>Try again</button>
+                    <p className="mute" style={{ margin: "6px 0 14px", fontSize: 16, lineHeight: 1.5 }}>Below is your main resume. Tap the button and we&apos;ll rewrite it in this job&apos;s language, using only what&apos;s true about you. It doesn&apos;t use a search.</p>
+                    <button className="btn lg pri" onClick={redo}>Make it for {company}</button>
                   </>
                 )}
               </div>

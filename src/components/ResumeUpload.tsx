@@ -2,7 +2,6 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Icon, Spinner, copyText } from "./ui";
-import { ResumeDoc } from "./ResumeDoc";
 
 /** For students with no resume, or one we can't read: paste into ChatGPT (or any AI), save the answer as a .txt file, upload it. */
 const AI_PROMPT = `Write my resume in this exact plain-text format, using only facts I give you. Ask me questions first if you need more (education, internships, projects, skills, links). Don't invent anything.
@@ -30,15 +29,13 @@ Leave out any part I don't have.
 
 When it's done, give me only the resume in that format, nothing else.`;
 
-/** Upload → "Did we read your resume correctly?" → confirm. Used on Home, Account and the resume page. */
-export function ResumeUpload({ signedIn, compact, current, onDone }: { signedIn: boolean; compact?: boolean; current?: string; onDone?: () => void }) {
+/** Upload → read in the background → straight to /resume/setup to check it part by part. Used on Home, Account and the resume page. */
+export function ResumeUpload({ signedIn, compact, current }: { signedIn: boolean; compact?: boolean; current?: string; onDone?: () => void }) {
   const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
   const [state, setState] = useState<"idle" | "reading" | "check" | "error">("idle");
-  const [lines, setLines] = useState<string[]>([]);
   const [file, setFile] = useState("");
   const [err, setErr] = useState("");
-  const [missing, setMissing] = useState<string[]>([]);
   const [showPrompt, setShowPrompt] = useState(false);
 
   function pick() {
@@ -55,12 +52,18 @@ export function ResumeUpload({ signedIn, compact, current, onDone }: { signedIn:
   };
   type Up = { status: "reading" | "done" | "failed"; file_name: string; missing?: string[]; error?: string };
 
-  function show(up: Up | null, l?: string[]) {
+  function show(up: Up | null) {
     if (!up) return;
     setFile(up.file_name);
     if (up.status === "reading") setState("reading");
     else if (up.status === "failed") { setErr(ERR[up.error || ""] || ERR.ai_failed); setState("error"); }
-    else { setLines(l || []); setMissing(up.missing || []); setState("check"); }
+    // Read: go straight to checking it part by part (the notice is cleared so this happens once).
+    else { setState("check"); void openSetup(); }
+  }
+
+  async function openSetup() {
+    await fetch("/api/resume", { method: "DELETE" }).catch(() => null);
+    router.push("/resume/setup?new=1");
   }
 
   // The reading happens on the server. Pick up where it is when the page opens, then check every 3 s while reading.
@@ -71,9 +74,9 @@ export function ResumeUpload({ signedIn, compact, current, onDone }: { signedIn:
     const tick = async () => {
       const d = await fetch("/api/resume", { cache: "no-store" }).then((r) => r.json()).catch(() => null);
       if (!alive || !d) return;
-      show(d.upload, d.lines);
+      show(d.upload);
       if (d.upload?.status === "reading") t = setTimeout(tick, 3000);
-      else if (d.upload?.status === "done") router.refresh();
+
     };
     if (state === "reading" || state === "idle") t = setTimeout(tick, state === "reading" ? 3000 : 0);
     return () => { alive = false; clearTimeout(t); };
@@ -90,12 +93,6 @@ export function ResumeUpload({ signedIn, compact, current, onDone }: { signedIn:
     if (!r || !r.ok) { setErr(ERR[d.error] || "Something went wrong uploading it. Try again."); return setState("error"); }
   }
 
-  async function seen() {
-    await fetch("/api/resume", { method: "DELETE" });
-    setState("idle");
-    onDone?.();
-    router.refresh();
-  }
 
   return (
     <div className="card" style={{ marginTop: compact ? 20 : 12 }}>
@@ -134,24 +131,9 @@ export function ResumeUpload({ signedIn, compact, current, onDone }: { signedIn:
           </div>
         </div>
       ) : (
-        <div className="row" style={{ flexDirection: "column", alignItems: "stretch" }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: "#1A6B3C" }}>✓ Your resume is ready</div>
-          <div className="mute" style={{ fontSize: 14 }}>Here&apos;s {file} in our resume layout. We use it for every new job you paste, and every resume you download uses this layout. Check it part by part: tell us what we got wrong or missed, and we fix it here.</div>
-          {missing.length > 0 && (
-            <div style={{ background: "#ffefb0", color: "#4f3e00", borderRadius: 14, padding: "12px 14px", fontSize: 14, lineHeight: 1.5 }}>
-              <b>⚠ Worth adding to your resume</b>
-              {missing.map((m) => <div key={m}>{m}</div>)}
-            </div>
-          )}
-          <div style={{ background: "var(--bg)", borderRadius: 18, padding: "16px 12px" }}>
-            <ResumeDoc lines={lines} />
-          </div>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <button className="btn pri" onClick={async () => { await fetch("/api/resume", { method: "DELETE" }); router.push("/resume/setup"); }}>Check it part by part</button>
-            <button className="btn sec" onClick={seen}>Looks good</button>
-            <button className="btn sec" onClick={pick}>{Icon.upload()}Upload again</button>
-          </div>
-          <div className="mute" style={{ fontSize: 14 }}>Jobs you already added keep the old resume. You can redo any of them with the new one from that job&apos;s page.</div>
+        <div className="row" style={{ padding: "16px 18px", alignItems: "center" }}>
+          <Spinner size={22} label="Opening" />
+          <span style={{ fontSize: 16, fontWeight: 700 }}>✓ Read {file}. Opening it part by part…</span>
         </div>
       )}
     </div>

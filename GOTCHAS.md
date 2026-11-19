@@ -316,6 +316,8 @@ Every reply from Claude ended with "Assumptions I made". These are the ones that
 | 45 | The saved resume's lines are the student's facts ("AI CRM") | "When did I say that I worked on an AI CRM?" | The saved resume was an earlier AI rewrite; lines on it can be invented |
 | 46 | Fix the missing Amchi Local intro with "every entry opens with an intro line" | "This is what we call patching… always warm up sentences… we don't know who is gonna read the resume" | v9: one warm-up rule for the whole page, for an unknown cold reader |
 | 47 | Project details should be one more question box in the job flow | "It should not be an input. Create a resume setup page: show the sections, what you extracted, ask if it's right, and a text box" | `/resume/setup` checks the base resume part by part |
+| 48 | After upload, show a "Check it part by part" button next to "Looks good" | "Upload and directly see everything part by part… a pop up: don't care about spellings, leave that on us" | Upload opens /resume/setup straight away with that popup |
+| 49 | A failed resume rewrite should show a red error with Try again | "Why is it showing error whenever I open the update the resume page… we are intentionally stopping the resume build up" | Calm "not made yet" card + Make it for {company}; reach-out says base vs personalised resume |
 | 31 | Pushing after every change without asking | "Build it but ask me before pushing" (for that batch) | Asked before that push |
 
 Assumptions that held (not wrong, kept): admin approval before searching; students send messages themselves; Mumbai region; one gradient button per screen; light mode only.

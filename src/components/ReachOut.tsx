@@ -8,7 +8,7 @@ const enc = encodeURIComponent;
 
 /** The people we found at the company: who they are, why they're worth contacting, their LinkedIn and any work email.
  *  We don't write messages: the student writes their own. */
-export function ReachOut(p: { jobId: string; company: string; big: boolean; people: Person[]; hiringEmail?: string; sentTo: string[]; initial: string }) {
+export function ReachOut(p: { jobId: string; company: string; big: boolean; people: Person[]; hiringEmail?: string; sentTo: string[]; initial: string; hasResume?: boolean; personalised?: boolean }) {
   const people = p.people;
   const [sel, setSel] = useState(people[0]?.id);
   const [sent, setSent] = useState<string[]>(p.sentTo);
@@ -81,10 +81,22 @@ export function ReachOut(p: { jobId: string; company: string; big: boolean; peop
                   ) : <span className="mute" style={{ fontSize: 14 }}>No work email found. Contact {cur.first} on LinkedIn.</span>}
                 </div>
                 {cur.profileUrl && <p className="mute" style={{ margin: "8px 0 0", fontSize: 14 }}>If their profile looks hidden to you, the LinkedIn link still opens it once you&apos;re signed in.</p>}
-                <p style={{ margin: "16px 0 0", fontSize: 14, lineHeight: 1.5, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                  <b>Attach your resume when you write.</b>
-                  <PdfButton source={`/api/jobs/${p.jobId}/resume-lines`} className="btn sec" style={{ minHeight: 36, fontSize: 14 }}>Download the PDF for {p.company}</PdfButton>
-                </p>
+                <div style={{ marginTop: 16, background: "var(--sunken)", borderRadius: 16, padding: "14px 16px", fontSize: 14, lineHeight: 1.5 }}>
+                  <b style={{ display: "block", fontSize: 16 }}>Attach your resume when you write</b>
+                  {!p.hasResume ? (
+                    <span className="mute">You haven&apos;t added a resume yet. <a href="/account" style={{ color: "var(--ink)", fontWeight: 600 }}>Add it on your account page</a>.</span>
+                  ) : p.personalised ? (
+                    <span className="mute">This is your resume made for {p.company}, with the changes you applied.</span>
+                  ) : (
+                    <span className="mute">This is your main resume. It isn&apos;t made for {p.company} yet. <a href={`/jobs/${p.jobId}/resume`} style={{ color: "var(--ink)", fontWeight: 600 }}>Make it for {p.company}</a> first, so it speaks this job&apos;s language.</span>
+                  )}
+                  {p.hasResume && (
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+                      <PdfButton source={`/api/jobs/${p.jobId}/resume-lines`} className="btn sec" style={{ minHeight: 36, fontSize: 14 }}>{p.personalised ? `Download the PDF for ${p.company}` : "Download my main resume"}</PdfButton>
+                      {!p.personalised && <a className="btn sec" style={{ minHeight: 36, fontSize: 14 }} href={`/jobs/${p.jobId}/resume`}>Make it for {p.company}</a>}
+                    </div>
+                  )}
+                </div>
               </section>
             )}
           </>

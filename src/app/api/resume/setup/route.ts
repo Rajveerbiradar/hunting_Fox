@@ -32,8 +32,9 @@ async function load(userId: string) {
 export async function GET() {
   const user = await currentUser();
   if (!user) return NextResponse.json({ error: "signed_out" }, { status: 401 });
-  const { lines, groups, setup } = await load(user.id);
-  return NextResponse.json({ lines, groups, setup });
+  const { p, lines, groups, setup } = await load(user.id);
+  const missing = ((p?.resume_profile as { missing?: string[] } | null)?.missing || []).slice(0, 5);
+  return NextResponse.json({ lines, groups, setup, missing });
 }
 
 /** Every line keeps a template marker the resume layout understands, and an entry keeps its title line first. */

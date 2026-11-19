@@ -102,3 +102,15 @@ export function buildDiff(r: ResumePart, levels: Record<string, number>, use: (k
 export function finalLines(r: ResumePart, levels: Record<string, number>) {
   return buildDiff(r, levels, appliedUse(r)).final.filter((l) => l.trim());
 }
+
+/**
+ * True when this job's resume really differs from the main resume it started from (changes applied, or
+ * skills answered). A failed or never-applied rewrite is not personalised: use the student's current main resume.
+ */
+export function isPersonalised(r: ResumePart | null | undefined, levels: Record<string, number>) {
+  if (!r || (r as { failed?: unknown }).failed || !Array.isArray(r.base_lines)) return false;
+  try {
+    const norm = (a: string[]) => a.map((l) => l.trim()).filter(Boolean).join("\n");
+    return norm(finalLines(r, levels)) !== norm(r.base_lines);
+  } catch { return false; }
+}

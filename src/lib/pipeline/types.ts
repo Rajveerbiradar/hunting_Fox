@@ -52,10 +52,6 @@ export type Person = {
   link?: { type: string; detail: string } | null;
   line?: string;
   note?: string;
-  /** Why no LinkedIn note was written (nothing personal about this person, and an email exists). */
-  note_skipped?: string | null;
-  /** One question for the student when the email had no real story to tell (shown under the email). */
-  story_tip?: string | null;
   subject?: string;
   body?: string;
   written?: boolean;

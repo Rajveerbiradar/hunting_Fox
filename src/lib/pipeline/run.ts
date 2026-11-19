@@ -4,13 +4,13 @@ import { jlog, jobCtx } from "@/lib/joblog";
 import { scanMode } from "@/lib/apify";
 import { ownKeys } from "@/lib/ownKeys";
 import { withoutBlocked } from "@/lib/removals";
-import { decide, type Provider, writerBuilt } from "@/lib/ai";
+import { decide } from "@/lib/ai";
 import { clefConfig, clefRank } from "@/lib/clef";
 import { setting } from "@/lib/secrets";
 import { sendEmail } from "@/lib/email";
 import { fetchLinkedIn, fetchNaukri, fetchPeople } from "./fetchers";
 import { checkCompany, knownSkills, sizeBand } from "./rules";
-import { companyInput, makeResume } from "./resume";
+import { makeResume } from "./resume";
 import type { Person, ResumePart, ResumeProfile } from "./types";
 
 const SITE = () => (process.env.NEXT_PUBLIC_SITE_URL || "").replace(/\/$/, "");
@@ -86,11 +86,9 @@ async function scan(job: any) {
   // 2. Check the company (rules, no AI)
   const { checks, verdict } = checkCompany(jd, company);
   const band = sizeBand(company);
-  const { data: report } = await sb
+  await sb
     .from("reports")
-    .upsert({ job_id: job.id, job_data: jd, company_data: company, checks, verdict, size_band: band })
-    .select("share_token")
-    .single();
+    .upsert({ job_id: job.id, job_data: jd, company_data: company, checks, verdict, size_band: band });
   if (verdict === "closed" || verdict === "fake") {
     await sb.from("jobs").update({ status: verdict, step: 5, finished_at: new Date().toISOString() }).eq("id", job.id);
     return;
@@ -199,101 +197,14 @@ async function scan(job: any) {
 
   await setStep(job.id, 4, resume?.failed ? "Couldn't write resume changes (you can try again on the resume page)" : resume ? `${resume.edits.length} changes${resume.skill_questions.length ? `, and ${resume.skill_questions.length} quick questions for you` : ""}` : "No resume yet, so no resume changes");
 
-  // 5. The job is ready as soon as the resume changes and the people list are done.
-  // Messages are written right after, for everyone at once (8 at a time, top people first);
-  // each person's card fills in on the page the moment theirs is saved.
-  const hasResume = !!(rp || profile?.resume_text);
-  const ctx: MsgCtx = {
-    role: jd.title,
-    company: company.name,
-    big: band === "big",
-    studentName: (rp?.name || profile?.name || "").replace(/\s*\(.*?\)\s*/g, " ").trim(),
-    headline: rp?.headline,
-    resumeLink: hasResume ? `${SITE()}/r/${report?.share_token}` : "",
-    portfolio: (profile?.links || [])[0]?.url,
-    student: { skills: student.skills, projects: rp?.projects, education: student.education, resume: lines },
-    job: { key_skills: jd.keySkills, description: jd.description },
-    companyInfo: companyInput(company),
-  };
-  const pending = ordered.map((p) => ({ ...p, written: false, note: undefined, subject: undefined, body: undefined }));
+  // 5. The job is ready as soon as the resume changes and the people list are done. We don't write messages:
+  // the people page shows each person's LinkedIn and work email, and the student writes their own.
+  const pending = ordered;
   await sb.from("reports").update({ people: pending, resume, checks }).eq("job_id", job.id);
-  await sb.from("jobs").update({ status: "ready", step: 5, step_detail: pending.length ? `${pending.length} ${pending.length === 1 ? "person" : "people"} ready. Pick one and we'll write the message with you` : "No one to message", finished_at: new Date().toISOString() }).eq("id", job.id);
+  await sb.from("jobs").update({ status: "ready", step: 5, step_detail: pending.length ? `Found ${pending.length} ${pending.length === 1 ? "person" : "people"} to contact` : "No one public found", finished_at: new Date().toISOString() }).eq("id", job.id);
   await sb.from("events").insert({ user_id: job.user_id, job_id: job.id, name: "finished" });
   if (profile?.email_ready && profile?.email)
     await sendEmail(profile.email, `${company.name} is ready`, `Here's what to do for the ${jd.title} job at ${company.name}:\n${SITE()}/jobs/${job.id}\n\nHunting Fox never sends anything for you.`);
 
-  // Messages are not written for everyone up front. The student picks a person on the reach-out page and either
-  // writes a few rough lines (we turn them into a proper email) or asks for our suggested one: POST /api/jobs/[id]/more.
-  void ctx;
 }
 
-export type MsgCtx = {
-  role: string; company: string; big: boolean; studentName: string; headline?: string; resumeLink: string; portfolio?: string;
-  student?: { skills?: string[]; projects?: { title: string; detail: string }[]; education?: string[]; resume?: string[]; facts?: { q: string; a: string }[] };
-  /** What the student wants to say to this person, in their own rough words. Empty = our suggested message. */
-  studentNotes?: string;
-  job?: { key_skills?: string[]; description?: string };
-  /** The company as the prompt sees it (companyInput). */
-  companyInfo?: ReturnType<typeof companyInput>;
-  /** Other people at the company (top of the ranked list): who they are and what they do. */
-  team?: { name: string; title?: string; headline?: string; months?: number }[];
-};
-
-/**
- * Write one person's LinkedIn note and email with AI, from their profile and the student's real details.
- * Falls back to the plain template only if every AI provider fails.
- */
-export async function writePerson(p: Person, ctx: MsgCtx, rp: ResumeProfile | null, ownAi?: Provider | null): Promise<Person> {
-  try {
-    // Two steps: a fresh prompt is written for this person from everything we know, then followed.
-    const out = await writerBuilt<{ note: string; note_skipped?: string | null; story_tip?: string | null; subject: string; body: string }>("write-messages", {
-      job: { title: ctx.role, company: ctx.company, key_skills: ctx.job?.key_skills?.slice(0, 20), description: ctx.job?.description?.slice(0, 9000), ask: ctx.big ? "referral" : "pass_on" },
-      student: {
-        name: ctx.studentName,
-        headline: ctx.headline || rp?.headline,
-        education: ctx.student?.education || (rp?.education || []).map((e) => e.school),
-        skills: (ctx.student?.skills || rp?.skills || []).slice(0, 25),
-        portfolio: ctx.portfolio || null,
-        resume: (ctx.student?.resume || []).join("\n").slice(0, 5000) || null,
-        facts: (ctx.student?.facts || []).filter((f) => f?.a?.trim()).slice(-20).map((f) => ({ q: f.q, a: f.a })),
-        projects: ctx.student?.resume?.length ? undefined : (ctx.student?.projects || rp?.projects || []).slice(0, 4),
-      },
-      person: { first: p.first, title: p.title, months_at_company: p.months, headline: p.headline, about: p.about?.slice(0, 1200), skills: p.skills?.slice(0, 15), schools: p.schools, past_companies: p.pastCompanies, activity: p.active },
-      company: ctx.companyInfo || { name: ctx.company },
-      connection: p.link || null,
-      team: ctx.team || [],
-      has_resume: !!ctx.resumeLink,
-      has_email: !!p.email,
-      student_notes: ctx.studentNotes?.trim() || null,
-    }, ownAi);
-    let note = (out.note || "").trim();
-    const subject = (out.subject || "").trim().replace(/\s*—\s*/g, ", ").slice(0, 90);
-    let body = (out.body || "").trim();
-    // The email is mandatory. The note may be skipped when nothing personal is known about the person,
-    // but only if there's an email to send instead.
-    if (!body) throw new Error("empty email");
-    if (!note && !p.email) throw new Error("empty note and no email for this person");
-    const noteSkipped = note ? null : (out.note_skipped || "").trim() || "We didn't find anything personal about this person for a short note. Send the email.";
-    if (noteSkipped) await jlog("info", "messages", `No LinkedIn note for ${p.first}: ${noteSkipped}`);
-    // The note never carries a link (a bare link from a stranger looks like spam). Its length is the prompt's
-    // job (strict rule: 200 characters); code never cuts it, so no sentence is ever chopped off.
-    note = note.replace(/https?:\/\/\S+/g, "").replace(/\s*—\s*/g, ", ").replace(/\s+/g, " ").trim();
-    if (note.length > 200) await jlog("warn", "messages", `${p.first}'s note is ${note.length} characters (rule: 200)`);
-    // The resume is attached by the student. Never "happy to send" / "will send": say it's attached.
-    body = body.replace(/https?:\/\/\S*\/r\/\S+/g, "").replace(/\[RESUME\]/g, "").replace(/\s*—\s*/g, ", ");
-    body = body.replace(/[^.\n]*\b(happy to (send|share)|(can|will|could) (send|share)|let me know if you('d| would)? like)[^.\n]*(my )?(resume|cv)[^.\n]*\.?/gi, "I've attached my resume.");
-    if (!/attach/i.test(body)) body = body.replace(/\n\n([^\n]*(thank|thanks|regards|best)[^\n]*,?\s*\n[^\n]+)\s*$/i, "\n\nI've attached my resume.\n\n$1");
-    // The online copy goes on its own labelled line just before the sign-off.
-    if (ctx.resumeLink && !body.includes(ctx.resumeLink)) {
-      const at = body.search(/\n\n[^\n]*(thank|thanks|regards|best|cheers)[^\n]*,?\s*\n[^\n]+\s*$/i);
-      const line = `My resume online: ${ctx.resumeLink}`;
-      body = at > 0 ? `${body.slice(0, at)}\n\n${line}${body.slice(at)}` : `${body}\n\n${line}`;
-    }
-    body = body.replace(/\n{3,}/g, "\n\n").trim();
-    return { ...p, line: undefined, note, note_skipped: noteSkipped, story_tip: (out.story_tip || "").trim() || null, subject: subject || `${ctx.role} at ${ctx.company}`, body, written: true };
-  } catch (e: any) {
-    // There is no template to fall back to: a failed message is reported to the student, never faked.
-    await jlog("error", "messages", `AI couldn't write for ${p.first}: ${String(e?.message || e).slice(0, 300)}`);
-    throw e;
-  }
-}

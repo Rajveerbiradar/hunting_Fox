@@ -1,6 +1,6 @@
 # Hunting Fox
 
-Paste a LinkedIn or Naukri job. Hunting Fox checks the company is real, finds people who work there, shows what to change in your resume, and writes messages you send yourself.
+Paste a LinkedIn or Naukri job. Hunting Fox checks the company is real, finds people who work there, shows what to change in your resume, and gives you their LinkedIn and work email so you can write to them yourself.
 
 ## How a scan works
 

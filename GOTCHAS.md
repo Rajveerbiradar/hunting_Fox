@@ -116,6 +116,11 @@ Commit hashes point to the fix on `main`.
 - **Changed:** `write-messages.md` rewritten around ONE real moment (situation, problem, what the student did, what changed); never explain the reader's own company; no company, skills, plan or wish paragraphs; the self-check lists every fact against the inputs. The writer now gets `student.facts` (`profiles.facts`, the student's own answers, which hold real moments). When there's no moment to tell, the email stays short and returns `story_tip`, one question shown on the reach-out page ("Make it stronger: …"). The notes box now asks for "one real moment from your work".
 - **Rule:** you can't write a story from data alone. Get a real moment from the student, or ask for one.
 
+### 10i. Message writing removed completely
+- **What broke:** after many rounds (templates, stat lines, fixed shapes, telling founders what their own company does, invented facts, sentences that don't follow from each other, a TED talk "point" that wasn't what the student said), Rajveer judged the AI emails and LinkedIn notes not good enough to put in front of students.
+- **Changed:** removed all message writing. The people page now shows each person's title, why they're worth contacting, View on LinkedIn, the work email (Copy, Open in Gmail), "I contacted them", and the resume PDF to attach. Deleted `writePerson`, `MsgCtx`, `POST/GET /api/jobs/[id]/more` and `prompts/write-messages.md`; `build-prompt.md` is resume-only.
+- **Rule:** don't ship AI writing that speaks for the student unless it's clearly better than what the student would write. Students can write their own; give them the people and the emails.
+
 ### 11. LinkedIn note had a link; emails said "happy to send my resume"
 - **Changed:** the note never has a link; every email says "I've attached my resume." and code rewrites any "happy to send" line. (`670568f`, `b19169d`)
 
@@ -279,6 +284,8 @@ Every reply from Claude ended with "Assumptions I made". These are the ones that
 | 39 | A LinkedIn note must always be written | "If there is less to personalise, don't do it for the LinkedIn message; it's mandatory for the email" | Note optional with a reason; email always written |
 | 40 | "Say what the company does in one clause" helps show understanding | "The first para is just repeating what they do… she is a founder or employee, they don't need to hear that" | Never explain the reader's own company |
 | 41 | One strong stat is enough proof | "'I ran a 40-person tester group' is not a story… it's data to a fixed structure" | Proof is one real moment; the writer gets the student's saved answers; asks for a moment when none exists |
+| 42 | The emails were close; a few more prompt fixes would get there | "Remove email writing and LinkedIn writing" | Message writing removed; the page shows people, LinkedIn and work emails |
+| 43 | Garima was an employee whose role we didn't know | She is a founder | Wrong framing in every draft; another reason to stop guessing |
 | 31 | Pushing after every change without asking | "Build it but ask me before pushing" (for that batch) | Asked before that push |
 
 Assumptions that held (not wrong, kept): admin approval before searching; students send messages themselves; Mumbai region; one gradient button per screen; light mode only.

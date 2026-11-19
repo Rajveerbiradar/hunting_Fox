@@ -78,7 +78,7 @@ export function SearchedJobs({ jobs, left, limit, initial, email, approved, admi
                     const action = working ? null
                       : r.status === "failed" ? { label: "See what happened", kind: "sec" }
                       : bad ? { label: "See why", kind: "sec" }
-                      : r.apply_status === "no_reply" ? { label: "Send a follow-up", kind: "sec sm", href: `/jobs/${r.id}/reach-out` }
+                      : r.apply_status === "no_reply" ? { label: "See the people", kind: "sec sm", href: `/jobs/${r.id}/reach-out` }
                       : null;
                     return (
                       <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", padding: "16px 20px", borderTop: i ? "1px solid var(--line)" : undefined }}>

@@ -153,7 +153,7 @@ async function run<T>(task: "writer" | "ranker", promptName: string, input: unkn
         if (p.id !== "own") await checkBudget();
         const sys = system || prompt(promptName);
         const rec = (t?: Tokens) => { if (t) void recordUsage({ providerId: p.id, providerName: p.name, model: p.model, task: promptName, ...t }); };
-        const { text, tokens } = await chat(p, sys, JSON.stringify(input), promptName === "write-messages" ? 0.7 : 0.3)
+        const { text, tokens } = await chat(p, sys, JSON.stringify(input), 0.3)
           .catch((e) => { rec((e as { tokens?: Tokens }).tokens); throw e; });
         rec(tokens);
         const out = parseJson<T>(text);

@@ -135,7 +135,7 @@ export function Home(p: { signedIn: boolean; initialLink?: string; name?: string
                         <button key={o.key} className="opt" role="radio" aria-checked={pk === o.key} onClick={() => setStatus(j.id, o.key)}>{pk === o.key ? "✓ " : ""}{o.label}</button>
                       ))}
                       {!more[j.id] && !pk && <button className="btn ghost sm" onClick={() => setMore((x) => ({ ...x, [j.id]: true }))}>More…</button>}
-                      {j.apply_status === "no_reply" && !pk && <Link href={`/jobs/${j.id}/reach-out`} className="btn sec sm">Send a follow-up</Link>}
+                      {j.apply_status === "no_reply" && !pk && <Link href={`/jobs/${j.id}/reach-out`} className="btn sec sm">See the people</Link>}
                     </div>
                     {pk && GOOD_NEWS.includes(pk) && (
                       <div className="note" style={{ marginTop: 14, marginLeft: 64 }}>

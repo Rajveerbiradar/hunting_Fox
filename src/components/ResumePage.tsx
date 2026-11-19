@@ -147,27 +147,31 @@ export function ResumePage({ jobId, company, resume: start, hasResume, skills, i
   const doneHere = [...new Map([...(resume?.answered || []), ...(resume?.gaps || []).map((g) => done.find((f) => f.q.trim().toLowerCase() === g.question.trim().toLowerCase())).filter(Boolean) as { q: string; a: string }[]].map((f) => [f.q, f])).values()];
   const ready = gaps.filter((g) => (answers[g.id] || "").trim().length >= 10);
   const rewrite = () => startRewrite({ action: "answers", answers: ready.map((g) => ({ q: g.question, a: answers[g.id] })) });
+  const download = (where: string) => (
+    <PdfButton key={where} lines={diff?.final.filter((l) => l.trim())} company={company} source={`/api/jobs/${jobId}/resume-lines`} className={`btn ${review && !appliedAt ? "sec" : where === "top" ? "lg pri" : "lg sec"}`}>{Icon.download()}{review && !appliedAt ? "Download without changes" : "Download PDF"}</PdfButton>
+  );
+  const status = (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+      <span style={{ fontSize: 14, fontWeight: review && !appliedAt ? 600 : 400, color: review && !appliedAt ? "var(--ink)" : "var(--mute)" }}>{review && !appliedAt ? "Apply your changes below to include them in the PDF" : unanswered ? `${unanswered} skill ${unanswered === 1 ? "question" : "questions"} below` : "Saved here. Come back any time."}</span>
+      {resume?.made_main_at ? (
+        <span style={{ fontSize: 14, display: "flex", gap: 8, alignItems: "center" }}><b style={{ color: "#1A6B3C" }}>✓ This is your main resume now</b><button className="btn ghost" style={{ minHeight: 32, padding: "0 6px", fontSize: 14 }} onClick={() => makeMain(true)}>Undo</button></span>
+      ) : !askMain ? (
+        <button className="btn sec" style={{ minHeight: 36, fontSize: 14 }} disabled={review && !appliedAt} title={review && !appliedAt ? "Apply your changes first" : undefined} onClick={() => setAskMain(true)}>Make this my main resume</button>
+      ) : null}
+    </div>
+  );
+
   return (
     <>
       <Header signedIn initial={initial} back={{ href: `/jobs/${jobId}`, label: `Back to ${company}` }} />
       <main className="wrap xwide">
-        <div style={{ marginTop: 8, display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 20, flexWrap: "wrap" }}>
-          <div style={{ minWidth: 0 }}>
-            <h1 style={{ margin: 0, fontSize: "clamp(30px,4vw,36px)", lineHeight: 1.1, fontWeight: 700, letterSpacing: "-.03em" }}>Your resume for {company}</h1>
-            <p className="mute" style={{ margin: "8px 0 0", fontSize: 16 }}>This copy is just for {company}. Your main resume doesn&apos;t change.</p>
-          </div>
-          {diff && (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
-              <PdfButton lines={diff?.final.filter((l) => l.trim())} company={company} source={`/api/jobs/${jobId}/resume-lines`} className={`btn ${review && !appliedAt ? "sec" : "lg pri"}`}>{Icon.download()}{review && !appliedAt ? "Download without changes" : "Download PDF"}</PdfButton>
-              <span style={{ fontSize: 14, fontWeight: review && !appliedAt ? 600 : 400, color: review && !appliedAt ? "var(--ink)" : "var(--mute)" }}>{review && !appliedAt ? "Apply your changes below to include them" : unanswered ? `${unanswered} skill ${unanswered === 1 ? "question" : "questions"} below` : "Saved here. Come back any time."}</span>
-              {resume?.made_main_at ? (
-                <span style={{ fontSize: 14, display: "flex", gap: 8, alignItems: "center" }}><b style={{ color: "#1A6B3C" }}>✓ This is your main resume now</b><button className="btn ghost" style={{ minHeight: 32, padding: "0 6px", fontSize: 14 }} onClick={() => makeMain(true)}>Undo</button></span>
-              ) : !askMain ? (
-                <button className="btn sec" style={{ minHeight: 36, fontSize: 14 }} disabled={review && !appliedAt} title={review && !appliedAt ? "Apply your changes first" : undefined} onClick={() => setAskMain(true)}>Make this my main resume</button>
-              ) : null}
-            </div>
-          )}
+        {/* Title with the download right beside it; the status and "make main" sit under the subtitle. */}
+        <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+          <h1 style={{ margin: 0, fontSize: "clamp(30px,4vw,36px)", lineHeight: 1.1, fontWeight: 700, letterSpacing: "-.03em", minWidth: 0 }}>Your resume for {company}</h1>
+          {diff && download("top")}
         </div>
+        <p className="mute" style={{ margin: "8px 0 0", fontSize: 16 }}>This copy is just for {company}. Your main resume doesn&apos;t change.</p>
+        {diff && <div style={{ marginTop: 10 }}>{status}</div>}
 
         {/* The people page lists the skills people at the company have; the ones the student really has come back here as skill questions. */}
         <a href={`/jobs/${jobId}/reach-out#skills`} className="card" style={{ marginTop: 20, display: "flex", alignItems: "center", gap: 14, padding: "16px 20px", textDecoration: "none", color: "inherit" }}>
@@ -377,6 +381,12 @@ export function ResumePage({ jobId, company, resume: start, hasResume, skills, i
                   </div>
                 ))}
               </section>
+            )}
+            {diff && (
+              <div className="card" style={{ marginTop: 16, padding: "18px 20px", display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+                <b style={{ fontSize: 16, flex: "1 1 200px" }}>Your resume for {company}</b>
+                {download("bottom")}
+              </div>
             )}
             {portal !== "naukri" && (
               <div className="card" style={{ marginTop: 16, padding: "18px 20px", background: "#E7EFFA", color: "#164A88", fontSize: 16, lineHeight: 1.5 }}>

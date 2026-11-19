@@ -137,6 +137,11 @@ Commit hashes point to the fix on `main`.
 - **Changed (v8):** (1) the prompt writer writes only a short brief (a reader card, positioning fragments, a line-by-line verdict: lead / rewrite / shrink / keep); the standing rules are appended in code, word for word (`<!-- APPEND-RULES -->` marker in the rules file), so every job gets every rule. (2) Code checks the page (`pageProblems` in resume.ts: banned words incl. Skills, "solo"/"alone" more than once, bigger verbs than the resume used, bullets starting with "it", "a person must check" wording, 5-word phrases kept from the old line) and sends any problems back for ONE fix call (`check` in `writerBuilt`). (3) Bullet endings are made consistent in code (`evenEndings`).
 - **Rule:** don't trust a model's report of its own work; check in code. Don't let a model decide which rules apply.
 
+### 10m. Resume v8: names and numbers arrived before the reader knew what they were; facts nobody said
+- **What broke:** (1) Every entry opened with its strongest proof: Amchi Local's first bullet was "Ran a tester program of 40+ testers…" before the page ever said what Amchi Local is; Otto was never explained; the summary said "a local-train app" with no setup. The cause is general, not one entry: the writer has read the whole resume, so it writes from inside the student's head and forgets the reader knows nothing. The v8 "reader card" made it worse by assuming one known reader. (2) "Worked on an AI CRM" was on the student's saved main resume (that resume's summary ended "…to Sure", so it was an earlier AI rewrite made main). Every prompt treats saved lines as facts, so one invented line became a fact forever. Rajveer never worked on an AI CRM.
+- **Changed (v9 drafts):** no assumed reader: write for a smart professional who has never heard of the student, reading top to bottom once. One general rule, "warm up before you claim" (rules Step 3b): every name, number and claim reaches the reader after what it means, either set up inside the same sentence or by an earlier line. The builder writes a **setup map** (every cold spot on the page and where it gets set up); the writer reports `cold_spots`. Not a per-entry rule. (Note: `cold_spots` is the writer's own report, which 10l showed is unreliable; there's no code check for it yet.)
+- **Rule:** fix the reading order for a cold reader across the whole page, never one entry. A saved resume can hold AI-written lines; when a student says a line isn't true, the saved resume is what must change.
+
 ### 11. LinkedIn note had a link; emails said "happy to send my resume"
 - **Changed:** the note never has a link; every email says "I've attached my resume." and code rewrites any "happy to send" line. (`670568f`, `b19169d`)
 
@@ -303,6 +308,8 @@ Every reply from Claude ended with "Assumptions I made". These are the ones that
 | 42 | The emails were close; a few more prompt fixes would get there | "Remove email writing and LinkedIn writing" | Message writing removed; the page shows people, LinkedIn and work emails |
 | 43 | Garima was an employee whose role we didn't know | She is a founder | Wrong framing in every draft; another reason to stop guessing |
 | 44 | Each critique should become a new rule in the prompt | "Are you just mentioning the facts as rules not to do, or understanding the pattern?" | v6 rebuilt from root causes; tested on four jobs |
+| 45 | The saved resume's lines are the student's facts ("AI CRM") | "When did I say that I worked on an AI CRM?" | The saved resume was an earlier AI rewrite; lines on it can be invented |
+| 46 | Fix the missing Amchi Local intro with "every entry opens with an intro line" | "This is what we call patching… always warm up sentences… we don't know who is gonna read the resume" | v9: one warm-up rule for the whole page, for an unknown cold reader |
 | 31 | Pushing after every change without asking | "Build it but ask me before pushing" (for that batch) | Asked before that push |
 
 Assumptions that held (not wrong, kept): admin approval before searching; students send messages themselves; Mumbai region; one gradient button per screen; light mode only.

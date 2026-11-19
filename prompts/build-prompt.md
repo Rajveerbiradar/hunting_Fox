@@ -18,7 +18,7 @@ Why this step exists: the writer is good at following decisions and bad at makin
 
 *Step 1: The reader.* Who decides on this job (founder, hiring manager, recruiter, engineering lead)? What must they believe in 10 seconds? What would make them stop? Be concrete for this job.
 
-*Step 2: The positioning.* Decide the ONE true way to describe this student for this reader, in the reader's terms. Write it as a short phrase the writer can build the headline and summary on (e.g. "a generalist who takes products from idea to real users and closes every loop"). If the job isn't an engineering job, the student's technical work is evidence, not identity: state plainly that the summary and headline must not open with an engineering title or "Founder". Explain the choice in one sentence so the writer understands it.
+*Step 2: The positioning.* Decide the ONE true way to describe this student for this reader, in the reader's terms. Give it to the writer as **3 or 4 short idea fragments, never a finished sentence** (e.g. "angle: taking products from idea to launch; closing feedback loops; practical AI tools for a team"). The writer pastes any finished sentence it is handed straight onto the resume. Also name the strongest proof that must carry the first sentence of the summary. If the job isn't an engineering job, the student's technical work is evidence, not identity: state plainly that the summary and headline must not open with an engineering title or "Founder". Explain the choice in one sentence so the writer understands it.
 
 *Step 3: The proof order.* Name the strongest proof for this reader, then the second, then what gets shortened. Refer to resume lines by where they are and what they prove ("the tester bullet under the app entry: the strongest proof of follow-through, keep all its numbers together"), never by re-wording them. If you re-word the student's lines, the writer copies your wording onto the resume.
 
@@ -26,7 +26,7 @@ Why this step exists: the writer is good at following decisions and bad at makin
 
 *Step 5: What's missing.* Which needs of the job have weak or no proof? Those become the gap questions. Never ask the student to fake them.
 
-*Step 6: Write the prompt* in the structure below. **600 to 1,000 words.** State every rule once, in one place. Do not repeat a rule in two sections. A long prompt full of overlapping rules makes the writer skip lines.
+*Step 6: Write the prompt* in the structure below. **600 to 1,000 words.** Nowhere in your prompt write a phrase you would be unhappy to see printed on the resume: the writer copies your wording (e.g. if you write "human checking", the resume says "human checking"). Describe what lines are about; don't phrase them. State every rule once, in one place. Do not repeat a rule in two sections. A long prompt full of overlapping rules makes the writer skip lines. Keep the `checks` step and field from `rules` exactly: making the writer show its read-through is what makes it actually do it.
 
 *Step 7: Check.* Every principle and rule from `rules` is in your prompt, once. The OUTPUT FORMAT is copied exactly. Every fact you mention is in `data`. Your prompt contains no sentence the writer could paste onto the resume (no reworded resume lines, no example lines from the student's own field).
 
@@ -51,7 +51,7 @@ Why this step exists: the writer is good at following decisions and bad at makin
 1. Never invent anything about the student or the company. If the company page is empty, say so and forbid statements about what the company does.
 2. Decide; don't hand decisions to the writer. Positioning, proof order and skills order are yours.
 3. Point at the student's lines; never re-word them.
-4. Plain, sharp English in your own prompt (CEFR B2). The writer copies your register, so never write casual stand-ins ("real people", "a person must check") or jargon.
+4. Plain, sharp English in your own prompt (CEFR B2). The writer copies your register and your phrases, so never write casual stand-ins, jargon or ready-made resume sentences. Positioning goes in as fragments.
 5. Every rule once. 600 to 1,000 words.
 6. No em dashes.
 
@@ -66,7 +66,7 @@ Why this step exists: the writer is good at following decisions and bad at makin
 BAD: "She is a frontend developer. Rewrite her bullets in plain English. Built a bakery ordering page that doubled weekend orders."
 Why: hands the writer the wrong identity for an events job and a reworded resume line to copy.
 
-GOOD: "The reader is the operations head of an events company hiring a coordinator. Position the student as an organiser who turns messy plans into things that ship on time. The bakery entry's ordering bullet is the lead proof; keep its result. The CSS bullet is engineering detail for this reader: rewrite it as one plain line about what the site did for the bakery. Put the Tools row first in Skills."
+GOOD: "The reader is the operations head of an events company hiring a coordinator. Positioning fragments: organising events; keeping many people on schedule; delivering on time. The first summary sentence must carry the ordering-page result. The bakery entry's ordering bullet is the lead proof; keep its result. The CSS bullet is engineering detail for this reader: rewrite it as one plain line about what the site did for the bakery. Put the Tools row first in Skills."
 
 ---
 

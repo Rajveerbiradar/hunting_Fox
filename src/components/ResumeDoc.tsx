@@ -69,31 +69,39 @@ function Why({ text }: { text: string }) {
 }
 
 export function CompareDoc({ rows, leftTitle, rightTitle, onCopy }: { rows: CompareRow[]; leftTitle: string; rightTitle: string; onCopy?: (t: string) => void }) {
+  const oldCell = (r: CompareRow, i: number) => <div className="rcold">{r.left.trim() ? lineEl(r.left, i) : <p className="rnone">Not on your resume</p>}</div>;
+  const newCell = (r: CompareRow, i: number) => {
+    const m = r.mark;
+    return (
+      <div className={m?.off ? "rcnew off" : "rcnew"}>
+        {r.right.trim() ? lineEl(r.right, i) : <p className="rnone">Removed (folded into the new summary)</p>}
+        {m?.off && <p className="rnone">Dropped: your old line stays</p>}
+        <span className="rcacts noprint">
+          {m?.reason && <Why text={m.reason} />}
+          {onCopy && r.right.trim() && !m?.off && <button type="button" className="rcact" onClick={() => onCopy(plainLine(r.right.trim()))}>Copy</button>}
+          {m?.extra}
+        </span>
+      </div>
+    );
+  };
+  const live = rows.map((r, i) => ({ r, i })).filter(({ r }) => r.left.trim() || r.right.trim());
   return (
     <article className="rdoc rcmp">
-      <div className="rcrow rchead"><div>{leftTitle}</div><div>{rightTitle}</div></div>
-      {rows.map((r, i) => {
-        if (!r.left.trim() && !r.right.trim()) return null;
-        if (!r.changed) return <div key={i} className="rcrow"><div>{lineEl(r.left, i)}</div><div>{lineEl(r.right, i)}</div></div>;
-        const m = r.mark;
-        return (
-          <div key={i} className="rcrow ch">
-            <div><div className="rcold">{r.left.trim() ? lineEl(r.left, i) : <p className="rnone">Not on your resume</p>}</div></div>
-            <div>
-              {/* The new line, with small actions in its corner: ? (why), Copy, Drop / Undo. */}
-              <div className={m?.off ? "rcnew off" : "rcnew"}>
-                {r.right.trim() ? lineEl(r.right, i) : <p className="rnone">Removed (folded into the new summary)</p>}
-                {m?.off && <p className="rnone">Dropped: your old line stays</p>}
-                <span className="rcacts noprint">
-                  {m?.reason && <Why text={m.reason} />}
-                  {onCopy && r.right.trim() && !m?.off && <button type="button" className="rcact" onClick={() => onCopy(plainLine(r.right.trim()))}>Copy</button>}
-                  {m?.extra}
-                </span>
-              </div>
-            </div>
-          </div>
-        );
-      })}
+      {/* Wide screens: two resumes side by side, each flowing on its own (no blank space to line rows up). */}
+      <div className="rccols">
+        <div>
+          <div className="rchead">{leftTitle}</div>
+          {live.filter(({ r }) => r.left.trim() || r.changed).map(({ r, i }) => <div key={i}>{r.changed ? oldCell(r, i) : lineEl(r.left, i)}</div>)}
+        </div>
+        <div>
+          <div className="rchead new">{rightTitle}</div>
+          {live.filter(({ r }) => r.right.trim() || r.changed).map(({ r, i }) => <div key={i}>{r.changed ? newCell(r, i) : lineEl(r.right, i)}</div>)}
+        </div>
+      </div>
+      {/* Phones: one resume, each changed line shown old (red) then new (green). */}
+      <div className="rcstack">
+        {live.map(({ r, i }) => r.changed ? <div key={i} className="ch">{oldCell(r, i)}{newCell(r, i)}</div> : <div key={i}>{lineEl(r.right, i)}</div>)}
+      </div>
     </article>
   );
 }

@@ -19,12 +19,20 @@ export function appliedUse(r: ResumePart): (key: string) => boolean {
 
 const isHead = (l: string) => l.startsWith("## ");
 
-/** Index of the line that lists skills (first line after a heading mentioning "skill"). */
+/**
+ * The skills line that answered skills go into. A resume can have several ("Android: …", "Tools: …"), so
+ * pick the general one (Tools / Software / Other / General) and only fall back to the last line of the section.
+ * Putting "PowerPoint" under "Android:" read as keyword stuffing.
+ */
 function skillsLineIndex(lines: string[]) {
   const h = lines.findIndex((l) => isHead(l) && /skill/i.test(l));
   if (h < 0) return -1;
-  const i = lines.findIndex((l, j) => j > h && !isHead(l));
-  return i >= 0 && (i === h + 1) ? i : -1;
+  let end = lines.findIndex((l, j) => j > h && isHead(l));
+  if (end < 0) end = lines.length;
+  const rows = lines.map((l, j) => ({ l, j })).filter((x) => x.j > h && x.j < end && x.l.trim());
+  if (!rows.length) return -1;
+  const general = rows.find((x) => /^([-•] )?(\*\*)?(tools?|software|other|general|others)\b/i.test(x.l.trim()));
+  return (general || rows[rows.length - 1]).j;
 }
 
 /**
@@ -56,9 +64,8 @@ export function buildDiff(r: ResumePart, levels: Record<string, number>, use: (k
     }
     const skillsHere = i === si;
     if (skillsHere && added.length) {
-      // "- Tools: Figma, Excel" → "- Tools: Photoshop, Figma, Excel": new skills go after the bullet and label.
-      const pre = next.match(/^([-•] )?(\*\*[^*:]{1,30}:\*\*\s*|[^:,*]{1,30}:\s*)?/)?.[0] || "";
-      next = `${pre}${added.join(", ")}, ${next.slice(pre.length)}`;
+      // "- Tools: Figma, Excel" → "- Tools: Figma, Excel, Photoshop": new skills go at the end of the general line.
+      next = `${next.replace(/[,.\s]+$/, "")}, ${added.join(", ")}`;
     }
     if (e && next.replace(/^(#{1,3} |[-•] |@ |> )/, "") === "") {
       // Line folded into the new summary: removed. Placeholders keep left/right/final on the same index.

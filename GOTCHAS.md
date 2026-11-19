@@ -121,6 +121,11 @@ Commit hashes point to the fix on `main`.
 - **Changed:** removed all message writing. The people page now shows each person's title, why they're worth contacting, View on LinkedIn, the work email (Copy, Open in Gmail), "I contacted them", and the resume PDF to attach. Deleted `writePerson`, `MsgCtx`, `POST/GET /api/jobs/[id]/more` and `prompts/write-messages.md`; `build-prompt.md` is resume-only.
 - **Rule:** don't ship AI writing that speaks for the student unless it's clearly better than what the student would write. Students can write their own; give them the people and the emails.
 
+### 10j. Answered skills landed under the wrong label ("Android: PowerPoint, Google Sheets, Kotlin…")
+- **Why:** `buildDiff` put confirmed skills at the start of the FIRST line under the Skills heading, whatever its label.
+- **Changed:** `skillsLineIndex` picks the general line (Tools / Software / Other / General), else the last line of the section, and adds the skills at the end of it.
+- **Rule:** never put a skill under a label it doesn't belong to.
+
 ### 11. LinkedIn note had a link; emails said "happy to send my resume"
 - **Changed:** the note never has a link; every email says "I've attached my resume." and code rewrites any "happy to send" line. (`670568f`, `b19169d`)
 

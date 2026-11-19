@@ -57,7 +57,7 @@ export async function appSettings() {
   const v = await settings();
   const on = (k: string, def: boolean) => (v[k] === undefined || v[k] === "" ? def : v[k] === "1");
   return {
-    defaultSearches: Math.max(1, Math.min(500, Number(v.default_searches) || 25)),
+    defaultSearches: Math.max(1, Math.min(500, Number(v.default_searches) || 5)),
     autoApprove: on("auto_approve", false),
     allowAskMore: on("allow_ask_more", true),
     emailsOn: on("emails_on", true),

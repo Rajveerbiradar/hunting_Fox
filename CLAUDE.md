@@ -11,7 +11,7 @@ Hunting Fox helps Indian college students get noticed for a job. A student paste
 3. People who work there (public LinkedIn data), ranked by who's most likely to reply.
 4. Each person's LinkedIn link and any work email we found. **We don't write messages or LinkedIn notes** (removed 19 Nov 2026: the AI emails weren't good enough). The student writes and sends their own. We never send anything.
 
-It's Rajveer's free personal project, built for Beep's Founder's Office task (deadline Fri 20 Nov 2026). Students need admin approval and get a set number of "searches".
+It's Rajveer's free personal project, built for Beep's Founder's Office task (deadline Fri 20 Nov 2026). **Every student gets 5 searches the moment they sign in** (20 Nov 2026; `FREE_SEARCHES` in `src/lib/free.ts`, applied in `access()` in `src/lib/limits.ts`: anyone not declined is approved and raised to at least 5). More come from the admin. The first time a student lands on Home, a popup (`SearchesWelcome`, once per account per browser via localStorage) says they've got 5 searches and to ask Rajveer for more on WhatsApp, email or a call, expecting a reply in 1–3 hours.
 
 - Live: https://huntingfox.journeytix.com (also https://huntingfox.vercel.app)
 - Repo: github.com/Rajveerbiradar/hunting_Fox (branch `main`, Vercel auto-deploys on push)

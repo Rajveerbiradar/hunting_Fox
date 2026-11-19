@@ -1,3 +1,4 @@
+import { FREE } from "./free";
 import { adminClient } from "@/lib/supabase/clients";
 import { hasOwnApify } from "@/lib/ownKeys";
 import { appSettings } from "@/lib/secrets";
@@ -24,6 +25,9 @@ export async function searchesUsed(userId: string) {
   return count || 0;
 }
 
+/** Searches every student gets on their first sign-in (src/lib/free.ts, shared with the welcome popup). */
+export const FREE_SEARCHES = FREE;
+
 export type Access = { approved: boolean; admin: boolean; limit: number; used: number; left: number; ownApify: boolean };
 
 /** Is this student approved, and how many searches do they have left? */
@@ -35,13 +39,15 @@ export async function access(userId: string, email?: string | null): Promise<Acc
     hasOwnApify(userId).catch(() => false),
   ]);
   let data = first.data;
-  // "Approve everyone automatically" in Settings: let them in on their first visit.
-  if (!admin && data && !data.approved) {
+  // Every student gets FREE_SEARCHES as soon as they sign in (20 Nov 2026), no approval wait. More come from the
+  // admin (WhatsApp / email / call). A student the admin declined stays out; "Approve everyone automatically" with
+  // a higher default in Settings still gives that higher number.
+  if (!admin && data && !(data as { declined_at?: string | null }).declined_at && (!data.approved || (data.search_limit || 0) < FREE_SEARCHES)) {
     const st = await appSettings();
-    if (st.autoApprove && !(data as { declined_at?: string | null }).declined_at) {
-      await adminClient().from("profiles").update({ approved: true, approved_at: new Date().toISOString(), search_limit: data.search_limit || st.defaultSearches }).eq("id", userId);
-      data = { ...data, approved: true, search_limit: data.search_limit || st.defaultSearches };
-    }
+    const base = st.autoApprove ? Math.max(FREE_SEARCHES, st.defaultSearches) : FREE_SEARCHES;
+    const limit = Math.max(data.search_limit || 0, base);
+    await adminClient().from("profiles").update({ approved: true, search_limit: limit, ...(data.approved ? {} : { approved_at: new Date().toISOString() }) }).eq("id", userId);
+    data = { ...data, approved: true, search_limit: limit };
   }
   const approved = admin || !!data?.approved;
   const limit = admin ? Math.max(data?.search_limit || 0, 1000) : data?.search_limit || 0;

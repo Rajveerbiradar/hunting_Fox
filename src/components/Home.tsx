@@ -10,6 +10,7 @@ import { LinkBox } from "./LinkBox";
 import { ProgressPopup } from "./ProgressPopup";
 import { ResumeUpload } from "./ResumeUpload";
 import { WaitingScreen } from "./WaitingScreen";
+import { SearchesWelcome } from "./SearchesWelcome";
 
 type Job = { id: string; title: string | null; company: string | null; status: string; step?: number | null; apply_status: string | null; applied_at: string | null; created_at: string };
 
@@ -75,6 +76,7 @@ export function Home(p: { signedIn: boolean; initialLink?: string; name?: string
   return (
     <>
       <Header signedIn={p.signedIn} initial={first[0]} showJobs={p.signedIn} admin={p.admin} />
+      {p.signedIn && p.approved && !p.admin && !p.ownApify && <SearchesWelcome email={p.email || ""} limit={p.limit ?? 0} />}
       <main className="wrap">
         {returning ? (
           <h1 className="h1">Welcome back{first ? `, ${first}` : ""}</h1>

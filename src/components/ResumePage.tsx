@@ -18,6 +18,7 @@ type R = {
   failed?: string;
   company_brief?: { believes: string; building: string; deliver: string };
   rewriting?: { at: string; kind: "answers" | "redo" };
+  main_before?: string; made_main_at?: string;
   rewrite_error?: string;
 };
 
@@ -108,6 +109,15 @@ export function ResumePage({ jobId, company, resume: start, hasResume, skills, i
   }
   const redo = () => startRewrite({ action: "redo" });
 
+  // "Make this my main resume": replaces the student's main resume with this job's final version. Asks first, on the page.
+  const [askMain, setAskMain] = useState(false);
+  async function makeMain(undo = false) {
+    const r = await fetch(`/api/jobs/${jobId}/resume-plan`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: undo ? "undo_main" : "make_main" }) }).catch(() => null);
+    const d = r ? await r.json().catch(() => ({})) : {};
+    if (d.resume) { setResume(d.resume); setAskMain(false); toast.show(undo ? "Your old main resume is back" : "This is now your main resume"); }
+    else toast.show("Couldn't do that just now. Try again.");
+  }
+
   async function apply() {
     setApplying(true);
     const r = await fetch(`/api/jobs/${jobId}/resume-plan`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "apply", decisions }) }).catch(() => null);
@@ -140,9 +150,24 @@ export function ResumePage({ jobId, company, resume: start, hasResume, skills, i
             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
               <PdfButton lines={diff?.final.filter((l) => l.trim())} company={company} source={`/api/jobs/${jobId}/resume-lines`} className={`btn ${review && !appliedAt ? "sec" : "lg pri"}`}>{Icon.download()}{review && !appliedAt ? "Download without changes" : "Download PDF"}</PdfButton>
               <span style={{ fontSize: 14, fontWeight: review && !appliedAt ? 600 : 400, color: review && !appliedAt ? "var(--ink)" : "var(--mute)" }}>{review && !appliedAt ? "Apply your changes below to include them" : unanswered ? `${unanswered} skill ${unanswered === 1 ? "question" : "questions"} below` : "Saved here. Come back any time."}</span>
+              {resume?.made_main_at ? (
+                <span style={{ fontSize: 14, display: "flex", gap: 8, alignItems: "center" }}><b style={{ color: "#1A6B3C" }}>✓ This is your main resume now</b><button className="btn ghost" style={{ minHeight: 32, padding: "0 6px", fontSize: 14 }} onClick={() => makeMain(true)}>Undo</button></span>
+              ) : !askMain ? (
+                <button className="btn sec" style={{ minHeight: 36, fontSize: 14 }} disabled={review && !appliedAt} title={review && !appliedAt ? "Apply your changes first" : undefined} onClick={() => setAskMain(true)}>Make this my main resume</button>
+              ) : null}
             </div>
           )}
         </div>
+
+        {askMain && !resume?.made_main_at && (
+          <div className="card" role="dialog" aria-label="Replace your main resume" style={{ marginTop: 16, padding: "18px 22px", display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap", border: "1.5px solid var(--ink)" }}>
+            <span style={{ flex: "1 1 320px", fontSize: 16, lineHeight: 1.5 }}><b>Replace your main resume with this version for {company}?</b> Every new job will start from it. You can undo this here.</span>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button className="btn dark" onClick={() => makeMain(false)}>Yes, replace it</button>
+              <button className="btn sec" onClick={() => setAskMain(false)}>Cancel</button>
+            </div>
+          </div>
+        )}
 
         {!hasResume || !resume ? (
           <>

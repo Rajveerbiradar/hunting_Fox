@@ -2,6 +2,7 @@ import { NextResponse, after } from "next/server";
 import { jobCtx } from "@/lib/joblog";
 import { adminClient, currentUser, userClient } from "@/lib/supabase/clients";
 import { makeResume, type Fact } from "@/lib/pipeline/resume";
+import { finalLines } from "@/lib/resumeDiff";
 import { ownKeys } from "@/lib/ownKeys";
 import type { ResumePart } from "@/lib/pipeline/types";
 
@@ -11,6 +12,7 @@ export const maxDuration = 300;
 /**
  * The resume review on /jobs/[id]/resume.
  *  { action: "apply", decisions: { [key]: boolean } } → lock in the kept suggestions (Final + PDF use them).
+ *  { action: "make_main" | "undo_main" }          → this job's final version becomes (or stops being) the main resume.
  *  { action: "redo" }                               → write the changes again (after a failed try).
  * redo and answers save `rewriting` at once, run in the background (after()), and the page polls GET.
  *  { action: "answers", answers: [{ q, a }] }        → save the student's answers to their profile (profiles.facts,
@@ -45,6 +47,32 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const decisions: Record<string, boolean> = {};
     Object.entries(b.decisions || {}).forEach(([k, v]) => { if (/^(\d{1,2}|s)$/.test(k)) decisions[k] = !!v; });
     const next = { ...r, v: 2 as const, applied: true, applied_at: new Date().toISOString(), decisions };
+    await sb.from("reports").update({ resume: next }).eq("job_id", id);
+    return NextResponse.json({ resume: next });
+  }
+
+  // "Make this my main resume": the student's main resume becomes this job's final version (applied changes +
+  // confirmed skills). The old main resume is kept on this job's report, so "Undo" can put it back.
+  if (b.action === "make_main" || b.action === "undo_main") {
+    const r = report?.resume as (ResumePart & { main_before?: string; made_main_at?: string }) | null;
+    if (!r) return NextResponse.json({ error: "no_resume" }, { status: 400 });
+    const { data: profile } = await sb.from("profiles").select("skills,resume_text,resume_profile").eq("id", user.id).single();
+    if (b.action === "undo_main") {
+      if (!r.main_before) return NextResponse.json({ error: "nothing_to_undo" }, { status: 400 });
+      await sb.from("profiles").update({ resume_text: r.main_before }).eq("id", user.id);
+      const next = { ...r, main_before: undefined, made_main_at: undefined };
+      await sb.from("reports").update({ resume: next }).eq("job_id", id);
+      return NextResponse.json({ resume: next });
+    }
+    const levels = Object.fromEntries((profile?.skills || []).map((s: { name: string; level: number }) => [s.name.toLowerCase(), s.level]));
+    const lines = finalLines(r, levels);
+    if (!lines.length) return NextResponse.json({ error: "empty" }, { status: 400 });
+    const headline = lines.find((l) => l.startsWith("> "))?.slice(2);
+    await sb.from("profiles").update({
+      resume_text: lines.join("\n"),
+      ...(profile?.resume_profile && headline ? { resume_profile: { ...profile.resume_profile, headline } } : {}),
+    }).eq("id", user.id);
+    const next = { ...r, main_before: r.main_before ?? profile?.resume_text ?? "", made_main_at: new Date().toISOString() };
     await sb.from("reports").update({ resume: next }).eq("job_id", id);
     return NextResponse.json({ resume: next });
   }

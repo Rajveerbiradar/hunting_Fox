@@ -100,7 +100,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         .filter((x: Fact) => x.q && x.a.length >= 10)
         .slice(0, 6);
       if (!answers.length) return NextResponse.json({ error: "no_answers" }, { status: 400 });
-      facts = [...facts.filter((f) => !answers.some((a) => a.q.toLowerCase() === f.q.toLowerCase())), ...answers].slice(-40);
+      // Notes from resume setup ("About "X" on my resume") are kept for good; only gap answers roll off after 40.
+      const kept = facts.filter((f) => !answers.some((a) => a.q.toLowerCase() === f.q.toLowerCase()));
+      const setupNotes = kept.filter((f) => f.q.startsWith("About \""));
+      facts = [...setupNotes, ...[...kept.filter((f) => !f.q.startsWith("About \"")), ...answers].slice(-40)];
       const { error: factErr } = await sb.from("profiles").update({ facts }).eq("id", user.id);
       if (factErr) await jlog("error", "resume", `Couldn't save answers to the profile (run supabase/migrations/007_facts.sql?): ${factErr.message}`, id);
       answeredHere = answers;

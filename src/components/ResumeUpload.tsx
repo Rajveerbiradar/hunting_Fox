@@ -136,7 +136,7 @@ export function ResumeUpload({ signedIn, compact, current, onDone }: { signedIn:
       ) : (
         <div className="row" style={{ flexDirection: "column", alignItems: "stretch" }}>
           <div style={{ fontSize: 16, fontWeight: 700, color: "#1A6B3C" }}>✓ Your resume is ready</div>
-          <div className="mute" style={{ fontSize: 14 }}>Here&apos;s {file} in our resume layout. We use it for every new job you paste, and every resume you download uses this layout. If something&apos;s wrong, fix your file and upload it again.</div>
+          <div className="mute" style={{ fontSize: 14 }}>Here&apos;s {file} in our resume layout. We use it for every new job you paste, and every resume you download uses this layout. Check it part by part: tell us what we got wrong or missed, and we fix it here.</div>
           {missing.length > 0 && (
             <div style={{ background: "#ffefb0", color: "#4f3e00", borderRadius: 14, padding: "12px 14px", fontSize: 14, lineHeight: 1.5 }}>
               <b>⚠ Worth adding to your resume</b>
@@ -147,7 +147,8 @@ export function ResumeUpload({ signedIn, compact, current, onDone }: { signedIn:
             <ResumeDoc lines={lines} />
           </div>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <button className="btn pri" onClick={seen}>Looks good</button>
+            <button className="btn pri" onClick={async () => { await fetch("/api/resume", { method: "DELETE" }); router.push("/resume/setup"); }}>Check it part by part</button>
+            <button className="btn sec" onClick={seen}>Looks good</button>
             <button className="btn sec" onClick={pick}>{Icon.upload()}Upload again</button>
           </div>
           <div className="mute" style={{ fontSize: 14 }}>Jobs you already added keep the old resume. You can redo any of them with the new one from that job&apos;s page.</div>

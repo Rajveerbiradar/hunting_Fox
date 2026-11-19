@@ -2,6 +2,7 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import Link from "next/link";
 import { Header, Icon } from "./ui";
 import { ResumeUpload } from "./ResumeUpload";
 import { OwnKeys } from "./OwnKeys";
@@ -67,6 +68,15 @@ export function Account({ profile, email, left, limit, approved, ai }: { profile
         <SectionHead title="Your resume" />
         <p className="mute" style={{ margin: "4px 8px 0", fontSize: 14 }}>We use it for every new job you paste.</p>
         <ResumeUpload signedIn current={profile?.resume_profile?.file_name || (profile?.resume_text ? "Your resume" : undefined)} />
+        {profile?.resume_text && (
+          <Link href="/resume/setup" className="card" style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 12, padding: "16px 18px", textDecoration: "none", color: "inherit" }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 16, fontWeight: 700 }}>Check what we read from your resume</div>
+              <div className="mute" style={{ fontSize: 14, lineHeight: 1.45 }}>Go through it part by part. Fix anything wrong and add what&apos;s missing, so every job starts from the right version.</div>
+            </div>
+            <span aria-hidden style={{ fontSize: 22, color: "var(--mute)" }}>›</span>
+          </Link>
+        )}
 
         <SectionHead title="Skills" onAdd={() => { setAddSkill(true); setSkillQ(""); }} addLabel="Add a skill" />
         <p className="mute" style={{ margin: "4px 8px 0", fontSize: 14 }}>We only add a skill to your resume if you&apos;ve at least used it in a project.</p>

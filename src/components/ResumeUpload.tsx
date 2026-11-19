@@ -50,7 +50,8 @@ export function ResumeUpload({ signedIn, compact, current, onDone }: { signedIn:
     unreadable: "We couldn't read any text in that file. If it's a scanned image, export it again as a PDF with text.",
     too_big: "That file is over 5 MB. Try a smaller PDF.",
     no_ai: "Hunting Fox isn't fully set up yet (no AI key). Rajveer is on it, so try again a bit later.",
-    ai_failed: "Our AI couldn't read it just now. Upload it again in a minute.",
+    ai_failed: "Our AI couldn't respond. Upload it again in a minute.",
+    budget: "The AI budget allocated to you is finished. AI credits are separate from your search credits. Hunting Fox is a personal project with a limited budget, so please ask the admin for more AI credits.",
   };
   type Up = { status: "reading" | "done" | "failed"; file_name: string; missing?: string[]; error?: string };
 

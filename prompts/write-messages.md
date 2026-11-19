@@ -78,18 +78,16 @@ Never repeat their job title back to them. Never praise them.
 
 ---
 
-*THE EMAIL (a loose shape, not a form; change the order whenever it reads better for this person):*
+*THE EMAIL: a story, not a form.*
+
+There is no fixed order and no list of paragraphs to fill. Every email tells the true story that connects THIS student to THIS company and THIS person, and that story is different every time. For example, one student found the post while searching for Founder's Office roles, looked into the company, found the founder's talk and blogs, and saw that their own work matches what the role needs. Another was referred by a senior from college. Tell it the way a thoughtful person would tell it in a short, warm note.
 
 - `subject`: under 70 characters. Specific to this company or person and what the student brings. Never "Application for…", "Request…", "Referral request", or all caps.
-- `body`: 90 to 140 words, plain text, 3 or 4 short paragraphs with a blank line between them. It MUST contain, in whatever order reads best:
-  1. A greeting with their first name.
-  2. Why you are writing to THEM (the hook).
-  3. What the company believes or is building, in one sentence, in the student's own words (Step 1). Show understanding, not flattery.
-  4. What the student would deliver there (Step 2), backed by one or two real proofs (Step 4), with numbers where the resume has them.
-  5. The ask (Step 6): humble and easy to say no to.
-  6. "I've attached my resume." (exactly this idea; never "happy to send", "can share", "will send", "let me know if you'd like it").
-  7. The portfolio, once, if `student.portfolio` is set.
-  8. A short sign-off ("Thanks," or "Thank you for your time,") and the student's full name on the last line.
+- `body`: plain text, short paragraphs with a blank line between them. As long as the story needs, usually 120 to 220 words; never padded.
+- Persuasive: by the end, the reader should see that the student understands what the company and this role need, and has really done that kind of work (real proof from the resume, with numbers). Match the job description's real asks with real proof, in the story's own words.
+- Somewhere natural, the email says "I've attached my resume." (never "happy to send", "can share", "will send", "let me know if you'd like it"), and asks for one easy thing (Step 6).
+- The portfolio, once, if `student.portfolio` is set.
+- Ends with a short sign-off and the student's full name on the last line.
 
 ---
 
@@ -130,7 +128,6 @@ Never repeat their job title back to them. Never praise them.
 - To the person who posted the job: "Hi Neha, you posted the Product Design role at Kaarya, so I wanted to write to you directly."
 - To a founder: "Hi Arjun, Kaarya's idea that small brands deserve agency-level design is why I'm applying."
 - To a peer: "Hi Asad, your offline-sync work is the part of Acme I keep thinking about."
-- To a founder, after the student watched their talk: "Hi Jitesh, I've applied for the Founder's Office role at Treelife and wanted to write to you directly."
 
 ---
 
@@ -154,17 +151,18 @@ BAD (real failure, Treelife founder; the student's voice-typed notes said they w
 "I watched your TED talk and read your articles. Your point about the importance of precautions, and about citizens of the world's biggest democracy caring about it instead of taking advantage of it, stayed with me. ... Treelife started because founders were stitching together a CA, a lawyer and a compliance vendor who never spoke to each other. ... I know the role asks for more years, but I think I can do it well."
 Why it fails: opens by praising his content; copies a misheard word ("precautions") into the email; retells the founder his own company's story; points out a weakness nobody asked about; reads like a pasted transcript.
 
-GOOD:
+GOOD (tells the student's real story; persuasive against the job post):
 "Hi Jitesh,
 
-I've applied for the Founder's Office role at Treelife and wanted to write to you directly. Your talk on what it means to be a citizen of the world's largest democracy is a big part of why I want to work with you, and learn how you build.
+I was looking for Founder's Office roles when I found the one you posted for Treelife. Before applying I spent some time on Treelife's blogs and then watched your TED talk. Your point that being a citizen of the world's largest democracy means caring for the Constitution, not taking advantage of it, is a way of thinking about ownership I'd like to learn from up close.
 
-I like owning things end to end. I took Amchi Local, a Mumbai local-train app, from idea into testing on my own, ran a 40+ person tester program and closed 20+ issues. I'd bring the same follow-through to the decks, follow-ups and projects that land on your desk.
+The role asks for someone who owns projects end to end and keeps follow-ups and decks moving. That's the work I've done: I took Amchi Local, a Mumbai local-train app, from an idea into testing on my own, ran a 40+ person tester program and closed 20+ reported issues, and I built AI-assisted workflows for a sales team during my internship.
 
-If it makes sense, could you pass it to whoever is reviewing the role? I've attached my resume.
+I've applied, and I've attached my resume. If it looks like a fit, would you pass it to whoever is reviewing the role?
 
 Thank you for your time,
 Rajveer Deepak Biradar"
+Why it works: it's his real path to the company, one specific idea from the talk in plain words, then proof that matches what the post asks for. No flattery, no weakness, no retelling Treelife's story.
 
 ---
 

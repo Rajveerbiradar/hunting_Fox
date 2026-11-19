@@ -136,8 +136,9 @@ export function ReachOut(p: { jobId: string; company: string; big: boolean; peop
                   <div style={{ marginTop: 26, paddingTop: 22, borderTop: "1px solid var(--line)" }}>
                     {cur.write_error && (
                       <div role="alert" style={{ marginBottom: 16, padding: "14px 18px", borderRadius: 16, background: "#FDECEF", color: "#B8132F", fontSize: 16, lineHeight: 1.5 }}>
-                        <b>We couldn&apos;t write {cur.first}&apos;s message this time.</b> <span style={{ color: "var(--ink)" }}>Your words are still below. Tap Write my email to try again.</span>
-                        <div className="mute" style={{ fontSize: 13, marginTop: 4 }}>What went wrong: {cur.write_error}</div>
+                        {cur.write_error.startsWith("The AI budget")
+                          ? <><b>We couldn&apos;t write {cur.first}&apos;s message.</b> <span style={{ color: "var(--ink)" }}>{cur.write_error}</span></>
+                          : <><b>Our AI couldn&apos;t respond.</b> <span style={{ color: "var(--ink)" }}>Try again. Your words are still below.</span></>}
                       </div>
                     )}
                     <label htmlFor="ask" className="lbl" style={{ display: "block" }}>Add what only you know <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400 }}>(optional, but it makes the email much better)</span></label>

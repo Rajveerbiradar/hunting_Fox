@@ -113,11 +113,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     await sb.from("reports").update({ resume: busy }).eq("job_id", id);
     const keys = await ownKeys(user.id).catch(() => ({ ai: null }));
     after(async () => {
-      await jobCtx.run({ jobId: id, started: Date.now() }, async () => {
+      await jobCtx.run({ jobId: id, started: Date.now(), userId: user.id }, async () => {
         const next = await makeResume(lines, { ...profile, facts }, report!.job_data, keys.ai, report?.company_data).catch(() => null);
         const ok = next && !next.failed;
         // A failed rewrite keeps the old suggestions and says why; a failed retry stays failed.
-        const save = ok ? { ...next, answered } : { ...base, rewriting: undefined, rewrite_error: next?.failed || "The AI didn't answer", failed: b.action === "redo" ? next?.failed || base.failed || "unknown" : base.failed };
+        const save = ok ? { ...next, answered } : { ...base, rewriting: undefined, rewrite_error: next?.failed === "budget" ? "budget" : "ai", failed: b.action === "redo" ? next?.failed || base.failed || "unknown" : base.failed };
         await sb.from("reports").update({ resume: save }).eq("job_id", id);
       });
     });

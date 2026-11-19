@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Icon, letterTile, useSort, useToast } from "./ui";
 import { signupNotYet } from "@/lib/messages";
 
-export type U = { id: string; name: string | null; email: string | null; approved: boolean; declined_at?: string | null; search_limit: number; approved_at: string | null; note: string | null; created_at: string; resume_added_at: string | null; used: number };
+export type U = { id: string; name: string | null; email: string | null; approved: boolean; declined_at?: string | null; search_limit: number; approved_at: string | null; note: string | null; created_at: string; resume_added_at: string | null; used: number; ai_used?: number; ai_limit?: number };
 
 function ago(iso: string) {
   const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
@@ -22,7 +22,7 @@ export function AdminStudents({ initial, me, defaultSearches, onWaiting }: { ini
   const sorter = useSort("admin_students");
   const toast = useToast();
 
-  async function update(id: string, patch: Partial<U> & { decline?: boolean; message?: string }, msg = "Saved") {
+  async function update(id: string, patch: Partial<U> & { decline?: boolean; message?: string; ai_add?: number }, msg = "Saved") {
     setUsers((x) => {
       const n = x.map((u) => (u.id === id ? { ...u, ...patch } : u));
       onWaiting?.(n.filter((u) => !u.approved && u.email !== me).length);
@@ -81,6 +81,15 @@ export function AdminStudents({ initial, me, defaultSearches, onWaiting }: { ini
                 <div className="mute" style={{ fontSize: 14, marginTop: 4 }}>
                   Signed up {ago(u.created_at)}{u.resume_added_at ? " · resume added" : ""}{u.approved ? ` · used ${u.used} of ${u.search_limit}` : ""}
                 </div>
+                {u.approved && u.ai_limit != null && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginTop: 8, fontSize: 14 }}>
+                    <span style={{ fontWeight: 600 }}>AI credits</span>
+                    <span className="mute">{Math.round((u.ai_used || 0) / 1000)}k of {Math.round(u.ai_limit / 1000)}k tokens used{u.ai_limit ? ` (${Math.min(100, Math.round(((u.ai_used || 0) / u.ai_limit) * 100))}%)` : ""}</span>
+                    {(u.ai_used || 0) >= u.ai_limit * 0.9 && <span className="tag" style={{ background: "#FFEFB0", color: "#4F3E00" }}>⚠ {(u.ai_used || 0) >= u.ai_limit ? "Used up" : "Low"}</span>}
+                    <button className="btn sec" style={{ minHeight: 32, fontSize: 13 }} onClick={() => update(u.id, { ai_add: 100000 }, `Added 100k AI tokens for ${(u.name || "them").split(" ")[0]}`)}>+100k</button>
+                    <button className="btn sec" style={{ minHeight: 32, fontSize: 13 }} onClick={() => update(u.id, { ai_add: 250000 }, `Added 250k AI tokens for ${(u.name || "them").split(" ")[0]}`)}>+250k</button>
+                  </div>
+                )}
                 <input className="in" style={{ marginTop: 8, width: "100%", minHeight: 36, fontSize: 14 }} placeholder="Private note, e.g. where they came from" defaultValue={u.note || ""} onBlur={(e) => e.target.value !== (u.note || "") && update(u.id, { note: e.target.value })} aria-label={`Note for ${u.email}`} />
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>

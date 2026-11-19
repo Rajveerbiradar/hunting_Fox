@@ -5,7 +5,8 @@ import { Icon, Spinner, useToast } from "./ui";
 type Tok = { label: string; last4: string | null; exhausted: boolean; remaining: number | null; start: number | null; rows: number; added: string | null; checked: string | null; source: "admin" | "env" };
 type Prov = { id: string; name: string; base: string; model: string; last4: string | null; ok: boolean; error: string | null; source: "admin" | "env" };
 type Clef = { set: boolean; accountId?: string; model?: "clef" | "clef-flash"; last4?: string };
-type Data = { apify: Tok[]; pool: { left: number; start: number; accounts: number; working: number }; ai: Prov[]; writer: string; ranker: string; scanMode: string; clef?: Clef; error?: string };
+type Usage = { id: string; name: string; model: string; removed: boolean; priceIn: number; priceOut: number; estimated: boolean; last30: { in: number; out: number; calls: number; cost: number }; all: { in: number; out: number; calls: number; cost: number }; lastUsed: string | null };
+type Data = { usage?: Usage[]; apify: Tok[]; pool: { left: number; start: number; accounts: number; working: number }; ai: Prov[]; writer: string; ranker: string; scanMode: string; clef?: Clef; error?: string };
 type Test = { ok: boolean; title?: string; text?: string; code?: string; lines?: string[]; json?: string };
 type Ed = { kind: "apify" | "ai"; target: string; name: string; base: string; key: string; model: string; preset: string };
 
@@ -202,7 +203,7 @@ export function AdminKeys() {
       {(data.ai.length > 0 || data.clef?.set) && (
         <>
           <h2 className="h2" style={{ margin: "40px 8px 0" }}>Which provider does what</h2>
-          <p className="mute" style={{ margin: "4px 8px 0", fontSize: 14 }}>If the one you pick fails, the next working provider in the list above takes over. Changes take effect within 30 seconds.</p>
+          <p className="mute" style={{ margin: "4px 8px 0", fontSize: 14 }}>Only the AI you pick is used for that job. &quot;Not picked&quot; tries each AI in the list above, in order. Changes take effect within 30 seconds.</p>
           <div className="card" style={{ marginTop: 12 }}>
             {([["writer_provider", "Writing resume changes and messages", "Only the AI you pick here writes. If it fails, the student sees why; nothing else takes over. Sonnet writes best, Haiku is faster and cheaper.", data.writer], ["ranker_provider", "Ranking people", "Clef is built for this: it scores each person and spots real connections. Falls back to the writing model if it fails.", data.ranker]] as const).map(([name, title, sub, val]) => (
               <div className="row" key={name}>
@@ -218,6 +219,8 @@ export function AdminKeys() {
           </div>
         </>
       )}
+      {!!data.usage?.length && <UsageSection usage={data.usage} post={post} onData={(d) => setData(d)} toast={toast.show} />}
+
       <p className="mute" style={{ margin: "16px 8px 0", fontSize: 14 }}>How the test works: Apify keys are checked with one free request to the account. AI keys get one tiny chat request (about 10 tokens), and it has to reply in the OpenAI chat format before Save unlocks. Change any field and you&apos;ll need to test again.</p>
       {toast.el}
     </>
@@ -269,6 +272,51 @@ function ClefCard({ clef, ranking, post, onData, toast }: { clef: Clef; ranking:
             </div>
           </div>
         )}
+      </div>
+    </>
+  );
+}
+
+const k = (n: number) => (n >= 1_000_000 ? `${(n / 1_000_000).toFixed(2)}M` : n >= 1000 ? `${Math.round(n / 1000)}k` : String(n));
+const usd = (n: number) => `$${n < 1 ? n.toFixed(3) : n.toFixed(2)}`;
+
+/**
+ * AI usage and cost, one box per model (and one for Clef). Separate from Apify credit above.
+ * Cost comes from the price per million tokens entered here; a removed model keeps its box for 30 days.
+ */
+function UsageSection({ usage, post, onData, toast }: { usage: Usage[]; post: (b: Record<string, unknown>) => Promise<Data>; onData: (d: Data) => void; toast: (m: string) => void }) {
+  const [prices, setPrices] = useState<Record<string, { in: string; out: string }>>({});
+  const total = usage.reduce((a, u) => a + u.last30.cost, 0);
+  return (
+    <>
+      <h2 className="h2" style={{ margin: "40px 8px 0" }}>AI usage and cost</h2>
+      <p className="mute" style={{ margin: "4px 8px 0", fontSize: 14 }}>Every AI call, per model. Enter each model&apos;s price per million tokens to see what it costs. Last 30 days: <b style={{ color: "var(--ink)" }}>{usd(total)}</b>{usage.some((u) => !u.priceIn && !u.priceOut && u.all.calls) ? " (some models have no price yet)" : ""}.</p>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 12, marginTop: 12 }}>
+        {usage.map((u) => {
+          const pr = prices[u.id] || { in: String(u.priceIn || ""), out: String(u.priceOut || "") };
+          const changed = Number(pr.in || 0) !== u.priceIn || Number(pr.out || 0) !== u.priceOut;
+          return (
+            <section key={u.id} className="card" style={{ padding: "18px 20px", opacity: u.removed ? 0.75 : 1 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "baseline" }}>
+                <div style={{ minWidth: 0 }}><div style={{ fontSize: 16, fontWeight: 700 }}>{u.name}</div><div className="mute" style={{ fontSize: 13, wordBreak: "break-all" }}>{u.model}{u.removed ? " · removed (shown for 30 days)" : ""}</div></div>
+                <div style={{ fontSize: 20, fontWeight: 700 }}>{usd(u.last30.cost)}</div>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginTop: 12, fontSize: 13 }}>
+                <div><div className="lbl">In · 30 days</div><div style={{ fontSize: 16, fontWeight: 600 }}>{k(u.last30.in)}</div></div>
+                <div><div className="lbl">Out · 30 days</div><div style={{ fontSize: 16, fontWeight: 600 }}>{k(u.last30.out)}</div></div>
+                <div><div className="lbl">Calls</div><div style={{ fontSize: 16, fontWeight: 600 }}>{u.last30.calls}</div></div>
+              </div>
+              <div className="mute" style={{ fontSize: 13, marginTop: 8 }}>All time: {k(u.all.in)} in · {k(u.all.out)} out · {u.all.calls} calls · {usd(u.all.cost)}{u.estimated ? " · some counted from text length" : ""}</div>
+              {!u.removed && (
+                <div style={{ display: "flex", gap: 8, alignItems: "flex-end", marginTop: 12, flexWrap: "wrap" }}>
+                  <label style={{ fontSize: 12, fontWeight: 600 }}>$ / M in<input className="in" inputMode="decimal" style={{ width: 84, display: "block", marginTop: 4 }} value={pr.in} onChange={(e) => setPrices({ ...prices, [u.id]: { ...pr, in: e.target.value.replace(/[^\d.]/g, "") } })} /></label>
+                  <label style={{ fontSize: 12, fontWeight: 600 }}>$ / M out<input className="in" inputMode="decimal" style={{ width: 84, display: "block", marginTop: 4 }} value={pr.out} onChange={(e) => setPrices({ ...prices, [u.id]: { ...pr, out: e.target.value.replace(/[^\d.]/g, "") } })} /></label>
+                  <button className="btn sec" disabled={!changed} onClick={async () => { const d = await post({ type: "price", id: u.id, price_in: pr.in, price_out: pr.out }); if ((d as { error?: string }).error) toast((d as { error?: string }).error!); else { onData(d); toast("Price saved"); } }}>Save price</button>
+                </div>
+              )}
+            </section>
+          );
+        })}
       </div>
     </>
   );

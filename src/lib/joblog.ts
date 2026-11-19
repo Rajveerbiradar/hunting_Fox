@@ -2,7 +2,8 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { adminClient } from "@/lib/supabase/clients";
 
 // Which job the current code is working for, so Apify and AI calls can log without passing the id around.
-export const jobCtx = new AsyncLocalStorage<{ jobId: string; started: number }>();
+// userId: whose AI budget the calls use (empty jobId = not tied to a job, e.g. resume upload).
+export const jobCtx = new AsyncLocalStorage<{ jobId: string; started: number; userId?: string }>();
 
 /**
  * One line in the job's log: saved to job_logs (Admin → Jobs → Log) and printed to Vercel's logs.

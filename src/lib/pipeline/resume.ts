@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { writer, type Provider } from "@/lib/ai";
+import { writerBuilt, type Provider } from "@/lib/ai";
 import { jlog } from "@/lib/joblog";
 import { confirmedSkills, mentions, saidNoSkills, skillQuestions } from "./rules";
 import type { CompanyData, JobData, ResumePart } from "./types";
@@ -50,8 +50,8 @@ export async function makeResume(lines: string[], profile: any, jd: JobData, own
   // unreadable reply here only made the student wait minutes for the same failure.
   let failed = "";
   const t0 = Date.now();
-  let out: Out | null = await writer<Out>("resume-changes", input, undefined, own).catch(async (e) => {
-    failed = String(e?.message || e).slice(0, 200);
+  let out: Out | null = await writerBuilt<Out>("resume-changes", input, own).catch(async (e) => {
+    failed = e?.budget ? "budget" : String(e?.message || e).slice(0, 200);
     return null;
   });
   if (out && !(out.edits?.length || out.priorities?.length || out.summary)) { failed = "The AI sent back an empty answer"; out = null; }

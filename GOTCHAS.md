@@ -82,6 +82,17 @@ Commit hashes point to the fix on `main`.
 - **Changed:** `write-messages.md` Step 5a: understand the notes first (fix misheard words when obvious, drop what's still unclear, treat "say hi…" as instructions, turn self-praise into resume proof). New critical rules 13 to 16: never point out a weakness, don't open by praising their content, don't retell the company's story, never copy notes word for word. Shorter body (90 to 140 words). This exact failure is now the BAD vs GOOD example.
 - **Rule:** student input is raw material to understand, not text to paste.
 
+### 10c. Every email came out the same shape (a template with nicer words)
+- **What broke:** even the "good" emails read like a form: greeting, hook, company line, proof, ask, in the same order every time.
+- **Why:** `write-messages.md` had a numbered "MUST contain, in whatever order" list, and one fixed prompt for every person. A fixed checklist produces a fixed shape.
+- **Changed:** the numbered list is gone; the email tells the student's real story (how they found the company, what struck them, why their real work fits the job post), different every time. And every message and resume rewrite is now **two steps**: `prompts/build-prompt.md` first writes a fresh, detailed prompt for this exact task from all the data (company page, job post, person, team, resume, notes), then a second call follows it.
+- **Rule:** never give the writer a fixed order of parts. Give it facts, the story and the rules.
+
+### 10d. Students could spend unlimited AI money
+- **What broke:** nothing stopped a student from pressing Try again / Write it again forever on Rajveer's keys.
+- **Changed:** per-student AI budget (default 250,000 tokens, never shown as a number), counted from every call's real token usage; calls stop at the limit with a clear message; warnings at 10% left; admin top-ups. Usage and cost per model in Admin → API keys. (migration 008)
+- **Rule:** every paid call must be counted against someone's budget before it's made.
+
 ### 11. LinkedIn note had a link; emails said "happy to send my resume"
 - **Changed:** the note never has a link; every email says "I've attached my resume." and code rewrites any "happy to send" line. (`670568f`, `b19169d`)
 
@@ -236,6 +247,10 @@ Every reply from Claude ended with "Assumptions I made". These are the ones that
 | 29 | The list updates when the popup closes | New search not shown until refresh | Lists update live |
 | 30 | The effort report as Markdown | It was meant to be HTML | HTML report |
 | 32 | "The notes lead and every point stays in" meant using the student's words as written | "Such a bullshit copy… started with your TED talk stayed with me" | Notes are interpreted (misheard words fixed or dropped); no flattery opener, no weakness, no retelling their story |
+| 33 | A rewritten "good" email with the same parts in a set order was fine | "Even the good one is bullshit… there should be no flow… write a story, not a template" | Numbered parts removed; story-first; a fresh prompt is written for every task (build-prompt) |
+| 34 | One fixed prompt file per task is enough | "Every time there should be a new prompt… like Morning Espresso… use all the data we scrape" | Two-step writing: build a detailed prompt from all the data, then write |
+| 35 | Students can use the AI freely | "Every account should have a token limit… I can't bear everyone's cost" | Per-student AI budget, % shown, warnings at 10%, admin top-ups |
+| 36 | In voice, "Clef" meant Claude, then Cloudflare | "I asked about Clef, the ranking model in admin" | Clef is Cloudflare's decision model, used to rank people when "Ranking people" is set to Clef |
 | 31 | Pushing after every change without asking | "Build it but ask me before pushing" (for that batch) | Asked before that push |
 
 Assumptions that held (not wrong, kept): admin approval before searching; students send messages themselves; Mumbai region; one gradient button per screen; light mode only.

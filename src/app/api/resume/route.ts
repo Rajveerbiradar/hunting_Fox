@@ -1,6 +1,7 @@
 import { NextResponse, after } from "next/server";
 import { adminClient, currentUser } from "@/lib/supabase/clients";
 import { writer } from "@/lib/ai";
+import { jobCtx } from "@/lib/joblog";
 import type { ResumeProfile } from "@/lib/pipeline/types";
 import { toLines, toProfile, type StructuredResume } from "@/lib/resumeFormat";
 import { access } from "@/lib/limits";
@@ -28,7 +29,7 @@ type Status = { status: "reading" | "done" | "failed"; file_name: string; starte
 async function readResume(userId: string, raw: string, path: string, fileName: string) {
   const sb = adminClient();
   try {
-    const structured = await writer<StructuredResume>("resume-profile", { resume_text: raw.slice(0, 15000) });
+    const structured = await jobCtx.run({ jobId: "", started: Date.now(), userId }, () => writer<StructuredResume>("resume-profile", { resume_text: raw.slice(0, 15000) }));
     const lines = toLines(structured);
     const profile: ResumeProfile = toProfile(structured);
     if (lines.length < 3) throw new Error("The AI returned an empty resume");
@@ -48,7 +49,7 @@ async function readResume(userId: string, raw: string, path: string, fileName: s
   } catch (e) {
     const msg = String((e as Error)?.message || e);
     console.error("[resume] AI failed:", msg);
-    const failed: Status = { status: "failed", file_name: fileName, error: /No AI provider/i.test(msg) ? "no_ai" : "ai_failed" };
+    const failed: Status = { status: "failed", file_name: fileName, error: /No AI provider/i.test(msg) ? "no_ai" : (e as { budget?: boolean })?.budget ? "budget" : "ai_failed" };
     await sb.from("profiles").update({ pending_resume_profile: failed }).eq("id", userId);
   }
 }

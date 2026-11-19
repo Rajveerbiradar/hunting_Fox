@@ -18,7 +18,7 @@ async function save(patch: Record<string, unknown>) {
   await fetch("/api/profile", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(patch) });
 }
 
-export function Account({ profile, email, left, limit, approved }: { profile: any; email: string; left: number; limit: number; approved: boolean }) {
+export function Account({ profile, email, left, limit, approved, ai }: { profile: any; email: string; left: number; limit: number; approved: boolean; ai?: { pct: number; low: boolean; done: boolean } }) {
   const router = useRouter();
   const [skills, setSkills] = useState<Skill[]>(profile?.skills || []);
   const [links, setLinks] = useState<LinkT[]>(profile?.links || []);
@@ -61,6 +61,8 @@ export function Account({ profile, email, left, limit, approved }: { profile: an
           <span className="av" style={{ width: 64, height: 64, borderRadius: 24, fontSize: 26, fontWeight: 700 }}>{name[0]?.toUpperCase()}</span>
           <div><h1 style={{ margin: 0, fontSize: 30, fontWeight: 700, letterSpacing: "-.03em" }}>{profile?.name || "Your account"}</h1><div className="mute" style={{ fontSize: 16 }}>{email} · {approved ? `${left} of ${limit} searches left` : "Waiting for approval"}</div></div>
         </div>
+
+        {approved && ai && <AiCredits ai={ai} />}
 
         <SectionHead title="Your resume" />
         <p className="mute" style={{ margin: "4px 8px 0", fontSize: 14 }}>We use it for every new job you paste.</p>
@@ -195,5 +197,31 @@ export function Account({ profile, email, left, limit, approved }: { profile: an
         </div>
       </main>
     </>
+  );
+}
+
+/**
+ * How much of the student's AI budget is left, as a bar and a %. Never the number of tokens.
+ * AI credits pay for resume rewrites and messages; they're separate from searches.
+ */
+function AiCredits({ ai }: { ai: { pct: number; low: boolean; done: boolean } }) {
+  const tone = ai.done ? { bg: "#FDECEF", fg: "#B8132F", bar: "#B8132F" } : ai.low ? { bg: "#FFEFB0", fg: "#4F3E00", bar: "#4F3E00" } : { bg: "#fff", fg: "var(--ink)", bar: "linear-gradient(135deg,#0a2a6b,#2a74e6)" };
+  return (
+    <section className="card" style={{ marginTop: 24, padding: "20px 22px", background: tone.bg, color: tone.fg }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
+        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>AI credits</h2>
+        <span style={{ fontSize: 16, fontWeight: 700 }}>{ai.pct}% left</span>
+      </div>
+      <div style={{ marginTop: 10, height: 10, borderRadius: 999, background: "rgba(16,24,40,.08)", overflow: "hidden" }} role="progressbar" aria-valuenow={ai.pct} aria-valuemin={0} aria-valuemax={100} aria-label="AI credits left">
+        <div style={{ width: `${ai.pct}%`, height: "100%", background: tone.bar, borderRadius: 999 }} />
+      </div>
+      <p style={{ margin: "10px 0 0", fontSize: 14, lineHeight: 1.5, color: ai.done || ai.low ? tone.fg : "var(--mute)" }}>
+        {ai.done
+          ? "The AI budget allocated to you is finished. AI credits are separate from your search credits. Hunting Fox is a personal project with a limited budget, so please ask the admin for more AI credits."
+          : ai.low
+            ? `⚠ You're running low on AI credits: only ${ai.pct}% of the AI budget allocated to you is left. Ask the admin for more now, so you aren't stopped halfway through a resume or a message.`
+            : "AI credits are used when we rewrite your resume and write your messages. They're separate from your searches."}
+      </p>
+    </section>
   );
 }

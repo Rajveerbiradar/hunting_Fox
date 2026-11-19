@@ -5,6 +5,7 @@ import { adminClient, currentUser } from "@/lib/supabase/clients";
 import { access } from "@/lib/limits";
 import { writePerson } from "@/lib/pipeline/run";
 import { jlog, jobCtx } from "@/lib/joblog";
+import { BUDGET_DONE } from "@/lib/usage";
 import { ownKeys } from "@/lib/ownKeys";
 import { knownSkills } from "@/lib/pipeline/rules";
 import type { Person } from "@/lib/pipeline/types";
@@ -39,6 +40,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     portfolio: (profile?.links || [])[0]?.url,
     job: { key_skills: report?.job_data?.keySkills, description: report?.job_data?.description },
     companyInfo: companyInput(report?.company_data, job.company),
+    team: people.slice(0, 12).map((x) => ({ name: x.name || x.first, title: x.title, headline: x.headline, months: x.months })),
     student: { skills: knownSkills(profile || {}), projects: profile?.resume_profile?.projects, resume: (profile?.resume_text || "").split("\n").filter((l: string) => l.trim()), education: (profile?.education?.length ? profile.education : profile?.resume_profile?.education || []).map((e: { school: string }) => e.school) },
   };
   const b = await req.json().catch(() => ({}));
@@ -52,7 +54,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   // one writes at the same time) or leave the page, and the page picks the result up when it's saved.
   const at = new Date().toISOString();
   await savePerson(id, target.id, (x) => ({ ...x, asked: notes || undefined, writing: { at }, write_error: undefined }));
-  after(() => jobCtx.run({ jobId: id, started: Date.now() }, async () => {
+  after(() => jobCtx.run({ jobId: id, started: Date.now(), userId: user.id }, async () => {
     const t0 = Date.now();
     let timer: ReturnType<typeof setTimeout> | undefined;
     const late = new Promise<never>((_, rej) => { timer = setTimeout(() => rej(new Error("took over 4 minutes")), 240_000); });
@@ -64,7 +66,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     } catch (e: any) {
       const reason = String(e?.message || e).slice(0, 160);
       await jlog("error", "messages", `Couldn't write ${target.first}'s message: ${reason}`);
-      await savePerson(id, target.id, (x) => ({ ...x, writing: undefined, write_error: reason }));
+      // The student sees only "Our AI couldn't respond" (or that their AI budget is used up); the reason is in the log.
+      await savePerson(id, target.id, (x) => ({ ...x, writing: undefined, write_error: e?.budget ? BUDGET_DONE : "ai" }));
     } finally { clearTimeout(timer); }
   }));
   const { data: fresh } = await sb.from("reports").select("people").eq("job_id", id).single();

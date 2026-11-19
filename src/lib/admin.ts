@@ -9,6 +9,9 @@ export async function requireAdmin() {
 /** Every student with their approval, allowance and usage, plus the Beep numbers. */
 export async function adminOverview() {
   const sb = adminClient();
+  // AI budgets (migration 008). Read on their own so the admin page still works before it's run.
+  const { data: aiRows } = await sb.from("profiles").select("id,ai_tokens_used,ai_token_limit");
+  const ai = new Map((aiRows || []).map((r: { id: string; ai_tokens_used: number; ai_token_limit: number }) => [r.id, { ai_used: r.ai_tokens_used, ai_limit: r.ai_token_limit }]));
   const [{ data: profiles }, { data: jobs }, { data: events }] = await Promise.all([
     sb.from("profiles").select("id,name,email,approved,search_limit,approved_at,note,created_at,resume_added_at,declined_at").order("created_at", { ascending: false }),
     sb.from("jobs").select("user_id,status,own_key"),
@@ -19,7 +22,7 @@ export async function adminOverview() {
   const count = (n: string) => (events || []).filter((e) => e.name === n).length;
   const students = new Set((events || []).filter((e) => e.name === "started").map((e) => e.user_id)).size;
   return {
-    users: (profiles || []).map((p) => ({ ...p, used: used.get(p.id) || 0 })),
+    users: (profiles || []).map((p) => ({ ...p, used: used.get(p.id) || 0, ...(ai.get(p.id) || {}) })),
     stats: { students, started: count("started"), finished: count("finished"), failed: count("failed"), applied: count("applied_marked") },
   };
 }

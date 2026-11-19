@@ -4,7 +4,7 @@ import { jlog, jobCtx } from "@/lib/joblog";
 import { scanMode } from "@/lib/apify";
 import { ownKeys } from "@/lib/ownKeys";
 import { withoutBlocked } from "@/lib/removals";
-import { decide, writer, type Provider } from "@/lib/ai";
+import { decide, type Provider, writerBuilt } from "@/lib/ai";
 import { clefConfig, clefRank } from "@/lib/clef";
 import { setting } from "@/lib/secrets";
 import { sendEmail } from "@/lib/email";
@@ -33,7 +33,7 @@ export async function runJob(jobId: string) {
   if (!job) { await jlog("error", "start", `Couldn't read the job row: ${readErr?.message || "not found"}`, jobId); return; }
   if (job.status === "ready") return;
   await sb.from("jobs").update({ attempts: (job.attempts || 0) + 1 }).eq("id", jobId);
-  await jobCtx.run({ jobId, started: Date.now() }, async () => {
+  await jobCtx.run({ jobId, started: Date.now(), userId: job.user_id }, async () => {
   await jlog("info", "start", `Attempt ${(job.attempts || 0) + 1} · ${job.portal} · ${job.url}`);
   try {
     await scan(job);
@@ -235,6 +235,8 @@ export type MsgCtx = {
   job?: { key_skills?: string[]; description?: string };
   /** The company as the prompt sees it (companyInput). */
   companyInfo?: ReturnType<typeof companyInput>;
+  /** Other people at the company (top of the ranked list): who they are and what they do. */
+  team?: { name: string; title?: string; headline?: string; months?: number }[];
 };
 
 /**
@@ -243,8 +245,9 @@ export type MsgCtx = {
  */
 export async function writePerson(p: Person, ctx: MsgCtx, rp: ResumeProfile | null, ownAi?: Provider | null): Promise<Person> {
   try {
-    const out = await writer<{ note: string; subject: string; body: string }>("write-messages", {
-      job: { title: ctx.role, company: ctx.company, key_skills: ctx.job?.key_skills?.slice(0, 12), description: ctx.job?.description?.slice(0, 4000), ask: ctx.big ? "referral" : "pass_on" },
+    // Two steps: a fresh prompt is written for this person from everything we know, then followed.
+    const out = await writerBuilt<{ note: string; subject: string; body: string }>("write-messages", {
+      job: { title: ctx.role, company: ctx.company, key_skills: ctx.job?.key_skills?.slice(0, 20), description: ctx.job?.description?.slice(0, 9000), ask: ctx.big ? "referral" : "pass_on" },
       student: {
         name: ctx.studentName,
         headline: ctx.headline || rp?.headline,
@@ -257,9 +260,10 @@ export async function writePerson(p: Person, ctx: MsgCtx, rp: ResumeProfile | nu
       person: { first: p.first, title: p.title, months_at_company: p.months, headline: p.headline, about: p.about?.slice(0, 1200), skills: p.skills?.slice(0, 15), schools: p.schools, past_companies: p.pastCompanies, activity: p.active },
       company: ctx.companyInfo || { name: ctx.company },
       connection: p.link || null,
+      team: ctx.team || [],
       has_resume: !!ctx.resumeLink,
       student_notes: ctx.studentNotes?.trim() || null,
-    }, undefined, ownAi);
+    }, ownAi);
     let note = (out.note || "").trim();
     const subject = (out.subject || "").trim().replace(/\s*—\s*/g, ", ").slice(0, 90);
     let body = (out.body || "").trim();

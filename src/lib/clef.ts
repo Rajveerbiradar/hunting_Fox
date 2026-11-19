@@ -1,5 +1,6 @@
 import { setting } from "@/lib/secrets";
 import { jlog } from "@/lib/joblog";
+import { recordUsage } from "@/lib/usage";
 import type { Person } from "@/lib/pipeline/types";
 
 // Cloudflare Clef: a decision model. It doesn't write text; it answers typed questions
@@ -58,6 +59,8 @@ async function clefOnce(cfg: ClefConfig, state: unknown, questions: Record<strin
     err.status = r.status;
     throw err;
   }
+  // Clef usage, for its own box in Admin → API keys (counted from the text sent and received).
+  void recordUsage({ providerId: "clef", providerName: "Clef", model: cfg.model, task: "rank", tokensIn: Math.ceil(JSON.stringify({ state, questions }).length / 4), tokensOut: Math.ceil(JSON.stringify(j.result || {}).length / 4), estimated: !j.result?.usage });
   return j.result?.answers || {};
 }
 

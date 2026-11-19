@@ -29,10 +29,47 @@ async function overview() {
   const ai = (provs || []).map((p) => ({ id: p.id, name: p.name, base: p.base_url, model: p.model, last4: p.last4, ok: p.ok, error: p.last_error, source: "admin" as const }));
   if (envAi) ai.push({ id: "env", name: "From Vercel settings", base: process.env.AI_BASE_URL || "https://api.anthropic.com/v1/", model: process.env.AI_MODEL || process.env.WRITER_MODEL || "claude-haiku-5-5", last4: last4(envAi), ok: true, error: null, source: "env" as never });
   const clef = await clefConfig();
+  const usage = await usageBoxes(ai.map((a) => ({ id: a.id, name: a.name, model: a.model })), vals);
   return {
+    usage,
     apify, pool, ai, writer: vals.writer_provider || "", ranker: vals.ranker_provider || "", scanMode: vals.scan_mode || "auto",
     clef: clef ? { set: true, accountId: clef.accountId, model: clef.model, last4: last4(clef.token) } : { set: false },
   };
+}
+
+/**
+ * One usage box per AI provider/model and one for Clef: tokens in/out, calls and cost (from the price per
+ * million tokens admin enters) for the last 30 days and all time. A removed model keeps its box for 30 days.
+ */
+async function usageBoxes(current: { id: string; name: string; model: string }[], vals: Record<string, string>) {
+  const sb = adminClient();
+  const since = new Date(Date.now() - 30 * 86400_000).toISOString();
+  type Row = { provider_id: string; provider_name: string; model: string; tokens_in: number; tokens_out: number; at: string; estimated: boolean };
+  const rows: Row[] = [];
+  for (let from = 0; from < 200_000; from += 1000) {
+    const { data, error } = await sb.from("ai_usage").select("provider_id,provider_name,model,tokens_in,tokens_out,at,estimated").order("at", { ascending: false }).range(from, from + 999);
+    if (error || !data?.length) break;
+    rows.push(...(data as Row[]));
+    if (data.length < 1000) break;
+  }
+  const { data: priced } = await sb.from("ai_providers").select("id,price_in,price_out");
+  const price = new Map<string, { in: number; out: number }>((priced || []).map((p: { id: string; price_in: number; price_out: number }) => [p.id, { in: Number(p.price_in) || 0, out: Number(p.price_out) || 0 }]));
+  price.set("clef", { in: Number(vals.clef_price_in) || 0, out: Number(vals.clef_price_out) || 0 });
+  const box = (id: string, name: string, model: string, removed: boolean) => {
+    const mine = rows.filter((r) => r.provider_id === id);
+    const recent = mine.filter((r) => r.at >= since);
+    const sum = (rs: Row[]) => rs.reduce((a, r) => ({ in: a.in + r.tokens_in, out: a.out + r.tokens_out, calls: a.calls + 1 }), { in: 0, out: 0, calls: 0 });
+    const p = price.get(id) || { in: 0, out: 0 };
+    const cost = (s: { in: number; out: number }) => (s.in * p.in + s.out * p.out) / 1_000_000;
+    const m30 = sum(recent), all = sum(mine);
+    return { id, name, model, removed, priceIn: p.in, priceOut: p.out, estimated: mine.some((r) => r.estimated), last30: { ...m30, cost: cost(m30) }, all: { ...all, cost: cost(all) }, lastUsed: mine[0]?.at || null };
+  };
+  const boxes = current.map((c) => box(c.id, c.name, c.model, false));
+  // Models removed in the last 30 days (still in the usage log) keep a box.
+  const seen = new Set(current.map((c) => c.id).concat("clef", "own"));
+  [...new Map(rows.filter((r) => !seen.has(r.provider_id) && r.at >= since).map((r) => [r.provider_id, r])).values()].forEach((r) => boxes.push(box(r.provider_id, r.provider_name, r.model, true)));
+  boxes.push(box("clef", "Clef (Cloudflare)", vals.clef_model || "clef-flash", false));
+  return boxes;
 }
 
 async function tokenFor(label: string) {
@@ -56,6 +93,16 @@ export async function POST(req: Request) {
   const now = new Date().toISOString();
 
   switch (b.type) {
+    // Price per million tokens for a model (or Clef), to show what it has cost.
+    case "price": {
+      const pin = Math.max(0, Number(b.price_in) || 0), pout = Math.max(0, Number(b.price_out) || 0);
+      if (b.id === "clef") { await saveSetting("clef_price_in", String(pin)); await saveSetting("clef_price_out", String(pout)); }
+      else {
+        const { error } = await sb.from("ai_providers").update({ price_in: pin, price_out: pout }).eq("id", b.id);
+        if (error) return NextResponse.json({ error: "Run supabase/migrations/008_ai_usage.sql first" }, { status: 400 });
+      }
+      return NextResponse.json(await overview());
+    }
     // Test only: nothing is saved. Save is unlocked in the page once this passes.
     case "apify_test": {
       if (!token.startsWith("apify_api_")) return NextResponse.json({ ok: false, title: "Apify didn't accept this key", text: "Copy the token again from Apify → Settings → API & Integrations. It starts with apify_api_.", code: "Not an Apify token" });

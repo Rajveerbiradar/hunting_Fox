@@ -1,3 +1,4 @@
+import { budgetLeft } from "@/lib/usage";
 import { currentUser, userClient } from "@/lib/supabase/clients";
 import { access } from "@/lib/limits";
 import { Home } from "@/components/Home";
@@ -14,6 +15,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ l
     sb.from("jobs").select("id,title,company,status,step,apply_status,applied_at,created_at").order("created_at", { ascending: false }).limit(30),
     access(user.id, user.email),
   ]);
+  const ai = await budgetLeft(user.id).catch(() => ({ pct: 100, low: false, done: false }));
   return (
     <Home
       signedIn
@@ -29,6 +31,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ l
       approved={a.approved}
       admin={a.admin}
       declineMessage={profile?.decline_message}
+      ai={ai}
     />
   );
 }

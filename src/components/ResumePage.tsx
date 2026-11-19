@@ -195,16 +195,26 @@ export function ResumePage({ jobId, company, resume: start, hasResume, skills, i
           <>
             {resume.rewrite_error && !busy && !broke && (
               <div className="card" role="alert" style={{ marginTop: 24, padding: "16px 22px", background: "#FDECEF", color: "#B8132F", fontSize: 16, lineHeight: 1.5 }}>
-                <b>Couldn&apos;t rewrite it with your answers this time.</b> <span style={{ color: "var(--ink)" }}>Your answers are saved. The changes below are the earlier ones. Tap Rewrite with my answers again in a minute.</span>
+                {resume.rewrite_error === "budget"
+                  ? <><b>The AI budget allocated to you is finished.</b> <span style={{ color: "var(--ink)" }}>AI credits are separate from your search credits. Hunting Fox is a personal project with a limited budget, so please ask the admin for more AI credits. Your answers are saved.</span></>
+                  : <><b>Our AI couldn&apos;t respond.</b> <span style={{ color: "var(--ink)" }}>Try again. Your answers are saved, and the changes below are the earlier ones.</span></>}
               </div>
             )}
 
             {broke && !busy && (
               <div className="card" role="alert" style={{ marginTop: 24, padding: "22px 24px", background: "#FDECEF", color: "#B8132F" }}>
-                <div style={{ fontSize: 18, fontWeight: 700 }}>We couldn&apos;t write the changes for {company}</div>
-                <p style={{ margin: "6px 0 14px", fontSize: 16, lineHeight: 1.5, color: "var(--ink)" }}>Something went wrong on our side while rewriting your resume for this job. It doesn&apos;t mean your resume already fits. Try again: it takes about a minute and doesn&apos;t use a search.</p>
-                <button className="btn lg pri" onClick={redo}>Try again</button>
-                {resume.failed && resume.failed !== "unknown" && <p className="mute" style={{ margin: "10px 0 0", fontSize: 13 }}>What went wrong: {resume.failed}</p>}
+                {resume.failed === "budget" ? (
+                  <>
+                    <div style={{ fontSize: 18, fontWeight: 700 }}>The AI budget allocated to you is finished</div>
+                    <p style={{ margin: "6px 0 0", fontSize: 16, lineHeight: 1.5, color: "var(--ink)" }}>AI credits are separate from your search credits. Hunting Fox is a personal project with a limited budget, so please ask the admin for more AI credits.</p>
+                  </>
+                ) : (
+                  <>
+                    <div style={{ fontSize: 18, fontWeight: 700 }}>Our AI couldn&apos;t respond</div>
+                    <p style={{ margin: "6px 0 14px", fontSize: 16, lineHeight: 1.5, color: "var(--ink)" }}>Try again. It doesn&apos;t use a search.</p>
+                    <button className="btn lg pri" onClick={redo}>Try again</button>
+                  </>
+                )}
               </div>
             )}
 

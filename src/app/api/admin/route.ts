@@ -23,6 +23,12 @@ export async function PATCH(req: Request) {
   }
   if (b.search_limit != null) patch.search_limit = Math.max(0, Math.min(500, Number(b.search_limit) || 0));
   if (typeof b.note === "string") patch.note = b.note.slice(0, 200);
+  // AI budget in tokens: set it, or top it up (adds to what's left).
+  if (b.ai_limit != null) patch.ai_token_limit = Math.max(0, Math.round(Number(b.ai_limit) || 0));
+  if (b.ai_add != null) {
+    const { data: cur } = await sb.from("profiles").select("ai_token_limit").eq("id", b.id).single();
+    patch.ai_token_limit = Math.max(0, (cur?.ai_token_limit || 0) + Math.round(Number(b.ai_add) || 0));
+  }
   // "Can't let you in yet": they stay on the waiting list and get the message in the app and by email.
   if (b.decline) {
     patch.declined_at = new Date().toISOString();

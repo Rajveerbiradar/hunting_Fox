@@ -24,7 +24,7 @@ function ago(iso?: string | null) {
   return d <= 0 ? "today" : d === 1 ? "yesterday" : `${d} days ago`;
 }
 
-export function Home(p: { signedIn: boolean; initialLink?: string; name?: string; email?: string; resumeName?: string; jobs?: Job[]; left?: number; limit?: number; used?: number; ownApify?: boolean; approved?: boolean; admin?: boolean; declineMessage?: string | null }) {
+export function Home(p: { signedIn: boolean; initialLink?: string; name?: string; email?: string; resumeName?: string; jobs?: Job[]; left?: number; limit?: number; used?: number; ownApify?: boolean; approved?: boolean; admin?: boolean; declineMessage?: string | null; ai?: { pct: number; low: boolean; done: boolean } }) {
   const router = useRouter();
   const [scanId, setScanId] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
@@ -87,6 +87,13 @@ export function Home(p: { signedIn: boolean; initialLink?: string; name?: string
           </>
         )}
 
+        {p.approved && (p.ai?.low || p.ai?.done) && (
+          <div className="card" role="status" style={{ marginTop: 16, padding: "14px 18px", fontSize: 15, lineHeight: 1.5, ...(p.ai.done ? { background: "#FDECEF", color: "#B8132F" } : { background: "#FFEFB0", color: "#4F3E00" }) }}>
+            {p.ai.done
+              ? <><b>The AI budget allocated to you is finished.</b> AI credits are separate from your search credits. Hunting Fox is a personal project with a limited budget, so please ask the admin for more AI credits.</>
+              : <><b>⚠ You&apos;re running low on AI credits</b> ({p.ai.pct}% left). Ask the admin for more now, so you aren&apos;t stopped halfway through a resume or a message.</>}
+          </div>
+        )}
         <LinkBox key={restored} signedIn={p.signedIn} initial={restored || (!p.signedIn ? p.initialLink : "")} onStarting={() => setStarting(true)} onFailed={() => setStarting(false)} onStarted={(id) => { setScanId(id); announceJob(); }} />
 
         {p.signedIn && p.resumeName ? (

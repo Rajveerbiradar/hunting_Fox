@@ -4,6 +4,7 @@ import path from "node:path";
 import { adminClient } from "@/lib/supabase/clients";
 import { decrypt, setting } from "@/lib/secrets";
 import { jlog } from "@/lib/joblog";
+import { AiBudgetError, checkBudget, recordUsage } from "@/lib/usage";
 
 // Every AI call goes through the OpenAI SDK, so any provider that speaks the OpenAI
 // format works: Anthropic, OpenAI, OpenRouter, Groq, Cloudflare Workers AI and others.
@@ -69,9 +70,10 @@ const refused = new Map<string, Set<string>>();
  * If a model's limit is lower, its 400 names it and we use the lower number. Length is controlled by the prompts.
  */
 const OUT = 32_000;
+type Tokens = { tokensIn: number; tokensOut: number; estimated: boolean };
 const outLimit = new Map<string, number>();
 
-async function chat(p: Provider, system: string, user: string, temperature = 0.3) {
+async function chat(p: Provider, system: string, user: string, temperature = 0.3): Promise<{ text: string; tokens: Tokens }> {
   const base = {
     model: p.model,
     max_tokens: outLimit.get(p.model) || OUT,
@@ -82,13 +84,12 @@ async function chat(p: Provider, system: string, user: string, temperature = 0.3
   };
   // Streamed: the reply arrives piece by piece, so a long answer is never cut off by a request timeout.
   // We only give up if nothing starts within 60 s.
-  const t0 = Date.now();
-  const open = (body: object) => client(p).chat.completions.create({ ...base, ...body, stream: true } as never, { timeout: 60_000 }) as unknown as Promise<AsyncIterable<{ choices: { delta?: { content?: string | null }; finish_reason?: string | null }[] }>>;
+  const open = (body: object) => client(p).chat.completions.create({ ...base, ...body, stream: true } as never, { timeout: 60_000 }) as unknown as Promise<AsyncIterable<{ choices: { delta?: { content?: string | null }; finish_reason?: string | null }[]; usage?: { prompt_tokens?: number; completion_tokens?: number } | null }>>;
   // Optional extras. Newer models reject some of them with a 400: drop the one the error names (or JSON mode
   // first if it names none) and ask again, and remember it for this model.
   const no = refused.get(p.model) || new Set<string>();
   refused.set(p.model, no);
-  const extras: Record<string, unknown> = { temperature, response_format: { type: "json_object" } };
+  const extras: Record<string, unknown> = { temperature, response_format: { type: "json_object" }, stream_options: { include_usage: true } };
   let stream;
   for (let i = 0; ; i++) {
     const body = Object.fromEntries(Object.entries(extras).filter(([k]) => !no.has(k)));
@@ -103,13 +104,19 @@ async function chat(p: Provider, system: string, user: string, temperature = 0.3
     }
   }
   let text = "", finish: string | null | undefined;
+  let usage: { prompt_tokens?: number; completion_tokens?: number } | null = null;
   for await (const chunk of stream) {
     text += chunk.choices?.[0]?.delta?.content || "";
     finish = chunk.choices?.[0]?.finish_reason || finish;
+    if (chunk.usage) usage = chunk.usage;
   }
+  // Tokens used, as the provider reports them; if it doesn't, counted from the text (about 4 characters a token).
+  const tokens = usage?.prompt_tokens || usage?.completion_tokens
+    ? { tokensIn: usage.prompt_tokens || 0, tokensOut: usage.completion_tokens || 0, estimated: false }
+    : { tokensIn: Math.ceil((system.length + user.length) / 4), tokensOut: Math.ceil(text.length / 4), estimated: true };
   // A reply that hit the token limit is cut off mid-JSON: asking again with the same limit only wastes time.
-  if (finish === "length") throw Object.assign(new Error(`Reply reached the model's output limit (${outLimit.get(p.model) || OUT} tokens)`), { cutOff: true });
-  return text;
+  if (finish === "length") throw Object.assign(new Error(`Reply reached the model's output limit (${outLimit.get(p.model) || OUT} tokens)`), { cutOff: true, tokens });
+  return { text, tokens };
 }
 
 async function markProvider(id: string, ok: boolean, err?: string) {
@@ -122,7 +129,7 @@ async function markProvider(id: string, ok: boolean, err?: string) {
  * it never quietly falls back to another model (a free DeepSeek writing in place of the Sonnet you chose).
  * With nothing picked, every provider is tried in order. A student's own key always goes first.
  */
-async function run<T>(task: "writer" | "ranker", promptName: string, input: unknown, own?: Provider | null): Promise<T> {
+async function run<T>(task: "writer" | "ranker", promptName: string, input: unknown, own?: Provider | null, system?: string): Promise<T> {
   const list = await providers();
   const pick = await setting(task === "writer" ? "writer_provider" : "ranker_provider", "");
   const chosen = list.filter((p) => p.id === pick);
@@ -142,12 +149,19 @@ async function run<T>(task: "writer" | "ranker", promptName: string, input: unkn
       const t0 = Date.now();
       try {
         // Messages need variety and a human voice; everything else stays steady.
-        const text = await chat(p, prompt(promptName), JSON.stringify(input), promptName === "write-messages" ? 0.7 : 0.3);
+        // The student's AI budget (not when it's their own key). Stops before any money is spent.
+        if (p.id !== "own") await checkBudget();
+        const sys = system || prompt(promptName);
+        const rec = (t?: Tokens) => { if (t) void recordUsage({ providerId: p.id, providerName: p.name, model: p.model, task: promptName, ...t }); };
+        const { text, tokens } = await chat(p, sys, JSON.stringify(input), promptName === "write-messages" ? 0.7 : 0.3)
+          .catch((e) => { rec((e as { tokens?: Tokens }).tokens); throw e; });
+        rec(tokens);
         const out = parseJson<T>(text);
         await jlog("info", "ai", `${promptName} on ${p.name} (${p.model}) OK in ${((Date.now() - t0) / 1000).toFixed(1)}s, ${text.length} characters`);
         if (p.id !== "own") void markProvider(p.id, true);
         return out;
       } catch (e) {
+        if (e instanceof AiBudgetError) throw e;
         last = e;
         lastWhere = `${p.name} (${p.model}), ${((Date.now() - t0) / 1000).toFixed(0)}s`;
         tried.push(`${p.id === "own" ? "your own key: " : ""}${lastWhere}: ${String((e as Error)?.message || e).slice(0, 90)}`);
@@ -171,6 +185,19 @@ async function run<T>(task: "writer" | "ranker", promptName: string, input: unkn
 /** Writing tasks: resume profile, resume changes, personal lines. */
 export function writer<T>(promptName: string, input: unknown, _maxTokens?: number, own?: Provider | null) {
   return run<T>("writer", promptName, input, own);
+}
+
+/**
+ * Two steps for writing: first the AI reads everything we know and writes a fresh, detailed system prompt
+ * for this exact task (prompts/build-prompt.md, Morning Espresso structure, using the task's own prompt file
+ * as the rules it must keep). Then a second call follows that prompt. No two prompts are the same.
+ */
+export async function writerBuilt<T>(promptName: string, input: unknown, own?: Provider | null): Promise<T> {
+  const built = await run<{ system_prompt: string }>("writer", "build-prompt", { task: promptName, rules: prompt(promptName), data: input }, own);
+  const sys = (built?.system_prompt || "").trim();
+  if (sys.length < 400) throw new Error("The prompt-writing step returned an empty prompt");
+  await jlog("info", "ai", `Built a ${sys.length}-character prompt for ${promptName}`);
+  return run<T>("writer", promptName, input, own, sys);
 }
 
 /** Small decisions: ranking people. Can point at a cheaper or free model. */

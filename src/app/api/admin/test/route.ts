@@ -64,7 +64,8 @@ export async function POST(req: Request) {
   let raw: unknown = null;
   after(async () => {
     const t0 = Date.now();
-    const res = await jobCtx.run({ jobId, started: t0, userId: admin.id }, async () => {
+    // No userId: test runs are the admin's own spend, not a student budget (they still show in AI usage and cost).
+    const res = await jobCtx.run({ jobId, started: t0 }, async () => {
       await jlog("info", "test", `Admin test run: resume${draft ? ` (draft ${draft})` : ""}${b.rules ? " (test rules)" : ""}${b.builder ? " (test builder)" : ""}`);
       return makeResume(lines, profile, report.job_data, null, report.company_data, {
         rules: typeof b.rules === "string" && b.rules.trim() ? b.rules : draftRules,

@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from "next/server";
+import { existsSync, readFileSync } from "node:fs";
+import path from "node:path";
 import { requireAdmin } from "@/lib/admin";
 import { adminClient } from "@/lib/supabase/clients";
 import { jobCtx, jlog } from "@/lib/joblog";
@@ -12,7 +14,9 @@ export const maxDuration = 300;
 /**
  * Admin-only test bench. Runs a real AI task with the keys saved in /admin, and saves nothing to the job.
  *
- * POST { action: "resume", jobId?, rules?, builder? }
+ * POST { action: "resume", jobId?, draft?, rules?, builder? }
+ *  - draft: a name like "v4" loads prompts/drafts/resume-changes-v4.md (and build-prompt-v4.md if it exists)
+ *    as the rules / builder. Drafts ship with the app but nothing else uses them.
  *  - jobId: which job to tailor for (default: the admin's newest finished job).
  *  - rules / builder: optional prompt text to try instead of prompts/resume-changes.md / prompts/build-prompt.md,
  *    so a prompt change can be tested before it's deployed.
@@ -39,14 +43,23 @@ export async function POST(req: Request) {
   const lines = String(profile?.resume_text || "").split("\n").filter((l) => l.trim());
   if (!lines.length) return NextResponse.json({ error: "no_resume" }, { status: 400 });
 
+  // A committed draft prompt (prompts/drafts/*-<draft>.md), so a test doesn't need the whole text in the request.
+  const draft = typeof b.draft === "string" && /^[a-z0-9-]{1,30}$/.test(b.draft) ? b.draft : "";
+  const readDraft = (name: string) => {
+    const f = path.join(process.cwd(), "prompts", "drafts", `${name}-${draft}.md`);
+    return draft && existsSync(f) ? readFileSync(f, "utf8") : undefined;
+  };
+  const draftRules = readDraft("resume-changes");
+  const draftBuilder = readDraft("build-prompt");
+  if (draft && !draftRules) return NextResponse.json({ error: "no_draft", draft }, { status: 404 });
   let built = "";
   let raw: unknown = null;
   const t0 = Date.now();
   const res = await jobCtx.run({ jobId, started: t0, userId: admin.id }, async () => {
-    await jlog("info", "test", `Admin test run: resume${b.rules ? " (test rules)" : ""}${b.builder ? " (test builder)" : ""}`);
+    await jlog("info", "test", `Admin test run: resume${draft ? ` (draft ${draft})` : ""}${b.rules ? " (test rules)" : ""}${b.builder ? " (test builder)" : ""}`);
     return makeResume(lines, profile, report.job_data, null, report.company_data, {
-      rules: typeof b.rules === "string" && b.rules.trim() ? b.rules : undefined,
-      builder: typeof b.builder === "string" && b.builder.trim() ? b.builder : undefined,
+      rules: typeof b.rules === "string" && b.rules.trim() ? b.rules : draftRules,
+      builder: typeof b.builder === "string" && b.builder.trim() ? b.builder : draftBuilder,
       onBuilt: (s) => { built = s; },
       onRaw: (o) => { raw = o; },
     }).catch((e) => ({ failed: String(e?.message || e) }) as any);
@@ -55,6 +68,7 @@ export async function POST(req: Request) {
   const after = res && !res.failed ? buildDiff(res, levels, () => true).final.filter((l: string) => l.trim()) : null;
   return NextResponse.json({
     job: { id: job.id, title: report.job_data?.title || job.title, company: report.company_data?.name || job.company },
+    draft: draft || null,
     seconds: Math.round((Date.now() - t0) / 1000),
     failed: res?.failed || null,
     built_prompt: built,

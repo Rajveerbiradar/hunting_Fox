@@ -51,6 +51,23 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ resume: next });
   }
 
+  // A skill the student picked on the people page ("people at X list it, I have it"): it joins this job's skill
+  // questions, so the resume page shows it with the level picker and a confirmed one goes into the skills line.
+  if (b.action === "add_skill") {
+    const skill = String(b.skill || "").trim().slice(0, 60);
+    if (skill.length < 2) return NextResponse.json({ error: "bad" }, { status: 400 });
+    const { data: p } = await sb.from("profiles").select("resume_text").eq("id", user.id).single();
+    const lines = String(p?.resume_text || "").split("\n").filter((l) => l.trim());
+    const r = (report?.resume as ResumePart | null) || ({ base_lines: lines, edits: [], skill_questions: [], suggestions: [], v: 2 } as unknown as ResumePart);
+    const qs = r.skill_questions || [];
+    if (!qs.some((q) => q.skill.toLowerCase() === skill.toLowerCase())) {
+      const who = String(b.from || "").slice(0, 80);
+      const next = { ...r, skill_questions: [...qs, { skill, why: who ? `${who} at this company lists it` : "People at this company list it" }] };
+      await sb.from("reports").update({ resume: next }).eq("job_id", id);
+    }
+    return NextResponse.json({ ok: true });
+  }
+
   // "Make this my main resume": the student's main resume becomes this job's final version (applied changes +
   // confirmed skills). The old main resume is kept on this job's report, so "Undo" can put it back.
   // What the student is typing into the questions, saved as they type, so a refresh never loses it.

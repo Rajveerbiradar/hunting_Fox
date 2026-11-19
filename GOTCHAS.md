@@ -318,6 +318,7 @@ Every reply from Claude ended with "Assumptions I made". These are the ones that
 | 47 | Project details should be one more question box in the job flow | "It should not be an input. Create a resume setup page: show the sections, what you extracted, ask if it's right, and a text box" | `/resume/setup` checks the base resume part by part |
 | 48 | After upload, show a "Check it part by part" button next to "Looks good" | "Upload and directly see everything part by part… a pop up: don't care about spellings, leave that on us" | Upload opens /resume/setup straight away with that popup |
 | 49 | A failed resume rewrite should show a red error with Try again | "Why is it showing error whenever I open the update the resume page… we are intentionally stopping the resume build up" | Calm "not made yet" card + Make it for {company}; reach-out says base vs personalised resume |
+| 50 | CLAUDE.md said the resume prompt reads "the person and the team around them" | "Do we look into the company profile and the employees… or is it just a description matcher?" | It never saw the people (runs in parallel). Now the people page shows their skills and the student adds the ones they have |
 | 31 | Pushing after every change without asking | "Build it but ask me before pushing" (for that batch) | Asked before that push |
 
 Assumptions that held (not wrong, kept): admin approval before searching; students send messages themselves; Mumbai region; one gradient button per screen; light mode only.

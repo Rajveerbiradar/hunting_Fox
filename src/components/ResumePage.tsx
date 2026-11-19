@@ -169,6 +169,16 @@ export function ResumePage({ jobId, company, resume: start, hasResume, skills, i
           )}
         </div>
 
+        {/* The people page lists the skills people at the company have; the ones the student really has come back here as skill questions. */}
+        <a href={`/jobs/${jobId}/reach-out#skills`} className="card" style={{ marginTop: 20, display: "flex", alignItems: "center", gap: 14, padding: "16px 20px", textDecoration: "none", color: "inherit" }}>
+          <span aria-hidden style={{ width: 40, height: 40, flex: "0 0 40px", borderRadius: 12, background: "var(--tile)", display: "grid", placeItems: "center" }}>{Icon.people()}</span>
+          <span style={{ flex: 1, minWidth: 0 }}>
+            <b style={{ display: "block", fontSize: 16 }}>See what people at {company} know</b>
+            <span className="mute" style={{ fontSize: 14, lineHeight: 1.45 }}>Go to the people page and look at their skills. Tap &quot;I have this&quot; on the ones you share and they show up here to add to your resume. It helps you match them.</span>
+          </span>
+          <span aria-hidden style={{ fontSize: 22, color: "var(--mute)" }}>›</span>
+        </a>
+
         {askMain && !resume?.made_main_at && (
           <div className="card" role="dialog" aria-label="Replace your main resume" style={{ marginTop: 16, padding: "18px 22px", display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap", border: "1.5px solid var(--ink)" }}>
             <span style={{ flex: "1 1 320px", fontSize: 16, lineHeight: 1.5 }}><b>Replace your main resume with this version for {company}?</b> Every new job will start from it. You can undo this here.</span>

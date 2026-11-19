@@ -22,6 +22,9 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
       initial={(profile?.name || user.email || "?")[0]}
       hasResume={base.length > 0}
       personalised={personalised}
+      mine={(profile?.skills || []).filter((s: { level: number }) => s.level >= 2).map((s: { name: string }) => s.name)}
+      resumeText={base.join("\n")}
+      asked={(report?.resume?.skill_questions || []).map((q: { skill: string }) => q.skill)}
     />
   );
 }

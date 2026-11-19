@@ -8,13 +8,44 @@ const enc = encodeURIComponent;
 
 /** The people we found at the company: who they are, why they're worth contacting, their LinkedIn and any work email.
  *  We don't write messages: the student writes their own. */
-export function ReachOut(p: { jobId: string; company: string; big: boolean; people: Person[]; hiringEmail?: string; sentTo: string[]; initial: string; hasResume?: boolean; personalised?: boolean }) {
+export function ReachOut(p: { jobId: string; company: string; big: boolean; people: Person[]; hiringEmail?: string; sentTo: string[]; initial: string; hasResume?: boolean; personalised?: boolean; mine?: string[]; resumeText?: string; asked?: string[] }) {
   const people = p.people;
   const [sel, setSel] = useState(people[0]?.id);
   const [sent, setSent] = useState<string[]>(p.sentTo);
   const toast = useToast();
   const cur = people.find((x) => x.id === sel);
   const hasEmail = (x: Person) => !!(x.email && x.emailFound);
+  // Skills: the ones the student already has (confirmed in their skills, or written on their resume) are marked;
+  // the rest can be sent to this job's resume page, where the student says how well they know it.
+  const mine = new Set((p.mine || []).map((x) => x.toLowerCase()));
+  const resumeLow = (p.resumeText || "").toLowerCase();
+  const has = (sk: string) => mine.has(sk.toLowerCase()) || (sk.length > 2 && resumeLow.includes(sk.toLowerCase()));
+  const [added, setAdded] = useState<string[]>((p.asked || []).map((x) => x.toLowerCase()));
+  const common = (() => {
+    const m = new Map<string, { name: string; n: number }>();
+    for (const x of people) for (const sk of new Set((x.skills || []).map((k) => k.trim()).filter(Boolean))) {
+      const k = sk.toLowerCase(); const e = m.get(k); if (e) e.n++; else m.set(k, { name: sk, n: 1 });
+    }
+    return [...m.values()].sort((a, b) => b.n - a.n).slice(0, 16);
+  })();
+  async function addSkill(sk: string, from?: string) {
+    setAdded((a) => [...a, sk.toLowerCase()]);
+    const r = await fetch(`/api/jobs/${p.jobId}/resume-plan`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "add_skill", skill: sk, from }) }).catch(() => null);
+    if (!r || !r.ok) { setAdded((a) => a.filter((x) => x !== sk.toLowerCase())); toast.show("Couldn't add it. Try again."); return; }
+    toast.show(`${sk} is on your resume page now. Say how well you know it there.`);
+  }
+  const Chip = ({ sk, n, from }: { sk: string; n?: number; from?: string }) => {
+    const own = has(sk); const on = added.includes(sk.toLowerCase());
+    return (
+      <span className="tag" style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 6px 4px 10px", background: own ? "#e5f3e9" : "var(--tile)", color: own ? "#1a6b3c" : "var(--ink)", fontWeight: 600 }}>
+        {own && "✓ "}{sk}{n && n > 1 ? <span className="mute" style={{ fontWeight: 400 }}>· {n}</span> : null}
+        {!own && (on
+          ? <span style={{ fontSize: 12, color: "#164a88", padding: "0 6px" }}>Added</span>
+          : <button onClick={() => addSkill(sk, from)} aria-label={`I have ${sk}: add it to my resume page`} style={{ border: 0, background: "#fff", borderRadius: 999, fontSize: 12, fontWeight: 700, padding: "3px 8px", cursor: "pointer" }}>+ I have this</button>)}
+        {own && <span style={{ width: 4 }} />}
+      </span>
+    );
+  };
 
   async function toggleSent(id: string) {
     const next = sent.includes(id) ? sent.filter((x) => x !== id) : [...sent, id];
@@ -56,6 +87,15 @@ export function ReachOut(p: { jobId: string; company: string; big: boolean; peop
           </div>
         ) : (
           <>
+            {common.length > 0 && (
+              <section id="skills" className="card" style={{ marginTop: 24, padding: 24 }}>
+                <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Skills people at {p.company} list</h2>
+                <p className="mute" style={{ margin: "6px 0 14px", fontSize: 16, lineHeight: 1.5 }}>From the LinkedIn profiles below. <b style={{ color: "#1a6b3c" }}>Green</b> ones are already on your resume. If you really have another one, tap <b>I have this</b> and it goes to your resume page for {p.company}. Sharing their skills helps you match them, but only add what you&apos;ve actually used.</p>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>{common.map((c) => <Chip key={c.name} sk={c.name} n={c.n} />)}</div>
+                <a className="btn sec" style={{ marginTop: 16, minHeight: 36, fontSize: 14 }} href={`/jobs/${p.jobId}/resume`}>Go to my resume for {p.company}</a>
+              </section>
+            )}
+
             <div style={{ marginTop: 28 }}><span className="lbl">Best first · start with the top 2</span></div>
             <div className="people" style={{ marginTop: 12 }}>{people.map(Card)}</div>
 
@@ -81,6 +121,13 @@ export function ReachOut(p: { jobId: string; company: string; big: boolean; peop
                   ) : <span className="mute" style={{ fontSize: 14 }}>No work email found. Contact {cur.first} on LinkedIn.</span>}
                 </div>
                 {cur.profileUrl && <p className="mute" style={{ margin: "8px 0 0", fontSize: 14 }}>If their profile looks hidden to you, the LinkedIn link still opens it once you&apos;re signed in.</p>}
+                {(cur.skills || []).length > 0 && (
+                  <div style={{ marginTop: 18 }}>
+                    <div className="lbl">{cur.first}&apos;s skills · {cur.title}</div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>{[...new Set(cur.skills.map((k) => k.trim()).filter(Boolean))].slice(0, 20).map((k) => <Chip key={k} sk={k} from={cur.first} />)}</div>
+                  </div>
+                )}
+
                 <div style={{ marginTop: 16, background: "var(--sunken)", borderRadius: 16, padding: "14px 16px", fontSize: 14, lineHeight: 1.5 }}>
                   <b style={{ display: "block", fontSize: 16 }}>Attach your resume when you write</b>
                   {!p.hasResume ? (

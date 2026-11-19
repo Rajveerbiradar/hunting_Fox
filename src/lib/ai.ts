@@ -199,15 +199,35 @@ export type BuildOpts = {
   builder?: string;
   /** Called with the prompt the first step wrote. */
   onBuilt?: (systemPrompt: string) => void;
+  /** Checks the answer in code. If it returns problems, the writer gets ONE more call to fix exactly those. */
+  check?: (out: unknown) => string[];
 };
 
+/** A rules file with this marker is appended, word for word, after the brief the first step writes. */
+const APPEND = "<!-- APPEND-RULES -->";
+
 export async function writerBuilt<T>(promptName: string, input: unknown, own?: Provider | null, opts?: BuildOpts): Promise<T> {
-  const built = await run<{ system_prompt: string }>("writer", "build-prompt", { task: promptName, rules: opts?.rules ?? prompt(promptName), data: input }, own, opts?.builder);
-  const sys = (built?.system_prompt || "").trim();
-  if (sys.length < 400) throw new Error("The prompt-writing step returned an empty prompt");
+  const rules = opts?.rules ?? prompt(promptName);
+  const append = rules.includes(APPEND);
+  const built = await run<{ system_prompt: string }>("writer", "build-prompt", { task: promptName, rules, data: input }, own, opts?.builder);
+  let sys = (built?.system_prompt || "").trim();
+  if (sys.length < 300) throw new Error("The prompt-writing step returned an empty prompt");
+  // The standing rules reach the writer in full every time, instead of depending on the first step copying them.
+  if (append) sys = `${sys}\n\n---\n\n${rules.replace(APPEND, "").trim()}`;
   opts?.onBuilt?.(sys);
-  await jlog("info", "ai", `Built a ${sys.length}-character prompt for ${promptName}`);
-  return run<T>("writer", promptName, input, own, sys);
+  await jlog("info", "ai", `Built a ${sys.length}-character prompt for ${promptName}${append ? " (brief + standing rules)" : ""}`);
+  const out = await run<T>("writer", promptName, input, own, sys);
+  const problems = opts?.check ? opts.check(out) : [];
+  if (!problems.length) return out;
+  await jlog("info", "ai", `Checks found ${problems.length} problem(s), asking the writer to fix them: ${problems.slice(0, 6).join(" · ")}`);
+  const fixed = await run<T>("writer", promptName, {
+    ...(input as object),
+    your_answer: out,
+    fix_these: problems,
+    instruction: "Your answer above has these problems. Return the same JSON with ONLY these problems fixed. Keep every other line exactly as you wrote it.",
+  }, own, sys).catch(async (e) => { await jlog("warn", "ai", `Fix call failed, keeping the first answer: ${String(e?.message || e).slice(0, 160)}`); return null; });
+  if (fixed && opts?.check) await jlog("info", "ai", `After the fix: ${opts.check(fixed).length} problem(s) left`);
+  return fixed || out;
 }
 
 /** Small decisions: ranking people. Can point at a cheaper or free model. */

@@ -36,6 +36,51 @@ type Out = {
  * in the job's language, gap questions for what the resume doesn't show. Returns SUGGESTIONS only
  * (v: 2, applied: false): nothing reaches Final or the PDF until the student taps "Apply changes".
  */
+/** Words that mark resume text as machine-written or jargon, on any resume. Checked in code after every rewrite. */
+const TELLS = ["leveraged", "leverage", "spearheaded", "synergy", "end to end", "end-to-end", "ownership", "passionate", "results-driven", "ai-assisted", "ai-agent", "agentic", "user flows", "user flow", "self-starter", "go-getter", "routine"];
+/** Verbs that claim leading people. Flagged when the old resume never used them. */
+const UPGRADES = ["managed", "led", "headed", "directed", "supervised", "oversaw"];
+
+/** Problems in a full-page answer that code can see for certain. Sent back to the writer for one fix. */
+export function pageProblems(before: string[], out: { lines?: string[]; summary?: string }): string[] {
+  const after = Array.isArray(out?.lines) ? out.lines.map((l) => String(l ?? "")) : [];
+  if (after.length !== before.length) return [];
+  const words = (t: string) => t.toLowerCase().replace(/\*\*/g, "").replace(/[^a-z0-9+\- ]/g, " ").split(/\s+/).filter(Boolean);
+  const page = [...after, out.summary || ""];
+  const all = page.join("\n").toLowerCase();
+  const oldAll = before.join("\n").toLowerCase();
+  const found: string[] = [];
+  const changed = after.map((l, i) => l.trim() !== before[i].trim());
+  page.forEach((l, i) => {
+    if (i < after.length && !changed[i] && !/^\*\*[^*]+:\*\*/.test(l)) return; // unchanged non-skills lines: the student's own words
+    const low = l.toLowerCase();
+    for (const t of TELLS) if (new RegExp(`(^|[^a-z])${t.replace(/[-]/g, "[- ]")}s?([^a-z]|$)`).test(low)) found.push(`Line ${i < after.length ? i : "summary"} uses "${t}": "${l.slice(0, 90)}"`);
+    for (const v of UPGRADES) if (new RegExp(`\\b${v}\\b`).test(low) && !new RegExp(`\\b${v}\\b`).test(oldAll)) found.push(`Line ${i < after.length ? i : "summary"} says "${v}", which claims more than the resume does: "${l.slice(0, 90)}"`);
+    if (/^- \w+( and \w+)? it\b/i.test(l)) found.push(`Line ${i} starts with a vague "it": "${l.slice(0, 90)}"`);
+    if (/\b(a |the )?(person|people|human)s? (still |must |needs? to |has to |have to )+(still )?check/i.test(l)) found.push(`Line ${i < after.length ? i : "summary"} is chatty ("a person must check"): say "human review" or cut it`);
+  });
+  const solo = (all.match(/\b(solo|alone|single-handed(ly)?)\b/g) || []).length;
+  if (solo > 1) found.push(`"solo"/"alone" appears ${solo} times on the page; keep it once at most (the entry title already says it)`);
+  // Phrases of 5+ words kept from the old version of a line the writer changed.
+  after.forEach((l, i) => {
+    if (!changed[i] || /^(# |@ |## |\*\*[^*]+:\*\*)/.test(l)) return;
+    const a = words(l), b = words(before[i]).join(" ");
+    for (let k = 0; k + 5 <= a.length; k++) {
+      const g = a.slice(k, k + 5).join(" ");
+      if (!/\d/.test(g) && b.includes(g)) { found.push(`Line ${i} keeps the old wording "${g}": say it in new words or cut it`); break; }
+    }
+  });
+  return [...new Set(found)].slice(0, 20);
+}
+
+/** Make every bullet end the same way (with or without a full stop), whichever most bullets already do. */
+function evenEndings(lines: string[]) {
+  const bullets = lines.filter((l) => /^[-•] /.test(l));
+  if (!bullets.length) return lines;
+  const dot = bullets.filter((l) => /\.$/.test(l.trim())).length > bullets.length / 2;
+  return lines.map((l) => (/^[-•] /.test(l) ? (dot ? l.trim().replace(/[.;,:]*$/, ".") : l.trim().replace(/\.+$/, "")) : l));
+}
+
 export async function makeResume(lines: string[], profile: any, jd: JobData, own?: Provider | null, company?: Partial<CompanyData> | null, opts?: BuildOpts & { onRaw?: (out: unknown) => void }): Promise<ResumePart | null> {
   if (!lines.length) return null;
   const confirmed = confirmedSkills(profile || {});
@@ -53,7 +98,7 @@ export async function makeResume(lines: string[], profile: any, jd: JobData, own
   // unreadable reply here only made the student wait minutes for the same failure.
   let failed = "";
   const t0 = Date.now();
-  let out: Out | null = await writerBuilt<Out>("resume-changes", input, own, opts).catch(async (e) => {
+  let out: Out | null = await writerBuilt<Out>("resume-changes", input, own, { ...opts, check: (o) => pageProblems(lines, o as Out) }).catch(async (e) => {
     failed = e?.budget ? "budget" : String(e?.message || e).slice(0, 200);
     return null;
   });
@@ -61,6 +106,7 @@ export async function makeResume(lines: string[], profile: any, jd: JobData, own
   // A full-page answer (prompt v6+): every line comes back, so no line can be skipped. Turn it into edits.
   if (out && Array.isArray(out.lines)) {
     if (out.lines.length === lines.length) {
+      out.lines = evenEndings(out.lines.map((l) => String(l ?? "")));
       const fixed = (l: string) => /^(# |@ |## )/.test(l);
       const sumHead = lines.findIndex((l) => /^## (professional )?(summary|profile|about( me)?|objective|career objective)\b/i.test(l));
       let sumEnd = sumHead;

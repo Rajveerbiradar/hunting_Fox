@@ -81,7 +81,10 @@ export function AdminStudents({ initial, me, defaultSearches, onWaiting }: { ini
                 <div className="mute" style={{ fontSize: 14, marginTop: 4 }}>
                   Signed up {ago(u.created_at)}{u.resume_added_at ? " · resume added" : ""}{u.approved ? ` · used ${u.used} of ${u.search_limit}` : ""}
                 </div>
-                {u.approved && u.ai_limit != null && (
+                {u.email === me && (
+                  <div className="mute" style={{ marginTop: 8, fontSize: 14 }}><span style={{ fontWeight: 600, color: "var(--ink)" }}>AI credits</span> · no limit (admin)</div>
+                )}
+                {u.approved && u.email !== me && u.ai_limit != null && (
                   <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginTop: 8, fontSize: 14 }}>
                     <span style={{ fontWeight: 600 }}>AI credits</span>
                     <span className="mute">{Math.round((u.ai_used || 0) / 1000)}k of {Math.round(u.ai_limit / 1000)}k tokens used{u.ai_limit ? ` (${Math.min(100, Math.round(((u.ai_used || 0) / u.ai_limit) * 100))}%)` : ""}</span>

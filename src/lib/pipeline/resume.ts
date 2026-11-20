@@ -143,10 +143,23 @@ export async function makeResume(lines: string[], profile: any, jd: JobData, own
   // Tools the job names or we're asking about. An edit that brings one in without the student's yes is dropped.
   const vocab = [...new Set([...jd.keySkills, ...(out?.ask || []).map((q) => q.skill)].map((x) => String(x || "").trim()).filter((x) => x.length > 1))];
   const clean = (s: string) => s.replace(/\s*—\s*/g, ", ").replace(/\s+/g, " ").trim();
+  // Every named skill on the page: the items in the skills rows ("**Tools:** Git, Figma, IAM") + confirmed + the job's.
+  const skillTerms = [...new Set([
+    ...lines.filter((l) => /^\*\*[^*]+:\*\*/.test(l.trim())).flatMap((l) => l.replace(/^\*\*[^*]+:\*\*/, "").split(/[,;|]/)),
+    ...confirmed, ...jd.keySkills,
+  ].map((x) => String(x || "").replace(/\(.*?\)/g, "").trim()).filter((x) => x.length > 1 && x.length < 40))];
   const edits = (out?.edits || []).map((e) => ({ ...e, old: e?.old ? exact(e.old) : "" })).filter((e) => {
     if (!e?.old || !e?.new || clean(e.new) === e.old) return false;
     const sneaked = vocab.find((t) => mentions(e.new, t) && !mentions(e.old, t) && !have(t));
     if (sneaked) { void jlog("info", "resume", `Dropped an edit that added "${sneaked}" without asking`); return false; }
+    // The other way round: an edit may not make a real skill disappear from the page ("IAM" dropped, "Google Cloud"
+    // turned into "cloud basics"). A term counts as lost when the old line has it, the new line doesn't, and no other
+    // line of the resume still has it. Terms: the student's skills rows, confirmed skills, the job's key skills, and
+    // acronyms (IAM, GCP, SQL…).
+    const others = lines.filter((l) => l.trim() !== e.old.trim()).join("\n");
+    const acronyms = (e.old.match(/\b[A-Z][A-Z0-9/+#.]{1,6}\b/g) || []).filter((w) => !/^(I|A|AN|THE|AND|OR|TO|IN|ON|OF|FOR|CEO|CTO|HR|PM|UI|UX)$/.test(w));
+    const lost = [...new Set([...skillTerms, ...acronyms])].find((t) => mentions(e.old, t) && !mentions(e.new, t) && !mentions(others, t));
+    if (lost) { void jlog("info", "resume", `Dropped an edit that removed "${lost}" from the resume`); return false; }
     return true;
   }).map((e): { old: string; new: string; reason: string; group?: string } => ({ old: e.old, new: clean(e.new), reason: e.reason || "Written for this job" })).slice(0, 40);
 

@@ -68,14 +68,16 @@ Also return `summary_reason`: ONE plain sentence, under 25 words, that a student
 
 *PLAIN ENGLISH (applies to every line you write):*
 
-A person reads a resume in seconds, often in their second language. Every line must be understood in ONE read. Write at a simple, everyday level (CEFR A2 to B1).
+A person reads a resume in seconds. Every line must be understood in ONE read. Write plain, sharp professional English (CEFR B2): simple sentence structure, but never simpler words for technical things.
+
+- **Keep every technical term, tool, platform, certification and named skill exactly as the student wrote it** (IAM, Google Cloud, GCP, Kubernetes, SQL, Figma, React, AWS, Docker, AI agents, design system, CI/CD). The reader of a technical job is looking for exactly those words. Never replace one with a vaguer word ("Google Cloud infrastructure" never becomes "cloud basics"; "IAM" never disappears). Plain English is about sentence shape, not about removing the student's skills.
 
 - One idea per bullet, about 20 words or fewer. Never stack four claims in one line ("took the idea into testing alone, ran a 40+ person tester program, held 25+ feedback conversations and closed 20+ issues" is four lines squeezed into one: pick the one or two that matter for this job).
 - Common words: "built", "ran", "fixed", "talked to", "kept on track", not "spearheaded", "leveraged", "streamlined", "AI-assisted workflows", "cross-functional".
 - Say what a project IS the first time it appears, in a few words: "Udaan, our college fest" or "Kaarya, a design studio for small brands". A name alone means nothing to a stranger.
 - Say the outcome, not how it worked inside: "cut the sales team's manual LinkedIn work", not "drafts LinkedIn comments and routes them to Slack for review".
 - At most one number per bullet, and use exact numbers where the inputs have them. Not every number needs a "+".
-- Use the job's words only when they are plain. If the job post uses jargon, say the same thing in simple words.
+- Use the job's own words, including its technical terms. Only rewrite empty corporate filler ("synergy", "dynamic environment"), never the names of tools, platforms or skills.
 - The summary follows the same rules: short sentences a busy person understands at once.
 
 ---
@@ -97,7 +99,7 @@ A person reads a resume in seconds, often in their second language. Every line m
 3. *The company being applied to leads, past employers support.* The headline and the summary's first sentence never open with a past employer; the summary's last sentence names the company being applied to.
 4. *Unconfirmed tools go in `ask`,* never in an edit or the summary. The app throws away any edit that adds one.
 5. *`old` must match a line exactly,* or the edit is thrown away.
-5b. *Plain English (A2 to B1).* One idea per line, common words, say what a project is, outcome not mechanism, at most one number per bullet. See PLAIN ENGLISH.
+5b. *Plain English (B2), technical terms kept.* One idea per line, everyday verbs, say what a project is, outcome first, at most one number per bullet, and every tool, platform and skill name kept as written. See PLAIN ENGLISH.
 6. *Use the job's and the company's language, not buzzwords.* No "passionate", "hardworking", "results-driven", "go-getter", "synergy", "dynamic", "seeking an opportunity". No "I".
 7. *Change by default.* `perfect_match: true` only if the headline, summary and every relevant bullet already speak this job's language. That should almost never happen.
 8. *Zero em dashes ("—")* anywhere.

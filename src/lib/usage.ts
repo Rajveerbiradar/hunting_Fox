@@ -1,5 +1,6 @@
 import { adminClient } from "@/lib/supabase/clients";
 import { jobCtx } from "@/lib/joblog";
+import { isAdminEmail } from "@/lib/limits";
 
 // AI usage: every call is recorded (ai_usage) and, unless the student used their own key, counted against
 // their AI budget (profiles.ai_tokens_used / ai_token_limit). Students only ever see a % left, never numbers.
@@ -17,7 +18,9 @@ export const BUDGET_DONE =
 export async function checkBudget() {
   const userId = jobCtx.getStore()?.userId;
   if (!userId) return;
-  const { data } = await adminClient().from("profiles").select("ai_tokens_used,ai_token_limit").eq("id", userId).maybeSingle();
+  const { data } = await adminClient().from("profiles").select("ai_tokens_used,ai_token_limit,email").eq("id", userId).maybeSingle();
+  // Admins have no AI limit (their use is still recorded in ai_usage).
+  if (data && (await isAdminEmail(data.email))) return;
   if (data && data.ai_token_limit > 0 && data.ai_tokens_used >= data.ai_token_limit) throw new AiBudgetError();
 }
 
@@ -41,8 +44,8 @@ export async function recordUsage(u: { providerId: string; providerName: string;
 
 /** % of the AI budget left for a student (0 to 100), for the account page and warnings. */
 export async function budgetLeft(userId: string) {
-  const { data } = await adminClient().from("profiles").select("ai_tokens_used,ai_token_limit").eq("id", userId).maybeSingle();
-  if (!data || !data.ai_token_limit) return { pct: 100, done: false, low: false };
+  const { data } = await adminClient().from("profiles").select("ai_tokens_used,ai_token_limit,email").eq("id", userId).maybeSingle();
+  if (!data || !data.ai_token_limit || (await isAdminEmail(data.email))) return { pct: 100, done: false, low: false };
   const pct = Math.max(0, Math.round(100 - (data.ai_tokens_used / data.ai_token_limit) * 100));
   return { pct, done: pct <= 0, low: pct > 0 && pct <= 10 };
 }

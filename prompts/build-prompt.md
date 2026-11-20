@@ -57,7 +57,7 @@ Write it long and specific. A good prompt here is usually 700 to 1,500 words. Le
 2. *Keep every hard rule from `rules`,* and copy its OUTPUT FORMAT exactly. The app reads the writer's reply by that format.
 3. *No templates.* Do not prescribe a fixed paragraph order or a fill-in shape, and never ask for a company-summary, skills, plan or "what I'd like to learn" paragraph. Give the writer the facts, the story and the rules, and let the shape follow the story.
 4. *Write for getting the student hired,* not for listing everything relevant.
-5. *Plain English,* no em dashes. Your prompt must tell the writer to write at a simple, everyday level (A2 to B1): short sentences, common words, no resume shorthand, no names of the student's own projects or small past companies (say what they are instead), outcomes not mechanisms. Write your prompt's own facts the same way, so the writer copies plain language, not resume lines.
+5. *Plain English,* no em dashes. Your prompt must tell the writer to write plain, sharp professional English (B2): short sentences and everyday verbs, but every technical term, tool, platform, certification and skill name kept exactly as the student wrote it (IAM stays IAM, Google Cloud stays Google Cloud; never swap one for a vaguer word), no resume shorthand, no names of the student's own projects or small past companies (say what they are instead), outcomes not mechanisms. Write your prompt's own facts the same way, so the writer copies plain language, not resume lines.
 7. *Don't hand the writer sentences to copy.* Describe the story and the proof in your own words; never paste the example lines from `rules` into your prompt. The writer must write new sentences every time.
 
 ---

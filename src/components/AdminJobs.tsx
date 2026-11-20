@@ -1,5 +1,4 @@
 "use client";
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { LiveStep, Spinner, letterTile, useSort, useToast } from "./ui";
 
@@ -95,7 +94,7 @@ export function AdminJobs() {
                 <button className="btn sec sm" aria-expanded={logOpen === j.id} onClick={() => openLog(j.id)}>{logOpen === j.id ? "Hide log" : "Log"}</button>
                 <a className="btn sec sm" href={j.url} target="_blank" rel="noopener">Job post</a>
                 {/* Results: the student's own job page, exactly as they see it (read-only admin view), for every outcome. */}
-                <Link className="btn sec sm" href={`/jobs/${j.id}`} target="_blank">Results</Link>
+                <a className="btn sec sm" href={`/jobs/${j.id}`} target="_blank" rel="noopener">Results</a>
               </div>
               {logOpen === j.id && (
                 <div style={{ flexBasis: "100%", background: "var(--sunken)", borderRadius: 14, padding: 12, overflowX: "auto" }}>

@@ -113,6 +113,23 @@ export async function scanMode(): Promise<"full" | "lean"> {
  */
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/** Why a run that returned no items didn't really succeed ("FAILED: <message>"), or null when it truly found nothing. */
+async function emptyRunReason(actorId: string, token: string, since: number): Promise<string | null> {
+  try {
+    const r = await fetch(`https://api.apify.com/v2/acts/${actorId}/runs?token=${token}&desc=1&limit=5`, { signal: AbortSignal.timeout(10_000) });
+    if (!r.ok) return null;
+    const runs = ((await r.json())?.data?.items || []) as { status: string; startedAt: string; statusMessage?: string; id: string }[];
+    const mine = runs.filter((x) => new Date(x.startedAt).getTime() >= since - 3000);
+    const bad = mine.find((x) => x.status !== "SUCCEEDED" && x.status !== "RUNNING" && x.status !== "READY");
+    if (bad) return `${bad.status.toLowerCase()}${bad.statusMessage ? `: ${bad.statusMessage.slice(0, 200)}` : ""} (run ${bad.id})`;
+    // Succeeded, but the actor itself says it stopped early (free plan cap, limit reached).
+    const capped = mine.find((x) => /limit|credit|free (plan|user|tier)|upgrade|paid|exceed/i.test(x.statusMessage || ""));
+    return capped ? `stopped early: ${capped.statusMessage!.slice(0, 200)} (run ${capped.id})` : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function runActor<T = Record<string, unknown>>(
   actor: string,
   input: unknown,
@@ -169,7 +186,22 @@ export async function runActor<T = Record<string, unknown>>(
       }
       if (r.ok) {
         const items = (await r.json()) as T[];
-        await jlog("info", "apify", `${actor} on "${t.label}" OK · ${Array.isArray(items) ? items.length : 0} items · ${Date.now() - t0} ms`);
+        const n = Array.isArray(items) ? items.length : 0;
+        await jlog("info", "apify", `${actor} on "${t.label}" OK · ${n} items · ${Date.now() - t0} ms`);
+        // An empty answer isn't always "nothing found": a run that failed at once (account out of free usage, actor
+        // not allowed on this plan, actor error) also comes back as [] from the sync endpoint. Look at the run
+        // itself; if it didn't succeed, say why and try the next account (20 Nov: HDFC Bank, 10,001+ people,
+        // came back empty in 1.5 s three times on one account; the same input found people on another).
+        if (n === 0) {
+          const why = await emptyRunReason(id, t.token, t0);
+          if (why) {
+            lastErr = `${t.label}: ${why}`;
+            await jlog("warn", "apify", `${actor} on "${t.label}" came back empty because the run ${why}. Trying the next account`);
+            if (/limit|credit|usage|plan|paid|insufficient|exceed/i.test(why)) await markExhausted(t.label);
+            moveOn = true;
+            break;
+          }
+        }
         return { items, label: t.label };
       }
       const text = await r.text();

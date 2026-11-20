@@ -1,8 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
+import { runJob } from "@/lib/pipeline/run";
 import { timingSafeEqual } from "node:crypto";
 import { adminClient } from "@/lib/supabase/clients";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 300;
 
 /**
  * Read-only debug view for Claude (no browser sign-in needed). Off unless DEBUG_TOKEN (24+ characters) is set in
@@ -10,6 +12,7 @@ export const dynamic = "force-dynamic";
  * and checks. No keys, no resumes, no student contact details.
  *   GET /api/debug?q=<text in the job link, title or company>  → matching jobs (newest 20)
  *   GET /api/debug?job=<job id>                                  → that job, its checks, company data and log
+ *   POST /api/debug {rerun: <job id>}                            → run the job again (like admin "Run again": no search used)
  */
 function allowed(req: Request) {
   const want = process.env.DEBUG_TOKEN || "";
@@ -37,4 +40,13 @@ export async function GET(req: Request) {
   if (q) query = query.or(`url.ilike.%${q.replace(/[%,()]/g, "")}%,title.ilike.%${q.replace(/[%,()]/g, "")}%,company.ilike.%${q.replace(/[%,()]/g, "")}%`);
   const { data } = await query;
   return NextResponse.json({ jobs: data || [] });
+}
+
+export async function POST(req: Request) {
+  if (!allowed(req)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  const { rerun } = await req.json().catch(() => ({ rerun: "" }));
+  if (!rerun) return NextResponse.json({ error: "no_id" }, { status: 400 });
+  await adminClient().from("jobs").update({ status: "queued", step: 0, step_detail: null, error: null, attempts: 0, finished_at: null }).eq("id", rerun);
+  after(() => runJob(String(rerun)));
+  return NextResponse.json({ ok: true });
 }

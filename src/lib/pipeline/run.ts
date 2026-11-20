@@ -127,7 +127,9 @@ async function scan(job: any) {
   if (verdict !== "agency" && !people.length && !jd.poster?.name) {
     const size = company.sizeText ? `Their LinkedIn page says ${company.sizeText}, but we` : "We";
     checks.push({ group: "The people we found", text: `${size} couldn't find a single person with a public profile who works there, and we couldn't see who posted the job`, result: "warn" });
-    if ((company.sizeMin ?? 0) >= 51) {
+    // 51 to 1,000 people with nobody public: a strong fake sign. 1,001+ (a big bank, an IT major): zero people
+    // means our employee search failed, not that the company is fake, so carry on as unverified.
+    if ((company.sizeMin ?? 0) >= 51 && (company.sizeMin ?? 0) < 1001) {
       await jlog("warn", "check", `Stopped: 0 people found and no poster, page says ${company.sizeText}`);
       await sb.from("reports").update({ checks, verdict: "fake" }).eq("job_id", job.id);
       await sb.from("jobs").update({ status: "fake", error: "no_people", step: 5, finished_at: new Date().toISOString() }).eq("id", job.id);

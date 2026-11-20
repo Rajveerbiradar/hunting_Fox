@@ -28,14 +28,19 @@ export function checkCompany(job: JobData, company: CompanyData) {
     });
   else checks.push({ group: "Who posted the job", text: "We couldn't see who posted it", result: "unknown" });
 
-  if (/(registration|training|security|joining|processing)\s*(fee|deposit|charges?)|pay\s*(rs\.?|₹|inr)\s*\d+/.test(text)) red.push("The post asks you to pay a fee. Real jobs never ask you to pay.");
-  if (/whatsapp\s*(only|me|on)|contact.*whatsapp/.test(text)) red.push("It asks you to contact them only on WhatsApp.");
+  // Only a fee the CANDIDATE pays. Banks, NBFCs and fintechs write "processing fees", "security deposits" and
+  // "charges" as products they sell, so those words alone are not a scam sign (20 Nov: a big bank was called fake).
+  if (/(registration|training|joining|interview|application|selection)\s*(fee|deposit|charges?)|(candidates?|you|applicants?)\s+(must|need to|have to|will have to|should)\s+(pay|deposit)|pay\s*(rs\.?|₹|inr)\s*\d+\s*(to|for|as)\b/.test(text)) red.push("The post asks you to pay a fee. Real jobs never ask you to pay.");
+  if (/whatsapp\s*(only|me\b|on\s*\+?\d)|(contact|message|apply|send|share)[^.\n]{0,30}\bon\s+whatsapp/.test(text)) red.push("It asks you to contact them only on WhatsApp.");
   if (/@(gmail|yahoo|outlook|hotmail)\.com/.test(text)) red.push("It uses a personal email address for hiring.");
   if (/paid\s*task|task.*before.*selection/.test(text)) red.push("It asks you to do a paid task to be selected.");
   red.forEach((r) => checks.push({ group: "Who posted the job", text: r, result: "warn" }));
 
   const closed = /position filled|no longer accepting|closed/i.test(job.title) || /closed|filled/i.test(job.jobState || "");
-  const fake = red.some((r) => r.includes("fee")) || (red.length >= 2) || (!company.linkedinUrl && !company.website && red.length >= 1);
+  // A big company with its own LinkedIn page (1,001+ people) is never called fake from words in the post:
+  // the warnings still show, but the verdict stays genuine. Words in a long corporate post misfire too easily.
+  const big = !!company.linkedinUrl && (company.sizeMin ?? 0) >= 1001;
+  const fake = !big && (red.some((r) => r.includes("fee")) || (red.length >= 2) || (!company.linkedinUrl && !company.website && red.length >= 1));
   const verdict = closed ? "closed" : job.consultant ? "agency" : fake ? "fake" : company.linkedinUrl || company.website || company.rating != null ? "genuine" : "unverified";
   return { checks, verdict, red } as const;
 }

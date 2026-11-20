@@ -53,7 +53,7 @@ export function WaitingScreen({ email, pendingLink, declineMessage }: { email: s
           {[
             ["Rajveer approves you", "You'll see it here the next time you open Hunting Fox."],
             ["You get your searches", "He decides how many each student gets while we test."],
-            ["Paste any LinkedIn or Naukri job", "We check the company, find people who work there, and show what to change in your resume."],
+            ["Paste any LinkedIn job", "We check the company, find people who work there, and show what to change in your resume."],
           ].map(([t, d], i) => (
             <li key={i} className="st">
               <span style={{ width: 28, height: 28, flex: "none", borderRadius: 11, background: "var(--bg)", display: "grid", placeItems: "center", fontWeight: 700, fontSize: 14 }}>{i + 1}</span>

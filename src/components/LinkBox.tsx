@@ -56,7 +56,7 @@ export function LinkBox({ signedIn, initial = "", onStarting, onStarted, onFaile
       <form className={`card box${c.kind === "bad" || err ? " bad" : ""}`} style={{ marginTop: 32 }} onSubmit={go}>
         <span className="tile" style={{ background: "var(--tile)" }}>{Icon.link()}</span>
         <label htmlFor="joblink" className="sr">Job link</label>
-        <input id="joblink" type="text" inputMode="url" autoComplete="off" placeholder="Paste a LinkedIn or Naukri job link" value={link} onChange={(e) => setLink(e.target.value)} aria-describedby="linkmsg" />
+        <input id="joblink" type="text" inputMode="url" autoComplete="off" placeholder="Paste a LinkedIn job link" value={link} onChange={(e) => setLink(e.target.value)} aria-describedby="linkmsg" />
         {c.kind === "empty" && <button type="button" className="chip" onClick={paste}>Paste</button>}
         <button type="submit" className={`btn lg ${c.kind === "ok" || busy ? "pri" : "off"}${busy ? " loading" : ""}`} disabled={c.kind !== "ok" || busy} aria-busy={busy}>
           {busy ? <><Spinner size={18} color="#fff" />{signedIn ? "Starting…" : "Opening sign-in…"}</> : <>Show me what to do{Icon.arrow()}</>}

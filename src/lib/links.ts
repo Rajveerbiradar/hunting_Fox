@@ -5,7 +5,7 @@ export type LinkCheck =
   | { kind: "bad"; msg: string }
   | { kind: "ok"; msg: string; url: string; portal: "linkedin" | "naukri" };
 
-const HOW = "Open the job on LinkedIn or Naukri, then copy its link from Share or the address bar.";
+const HOW = "Open the job on LinkedIn, then copy its link from Share or the address bar.";
 
 export function checkLink(raw: string): LinkCheck {
   const t = (raw || "").trim();
@@ -14,7 +14,7 @@ export function checkLink(raw: string): LinkCheck {
   const url = (m ? m[0] : t).replace(/[)\].,]+$/, "");
   const extracted = !!m && m[0] !== t;
   if (/internshala\.com/i.test(url))
-    return { kind: "bad", msg: "We don't work with Internshala yet. For now, paste a job from LinkedIn or Naukri." };
+    return { kind: "bad", msg: "We don't work with Internshala yet. For now, paste a job from LinkedIn." };
   if (/linkedin\.com\/company\//i.test(url))
     return { kind: "bad", msg: "That's a company page, not a job. Open the job you want on LinkedIn and copy its link." };
   if (/linkedin\.com\/in\//i.test(url))

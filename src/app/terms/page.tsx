@@ -10,7 +10,7 @@ export default function Page() {
       updated="18 November 2026"
       sections={[
         ["What Hunting Fox is", [
-          "Hunting Fox is a free personal project run by Rajveer Biradar, a person, not a company. You paste a LinkedIn or Naukri job link and it shows what to change in your resume for that job, people who work there, and messages you can send them yourself.",
+          "Hunting Fox is a free personal project run by Rajveer Biradar, a person, not a company. You paste a LinkedIn job link and it shows what to change in your resume for that job, people who work there, and messages you can send them yourself.",
           "By signing in you agree to these terms. If you don't agree, please don't use it.",
         ]],
         ["Access and searches", [

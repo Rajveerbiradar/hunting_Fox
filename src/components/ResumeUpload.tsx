@@ -3,31 +3,9 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Icon, Spinner, copyText } from "./ui";
 
-/** For students with no resume, or one we can't read: paste into ChatGPT (or any AI), save the answer as a .txt file, upload it. */
-const AI_PROMPT = `Write my resume in this exact plain-text format, using only facts I give you. Ask me questions first if you need more (education, internships, projects, skills, links). Don't invent anything.
-
-# Full Name
-> What I do in a few words, like: Android Developer | UI/UX Designer
-@ email · phone · city · LinkedIn · GitHub · website
-## Summary
-Two lines about what I do.
-## Experience
-### Role, Company | Mon YYYY – Mon YYYY
-- What I did and the result, with **numbers** and **main tools** in double stars
-## Projects
-### Project name | Mon YYYY
-- What it does, what I built, what tools I used
-## Education
-### Degree, College | YYYY – YYYY
-## Skills
-**Languages:** ...
-**Tools:** ...
-## Achievements
-- Awards or competitions, if any
-
-Leave out any part I don't have.
-
-When it's done, give me only the resume in that format, nothing else.`;
+/** For students with no resume, or one we can't read: a full prompt file (public/resume-with-claude.md) they attach
+ * in Claude with their old resume; Claude asks questions and gives back resume.md in our template, which they upload. */
+const PROMPT_FILE = "/resume-with-claude.md";
 
 /** Upload → read in the background → straight to /resume/setup to check it part by part. Used on Home, Account and the resume page. */
 export function ResumeUpload({ signedIn, compact, current }: { signedIn: boolean; compact?: boolean; current?: string; onDone?: () => void }) {
@@ -110,13 +88,21 @@ export function ResumeUpload({ signedIn, compact, current }: { signedIn: boolean
           {!compact && (
             <div style={{ flex: "1 1 100%", fontSize: 14 }}>
               <button className="lnk" onClick={() => setShowPrompt(!showPrompt)} aria-expanded={showPrompt} style={{ background: "none", border: 0, padding: 0, color: "var(--ink)", fontWeight: 600, textDecoration: "underline", cursor: "pointer", fontSize: 14 }}>
-                {current ? "Want to make a fresh one with ChatGPT?" : "No resume, or we can't read yours? Make one with ChatGPT"}
+                {current ? "Want a better resume? Make it with Claude" : "No resume, or we can't read yours? Make it with Claude"}
               </button>
               {showPrompt && (
                 <div style={{ marginTop: 10, background: "var(--sunken)", borderRadius: 16, padding: 16 }}>
-                  <p className="mute" style={{ margin: "0 0 10px", lineHeight: 1.5 }}>1. Copy this and paste it into ChatGPT (or any AI). 2. Answer its questions. 3. Save its answer as a .txt file. 4. Tap {current ? "Change" : "Add resume"} and pick that file.</p>
-                  <pre style={{ margin: 0, whiteSpace: "pre-wrap", fontFamily: "inherit", fontSize: 14, lineHeight: 1.5 }}>{AI_PROMPT}</pre>
-                  <button className="btn sec" style={{ marginTop: 10 }} onClick={async () => { await copyText(AI_PROMPT); }}>Copy</button>
+                  <ol style={{ margin: "0 0 12px", paddingLeft: 20, lineHeight: 1.6 }}>
+                    <li><b>Download our resume prompt</b> (a .md file).</li>
+                    <li>Open <b>Claude</b> and attach that file <b>and your old resume</b>. No resume? Just write what you&apos;ve done in rough lines.</li>
+                    <li>Answer Claude&apos;s questions. Spelling doesn&apos;t matter.</li>
+                    <li>Claude gives you <b>resume.md</b>. Tap {current ? "Change" : "Add resume"} here and pick that file.</li>
+                  </ol>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <a className="btn sec" href={PROMPT_FILE} download="Hunting Fox - resume prompt.md">{Icon.download()}Download the prompt</a>
+                    <a className="btn sec" href="https://claude.ai/new" target="_blank" rel="noopener">Open Claude</a>
+                    <button className="btn ghost" onClick={async () => { const t = await fetch(PROMPT_FILE).then((r) => r.text()).catch(() => ""); if (t) await copyText(t); }}>Copy it instead</button>
+                  </div>
                 </div>
               )}
             </div>

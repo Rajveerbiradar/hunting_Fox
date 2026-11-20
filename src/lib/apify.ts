@@ -113,6 +113,17 @@ export async function scanMode(): Promise<"full" | "lean"> {
  */
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/** The status message of the run that just finished on this account, for the log. */
+async function runNote(actorId: string, token: string, since: number): Promise<string | null> {
+  try {
+    const r = await fetch(`https://api.apify.com/v2/acts/${actorId}/runs?token=${token}&desc=1&limit=5`, { signal: AbortSignal.timeout(10_000) });
+    if (!r.ok) return null;
+    const runs = ((await r.json())?.data?.items || []) as { status: string; startedAt: string; statusMessage?: string; id: string; stats?: { runTimeSecs?: number } }[];
+    const x = runs.find((y) => new Date(y.startedAt).getTime() >= since - 3000);
+    return x ? `${x.status}${x.statusMessage ? ` · "${x.statusMessage.slice(0, 200)}"` : ""} · run ${x.id}` : null;
+  } catch { return null; }
+}
+
 /** Why a run that returned no items didn't really succeed ("FAILED: <message>"), or null when it truly found nothing. */
 async function emptyRunReason(actorId: string, token: string, since: number): Promise<string | null> {
   try {
@@ -161,6 +172,8 @@ export async function runActor<T = Record<string, unknown>>(
   const order = usable.length ? usable : toks; // if all look exhausted, try anyway
   const id = actor.replace("/", "~");
   let lastErr = "";
+  let emptyRetried = false;
+  let emptyItems: T[] | null = null;
   for (const t of order) {
     const url = `https://api.apify.com/v2/acts/${id}/run-sync-get-dataset-items?token=${t.token}&timeout=${opts.timeoutSec ?? 120}`;
     // Same account, up to 3 tries, but only for "busy" or "broken right now" answers (network, 408, 429, 5xx).
@@ -194,6 +207,18 @@ export async function runActor<T = Record<string, unknown>>(
         // came back empty in 1.5 s three times on one account; the same input found people on another).
         if (n === 0) {
           const why = await emptyRunReason(id, t.token, t0);
+          const note = await runNote(id, t.token, t0);
+          if (note) await jlog("info", "apify", `Empty run on "${t.label}" said: ${note}`);
+          // Even a "succeeded" empty run can be the account, not the company (HDFC Bank: 0 in 1.4 s on one account,
+          // people on another). Give one other account a go before believing "nobody".
+          if (!why && order.length > 1 && !emptyRetried && t !== order[order.length - 1]) {
+            emptyRetried = true;
+            lastErr = `${t.label}: empty`;
+            await jlog("info", "apify", `${actor} came back empty on "${t.label}". Trying one other account before believing it`);
+            moveOn = true;
+            emptyItems = items;
+            break;
+          }
           if (why) {
             lastErr = `${t.label}: ${why}`;
             await jlog("warn", "apify", `${actor} on "${t.label}" came back empty because the run ${why}. Trying the next account`);
@@ -218,5 +243,7 @@ export async function runActor<T = Record<string, unknown>>(
       // 408 / 429 / 5xx: busy or broken right now. Loop tries the same account again.
     }
   }
+  // Every account we tried came back empty or failed after an empty one: it really is empty.
+  if (emptyItems) return { items: emptyItems, label: "empty" };
   throw new Error(`All Apify tokens failed: ${lastErr}`);
 }

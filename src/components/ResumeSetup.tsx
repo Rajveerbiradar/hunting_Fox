@@ -36,10 +36,14 @@ export function ResumeSetup({ initial, fresh }: { initial: string; fresh?: boole
   const [intro, setIntro] = useState(!!fresh);
   const [missing, setMissing] = useState<string[]>([]);
 
+  // A failed load (offline, signed out, an old address) must not look like "No resume yet".
+  const [loadErr, setLoadErr] = useState("");
   async function load() {
-    const d = await fetch("/api/resume/setup", { cache: "no-store" }).then((r) => r.json()).catch(() => null);
-    if (d?.groups) { setGroups(d.groups); setSetup(d.setup || {}); setMissing(d.missing || []); }
-    else setGroups([]);
+    const r = await fetch("/api/resume/setup", { cache: "no-store" }).catch(() => null);
+    const d = r ? await r.json().catch(() => null) : null;
+    if (r?.ok && d?.groups) { setGroups(d.groups); setSetup(d.setup || {}); setMissing(d.missing || []); setLoadErr(""); return; }
+    setLoadErr(r?.status === 401 ? "signed_out" : "failed");
+    setGroups(null);
   }
   useEffect(() => { void load(); }, []);
 
@@ -185,7 +189,15 @@ export function ResumeSetup({ initial, fresh }: { initial: string; fresh?: boole
           </div>
         )}
 
-        {!groups && <div className="card" style={{ marginTop: 20, padding: 24, display: "flex", gap: 12, alignItems: "center" }}><Spinner size={22} label="Loading" /><span className="mute">Loading your resume…</span></div>}
+        {!groups && !loadErr && <div className="card" style={{ marginTop: 20, padding: 24, display: "flex", gap: 12, alignItems: "center" }}><Spinner size={22} label="Loading" /><span className="mute">Loading your resume…</span></div>}
+
+        {loadErr && (
+          <div className="card" role="alert" style={{ marginTop: 20, padding: 24 }}>
+            <div style={{ fontSize: 18, fontWeight: 700 }}>{loadErr === "signed_out" ? "You're signed out" : "We couldn't load your resume"}</div>
+            <p className="mute" style={{ margin: "6px 0 12px" }}>{loadErr === "signed_out" ? "Sign in again to check your resume." : "Check your internet and try again. If you opened an old link, open huntingfox.journeytix.com instead."}</p>
+            {loadErr === "signed_out" ? <a href="/sign-in?next=/resume/setup" className="btn sec">Sign in</a> : <button className="btn sec" onClick={() => void load()}>Try again</button>}
+          </div>
+        )}
 
         {groups && !groups.length && (
           <div className="card" style={{ marginTop: 20, padding: 24 }}>

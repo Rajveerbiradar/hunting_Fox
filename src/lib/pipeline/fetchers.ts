@@ -74,12 +74,23 @@ function onDomain(email: string, company: CompanyData) {
 
 /** LinkedIn: automation_craft/linkedin-job-details-scraper */
 export async function fetchLinkedIn(url: string, own?: string | null): Promise<{ job: JobData; company: CompanyData }> {
-  const { items } = await runActor<any>("automation_craft/linkedin-job-details-scraper", {
+  const read = () => runActor<any>("automation_craft/linkedin-job-details-scraper", {
     jobUrls: [url],
     includeCompanyDetails: true,
     includeJobPoster: true,
   }, { timeoutSec: 90, ownToken: own });
-  const j = items.find((x) => x.type === "job") || items.find((x) => x.type !== "summary");
+  const pick = (items: any[]) => items.find((x) => x.type === "job" && (x.title || x.jobTitle)) || items.find((x) => x.type !== "summary" && (x.title || x.jobTitle));
+  let { items } = await read();
+  let j = pick(items);
+  // The scraper sometimes answers with a job row that has no title or company (LinkedIn blocked that request,
+  // 20 Nov: HDFC Bank showed " at " and skipped the people search). Read it once more before giving up.
+  if (!j) {
+    const row = items.find((x) => x.type === "job") || items[0] || {};
+    await jlog("warn", "job", `The job post came back empty (status ${String(row.status || "?")}${row.error ? `: ${String(row.error).slice(0, 120)}` : ""}). Reading it once more`);
+    await new Promise((r) => setTimeout(r, 2000));
+    ({ items } = await read());
+    j = pick(items);
+  }
   if (!j) throw new Error("JOB_NOT_FOUND");
   const c = j.company || {};
   const poster = j.jobPoster || j.poster || {};

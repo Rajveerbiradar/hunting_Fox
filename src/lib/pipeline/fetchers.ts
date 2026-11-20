@@ -54,7 +54,7 @@ export function worksThere(r: any, company: CompanyData): string | null {
   const domain = (company.domain || "").toLowerCase();
   const emails = [r.email, ...(Array.isArray(r.workEmails) ? r.workEmails : []), ...(Array.isArray(r.emails) ? r.emails.map((e: any) => e?.email) : [])].map(str).filter(Boolean);
   if (domain && emails.some((e) => { const d = e.split("@")[1]?.toLowerCase() || ""; return d === domain || d.endsWith("." + domain); })) return "work email";
-  const positions: any[] = Array.isArray(r.positions) ? r.positions : Array.isArray(r.experience) ? r.experience : [];
+  const positions: any[] = Array.isArray(r.positions) ? r.positions : Array.isArray(r.experience) ? r.experience : Array.isArray(r.currentPositions) ? r.currentPositions : [];
   const current = positions.filter((p) => { const end = str(p.endDate || p.end); return !end || /present/i.test(end); });
   const stem = domain.split(".")[0];
   if (current.some((p) => { const c = str(p.company || p.companyName); return sameCompany(c, company.name) || (stem.length >= 4 && cname(c).replace(/ /g, "") === stem); })) return "current job";
@@ -171,7 +171,7 @@ function monthsSince(d: any) {
 function cleanPerson(r: any, i: number, company: string): Person | null {
   const name = str(r.fullName || r.name || [r.firstName, r.lastName].filter(Boolean).join(" "));
   if (!name) return null;
-  const positions: any[] = Array.isArray(r.positions) ? r.positions : Array.isArray(r.experience) ? r.experience : [];
+  const positions: any[] = Array.isArray(r.positions) ? r.positions : Array.isArray(r.experience) ? r.experience : Array.isArray(r.currentPositions) ? r.currentPositions : [];
   const lc = company.toLowerCase();
   const isCurrent = (p: any) => { const e = p.endDate; return !e || /present/i.test(str(e.text || e)); };
   const current = positions.find((p) => isCurrent(p) && (!lc || str(p.companyName || p.company).toLowerCase().includes(lc.split(" ")[0]))) || positions.find(isCurrent) || positions[0];
@@ -236,8 +236,17 @@ export async function fetchPeople(company: CompanyData, jobTitle: string, mode: 
       }
     };
     const big = (company.sizeMin ?? 0) > 200;
+    // The employee run sometimes comes back empty in a few seconds even for a company with people (seen on
+    // NextGen Digital Solutions, 51-200, where a second run found them). Zero people decides "may be fake", so
+    // never trust one empty run: try once more in the quick "Short" mode (names + titles, no emails).
+    const everyone = async () => {
+      const first = await harvest({}, want, "everyone");
+      if (first.length) return first;
+      await new Promise((r) => setTimeout(r, 2000));
+      return harvest({ profileScraperMode: "Short ($4 per 1k)" }, want, "everyone, second try");
+    };
     const [all, close] = await Promise.all([
-      harvest({}, want, "everyone"),
+      everyone(),
       big && kw[0] ? harvest({ searchQuery: kw[0] }, mode === "full" ? 10 : 5, `closest to "${kw[0]}"`) : Promise.resolve([]),
     ]);
     rows = [...close, ...all];

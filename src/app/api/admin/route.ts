@@ -26,8 +26,11 @@ export async function PATCH(req: Request) {
   // AI budget in tokens: set it, or top it up (adds to what's left).
   if (b.ai_limit != null) patch.ai_token_limit = Math.max(0, Math.round(Number(b.ai_limit) || 0));
   if (b.ai_add != null) {
-    const { data: cur } = await sb.from("profiles").select("ai_token_limit").eq("id", b.id).single();
-    patch.ai_token_limit = Math.max(0, (cur?.ai_token_limit || 0) + Math.round(Number(b.ai_add) || 0));
+    // A top-up gives that many tokens to USE from now. Usage can run past the limit (a call already running when the
+    // limit is hit still counts), so adding to the old limit could leave a student still "used up" after +100k.
+    const { data: cur } = await sb.from("profiles").select("ai_token_limit,ai_tokens_used").eq("id", b.id).single();
+    const base = Math.max(cur?.ai_token_limit || 0, cur?.ai_tokens_used || 0);
+    patch.ai_token_limit = Math.max(0, base + Math.round(Number(b.ai_add) || 0));
   }
   // "Can't let you in yet": they stay on the waiting list and get the message in the app and by email.
   if (b.decline) {

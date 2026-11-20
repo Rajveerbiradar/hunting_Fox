@@ -25,7 +25,7 @@ type R = {
   rewrite_error?: string;
 };
 
-export function ResumePage({ jobId, company, resume: start, hasResume, skills, initial, portal, answered = [] }: { jobId: string; company: string; resume: R | null; hasResume: boolean; skills: Skill[]; initial: string; portal: string; answered?: { q: string; a: string }[] }) {
+export function ResumePage({ jobId, company, resume: start, hasResume, skills, initial, portal, answered = [], budgetDone = false }: { jobId: string; company: string; resume: R | null; hasResume: boolean; skills: Skill[]; initial: string; portal: string; answered?: { q: string; a: string }[]; budgetDone?: boolean }) {
   const [resume, setResume] = useState<R | null>(start);
   const [mine, setMine] = useState<Skill[]>(skills);
   const [editing, setEditing] = useState<Record<string, boolean>>({});
@@ -225,7 +225,7 @@ export function ResumePage({ jobId, company, resume: start, hasResume, skills, i
           <>
             {/* A rewrite that didn't finish only tells the student when they asked for it (the toast). Opening the
                 page never shows an error: the earlier changes stay, or the "not made yet" card below. */}
-            {resume.rewrite_error === "budget" && !busy && !broke && (
+            {resume.rewrite_error === "budget" && budgetDone && !busy && !broke && (
               <div className="card" role="status" style={{ marginTop: 24, padding: "16px 22px", background: "#EEF1F5", fontSize: 16, lineHeight: 1.5 }}>
                 <b>The AI budget allocated to you is finished.</b> <span className="mute">AI credits are separate from your search credits. Hunting Fox is a personal project with a limited budget, so please ask the admin for more AI credits. Your answers are saved.</span>
               </div>
@@ -234,7 +234,7 @@ export function ResumePage({ jobId, company, resume: start, hasResume, skills, i
             {broke && !busy && (
               <div className="card" role="status" style={{ marginTop: 24, padding: "22px 24px" }}>
                 <div style={{ fontSize: 18, fontWeight: 700 }}>Your resume isn&apos;t made for {company} yet</div>
-                {resume.failed === "budget" ? (
+                {resume.failed === "budget" && budgetDone ? (
                   <p className="mute" style={{ margin: "6px 0 0", fontSize: 16, lineHeight: 1.5 }}>The AI budget allocated to you is finished, so we can&apos;t rewrite it right now. AI credits are separate from your search credits. Please ask the admin for more. Below is your main resume, which you can download as it is.</p>
                 ) : (
                   <>

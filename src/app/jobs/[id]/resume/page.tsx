@@ -1,3 +1,4 @@
+import { AdminViewBar } from "@/components/AdminViewBar";
 import { loadJob } from "@/lib/jobdata";
 import { ResumePage } from "@/components/ResumePage";
 import { budgetLeft } from "@/lib/usage";
@@ -6,10 +7,12 @@ export const dynamic = "force-dynamic";
 
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { user, job, report, profile } = await loadJob(id);
+  const { user, job, report, profile, asAdmin } = await loadJob(id);
   // An old "budget finished" on this job only matters if the budget is still finished (the admin may have topped up).
-  const budgetDone = (await budgetLeft(user.id).catch(() => ({ done: false }))).done;
+  const budgetDone = (await budgetLeft(job.user_id || user.id).catch(() => ({ done: false }))).done;
   return (
+    <>
+      {asAdmin && <AdminViewBar name={profile?.name || profile?.email} />}
     <ResumePage
       jobId={job.id}
       company={report?.company_data?.name || job.company || "this job"}
@@ -21,5 +24,6 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
       portal={job.portal}
       budgetDone={budgetDone}
     />
+    </>
   );
 }

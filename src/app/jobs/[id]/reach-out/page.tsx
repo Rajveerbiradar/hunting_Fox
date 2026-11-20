@@ -1,3 +1,4 @@
+import { AdminViewBar } from "@/components/AdminViewBar";
 import { loadJob } from "@/lib/jobdata";
 import { ReachOut } from "@/components/ReachOut";
 import { isPersonalised } from "@/lib/resumeDiff";
@@ -6,12 +7,14 @@ export const dynamic = "force-dynamic";
 
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { user, job, report, profile } = await loadJob(id);
+  const { user, job, report, profile, asAdmin } = await loadJob(id);
   // Which resume the PDF will be: this company's version (applied changes) or the student's main resume.
   const base = String(profile?.resume_text || "").split("\n").map((l: string) => l.trim()).filter(Boolean);
   const levels = Object.fromEntries((profile?.skills || []).map((s: { name: string; level: number }) => [s.name.toLowerCase(), s.level]));
   const personalised = isPersonalised(report?.resume, levels);
   return (
+    <>
+      {asAdmin && <AdminViewBar name={profile?.name || profile?.email} />}
     <ReachOut
       jobId={job.id}
       company={report?.company_data?.name || job.company || "this company"}
@@ -27,5 +30,6 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
       job={report?.job_data || null}
       asked={(report?.resume?.skill_questions || []).map((q: { skill: string }) => q.skill)}
     />
+    </>
   );
 }

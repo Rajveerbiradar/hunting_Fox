@@ -131,7 +131,7 @@ export function AdminJobs() {
           );
         })}
       </div>
-      <p className="mute" style={{ margin: "16px 8px 0", fontSize: 14 }}>&quot;Run again&quot; doesn&apos;t use one of the student&apos;s searches. Each job runs on its own, so one stuck job never holds up the others. &quot;Open&quot; works only for your own jobs.</p>
+      <p className="mute" style={{ margin: "16px 8px 0", fontSize: 14 }}>&quot;Run again&quot; doesn&apos;t use one of the student&apos;s searches. Each job runs on its own, so one stuck job never holds up the others. &quot;Open&quot; shows any student&apos;s job exactly as they see it (read-only).</p>
       {toast.el}
     </>
   );

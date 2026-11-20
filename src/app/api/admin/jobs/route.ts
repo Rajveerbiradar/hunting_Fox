@@ -15,26 +15,6 @@ export async function GET(req: Request) {
     const { data, error } = await sb.from("job_logs").select("at,level,step,msg,ms").eq("job_id", logFor).order("id").limit(300);
     return NextResponse.json({ log: data || [], error: error ? "Run supabase/migrations/006_job_logs.sql to turn on logs." : undefined });
   }
-  // ?result=<job id>: what the student saw: the checks, the resume changes and the people (for reviewing quality).
-  const resFor = new URL(req.url).searchParams.get("result");
-  if (resFor) {
-    const { data: r } = await sb.from("reports").select("verdict,checks,resume,people").eq("job_id", resFor).maybeSingle();
-    const res = (r?.resume || null) as Record<string, unknown> | null;
-    return NextResponse.json({
-      verdict: r?.verdict || null,
-      checks: Array.isArray(r?.checks) ? r!.checks : [],
-      resume: res ? {
-        failed: res.failed || null, applied: !!res.applied, rewrite_error: res.rewrite_error || null,
-        company_brief: res.company_brief || null, priorities: res.priorities || [], gaps: res.gaps || [],
-        skill_questions: res.skill_questions || [], edits: res.edits || [], summary_insert: res.summary_insert || null,
-        decisions: res.decisions || {},
-      } : null,
-      people: (Array.isArray(r?.people) ? r!.people : []).map((p: Record<string, unknown>) => ({
-        name: p.name, title: p.title, why: p.why, email: p.email, profileUrl: p.profileUrl,
-        skills: Array.isArray(p.skills) ? (p.skills as string[]).slice(0, 12) : [],
-      })),
-    });
-  }
   const { data: jobs } = await sb.from("jobs").select("id,user_id,url,portal,status,step,error,title,company,created_at,finished_at,own_key,reports(people,verdict)").order("created_at", { ascending: false }).limit(500);
   const ids = [...new Set((jobs || []).map((j) => j.user_id))];
   const { data: profs } = await sb.from("profiles").select("id,name,email").in("id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]);

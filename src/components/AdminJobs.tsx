@@ -30,15 +30,6 @@ export function AdminJobs() {
   const [site, setSite] = useState("all");
   const sorter = useSort("admin_jobs");
   const [logOpen, setLogOpen] = useState<string | null>(null);
-  // "Results": exactly what the student got (checks, resume changes, people), to review quality.
-  const [resOpen, setResOpen] = useState<string | null>(null);
-  const [res, setRes] = useState<Res | null>(null);
-  async function openRes(id: string) {
-    if (resOpen === id) { setResOpen(null); return; }
-    setResOpen(id); setRes(null);
-    const d = await fetch(`/api/admin/jobs?result=${id}`, { cache: "no-store" }).then((r) => r.json()).catch(() => null);
-    setRes(d || { verdict: null, checks: [], resume: null, people: [] });
-  }
   const [log, setLog] = useState<{ lines: L[]; error?: string } | null>(null);
   async function openLog(id: string) {
     if (logOpen === id) { setLogOpen(null); return; }
@@ -101,12 +92,11 @@ export function AdminJobs() {
                 {(j.status === "failed" || (working(j) && Date.now() - new Date(j.created_at).getTime() > 10 * 60_000)) && (
                   <button className="btn sec sm" onClick={async () => { await fetch("/api/admin/jobs", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: j.id }) }); toast.show("Running again"); load(); }}>Run again</button>
                 )}
-                <button className="btn sec sm" aria-expanded={resOpen === j.id} onClick={() => openRes(j.id)}>{resOpen === j.id ? "Hide results" : "Results"}</button>
                 <button className="btn sec sm" aria-expanded={logOpen === j.id} onClick={() => openLog(j.id)}>{logOpen === j.id ? "Hide log" : "Log"}</button>
                 <a className="btn sec sm" href={j.url} target="_blank" rel="noopener">Job post</a>
-                {j.status === "ready" && <Link className="btn sec sm" href={`/jobs/${j.id}`}>Open</Link>}
+                {/* Results: the student's own job page, exactly as they see it (read-only admin view), for every outcome. */}
+                <Link className="btn sec sm" href={`/jobs/${j.id}`} target="_blank">Results</Link>
               </div>
-              {resOpen === j.id && <ResultPanel res={res} />}
               {logOpen === j.id && (
                 <div style={{ flexBasis: "100%", background: "var(--sunken)", borderRadius: 14, padding: 12, overflowX: "auto" }}>
                   {!log ? <div className="mute" style={{ display: "flex", gap: 8, alignItems: "center" }}><Spinner size={16} />Loading log…</div>
@@ -131,68 +121,9 @@ export function AdminJobs() {
           );
         })}
       </div>
-      <p className="mute" style={{ margin: "16px 8px 0", fontSize: 14 }}>&quot;Run again&quot; doesn&apos;t use one of the student&apos;s searches. Each job runs on its own, so one stuck job never holds up the others. &quot;Open&quot; shows any student&apos;s job exactly as they see it (read-only).</p>
+      <p className="mute" style={{ margin: "16px 8px 0", fontSize: 14 }}>&quot;Run again&quot; doesn&apos;t use one of the student&apos;s searches. Each job runs on its own, so one stuck job never holds up the others. &quot;Results&quot; opens the student&apos;s own job page, exactly as they see it (read-only).</p>
       {toast.el}
     </>
   );
 }
 
-type Res = {
-  verdict: string | null;
-  checks: { group?: string; text: string; result: string }[];
-  resume: null | {
-    failed: string | null; applied: boolean; rewrite_error: string | null;
-    company_brief: { believes: string; building: string; deliver: string } | null;
-    priorities: { need: string; proof: string; strength: string }[];
-    gaps: { question: string; why: string }[];
-    skill_questions: { skill: string; why: string }[];
-    edits: { old: string; new: string; reason: string; group?: string }[];
-    summary_insert: { text: string; reason: string } | null;
-    decisions: Record<string, boolean>;
-  };
-  people: { name: string; title: string; why?: string; email?: string; profileUrl?: string; skills: string[] }[];
-};
-
-/** What the student got for one job: company checks, resume changes (old → new), questions, and the ranked people. */
-function ResultPanel({ res }: { res: Res | null }) {
-  const H = ({ children }: { children: React.ReactNode }) => <div className="lbl" style={{ margin: "14px 0 6px" }}>{children}</div>;
-  if (!res) return <div style={{ flexBasis: "100%", background: "var(--sunken)", borderRadius: 14, padding: 12 }} className="mute"><Spinner size={16} /> Loading results…</div>;
-  const r = res.resume;
-  const color = (x: string) => x === "pass" || x === "strong" ? "#1a6b3c" : x === "fail" || x === "none" ? "#b8132f" : x === "warn" || x === "weak" ? "#4f3e00" : "var(--mute)";
-  return (
-    <div style={{ flexBasis: "100%", background: "var(--sunken)", borderRadius: 14, padding: "4px 14px 14px", fontSize: 14, lineHeight: 1.5 }}>
-      <H>Company check · {res.verdict || "no verdict"}</H>
-      {res.checks.length ? res.checks.map((c, k) => <div key={k}><b style={{ color: color(c.result) }}>{c.result}</b> · {c.text}</div>) : <div className="mute">No checks saved.</div>}
-
-      <H>Resume{r ? (r.failed ? ` · failed: ${r.failed}` : r.applied ? " · applied by the student" : " · not applied yet") : ""}</H>
-      {!r ? <div className="mute">No resume work on this job.</div> : <>
-        {r.rewrite_error && <div style={{ color: "#b8132f" }}>Last rewrite failed: {r.rewrite_error}</div>}
-        {r.company_brief && <div style={{ marginBottom: 6 }}><b>Believes:</b> {r.company_brief.believes}<br /><b>Building:</b> {r.company_brief.building}<br /><b>Would deliver:</b> {r.company_brief.deliver}</div>}
-        {r.priorities.map((p, k) => <div key={k}><b style={{ color: color(p.strength) }}>{p.strength}</b> · {p.need} <span className="mute">· proof: {p.proof || "none"}</span></div>)}
-        {r.summary_insert && <div style={{ marginTop: 6, background: "#e5f3e9", borderRadius: 10, padding: "6px 10px" }}><b>New summary:</b> {r.summary_insert.text}</div>}
-        {r.edits.map((e, k) => {
-          const dropped = r.decisions[e.group || String(k)] === false;
-          return (
-            <div key={k} style={{ marginTop: 8, opacity: dropped ? 0.5 : 1 }}>
-              {e.old && <div style={{ background: "#fdecef", color: "#b8132f", borderRadius: 10, padding: "4px 10px", textDecoration: "line-through" }}>{e.old}</div>}
-              <div style={{ background: "#e5f3e9", color: "#1a6b3c", borderRadius: 10, padding: "4px 10px", marginTop: 2 }}>{e.new}</div>
-              <div className="mute" style={{ fontSize: 13 }}>{dropped ? "Dropped by the student · " : ""}{e.reason}</div>
-            </div>
-          );
-        })}
-        {!r.edits.length && !r.failed && <div className="mute">No changes suggested.</div>}
-        {r.gaps.length > 0 && <><H>Questions asked</H>{r.gaps.map((g, k) => <div key={k}>• {g.question} <span className="mute">({g.why})</span></div>)}</>}
-        {r.skill_questions.length > 0 && <><H>Skills asked about</H><div>{r.skill_questions.map((q) => q.skill).join(" · ")}</div></>}
-      </>}
-
-      <H>People shown ({res.people.length})</H>
-      {res.people.length ? res.people.map((p, k) => (
-        <div key={k} style={{ marginTop: 6 }}>
-          <b>{k + 1}. {p.name}</b> · {p.title} {p.email && <span style={{ color: "#1a6b3c" }}>· {p.email}</span>} {p.profileUrl && <a href={p.profileUrl} target="_blank" rel="noopener">LinkedIn</a>}
-          {p.why && <div className="mute">{p.why}</div>}
-          {p.skills.length > 0 && <div className="mute" style={{ fontSize: 13 }}>Skills: {p.skills.join(", ")}</div>}
-        </div>
-      )) : <div className="mute">No people.</div>}
-    </div>
-  );
-}

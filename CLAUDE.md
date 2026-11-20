@@ -57,7 +57,7 @@ For Google sign-in to work locally, Supabase → Authentication → URL Configur
 
 `NEXT_PUBLIC_*` must stay public (browser sign-in needs them); in Vercel they must be type **Config**, not Secret.
 
-**API keys normally live in the database, not env**: /admin → API keys (Apify accounts and AI providers). Every key must pass a test before it can be saved. Stored AES-256-GCM encrypted with `KEYS_SECRET` (`src/lib/secrets.ts`).
+**Anthropic models** (`src/lib/anthropicModels.ts`: Haiku 5.5, Sonnet 5.5, Opus 5.5, Fable 5.2 with $/M prices): the AI key editor shows them as one-tap picks when the base URL is Anthropic, and a saved Anthropic key shows "+ {model}" buttons (`ai_add_model`: copies the encrypted key on the server, tests the model, saves it with its price filled in), so each model is its own provider to pick for Writing or Ranking. **API keys normally live in the database, not env**: /admin → API keys (Apify accounts and AI providers). Every key must pass a test before it can be saved. Stored AES-256-GCM encrypted with `KEYS_SECRET` (`src/lib/secrets.ts`).
 
 ## Database
 

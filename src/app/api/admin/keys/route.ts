@@ -5,6 +5,7 @@ import { decrypt, encrypt, last4, saveSetting, settings } from "@/lib/secrets";
 import { checkToken, pooledCredit } from "@/lib/apify";
 import { testProvider } from "@/lib/ai";
 import { clefConfig, testClef } from "@/lib/clef";
+import { anthropicPrice } from "@/lib/anthropicModels";
 
 /** Never returns a key: only its last 4 characters. */
 async function overview() {
@@ -155,8 +156,24 @@ export async function POST(req: Request) {
         await sb.from("ai_providers").update({ name, base_url: p.baseURL, key_enc: encrypt(p.apiKey), last4: last4(p.apiKey), model: p.model, ok: true, last_error: null, checked_at: now }).eq("id", b.id);
       } else {
         const { count } = await sb.from("ai_providers").select("id", { count: "exact", head: true });
-        await sb.from("ai_providers").insert({ name, base_url: p.baseURL, key_enc: encrypt(p.apiKey), last4: last4(p.apiKey), model: p.model, position: count || 0, checked_at: now });
+        const pr = anthropicPrice(p.model);
+        await sb.from("ai_providers").insert({ name, base_url: p.baseURL, key_enc: encrypt(p.apiKey), last4: last4(p.apiKey), model: p.model, position: count || 0, checked_at: now, ...(pr ? { price_in: pr.in, price_out: pr.out } : {}) });
       }
+      break;
+    }
+    // The same saved key with another model (one tap per Anthropic model): the key is copied on the server,
+    // never sent back to the page. Tested before it's added; the model's price fills the usage box.
+    case "ai_add_model": {
+      const { data: src } = await sb.from("ai_providers").select("*").eq("id", b.from).maybeSingle();
+      const model = String(b.model || "").trim();
+      if (!src || !model) return NextResponse.json({ error: "That key isn't saved any more." }, { status: 400 });
+      const apiKey = decrypt(src.key_enc);
+      const t = await testProvider({ baseURL: src.base_url, apiKey, model });
+      if (!t.ok) return NextResponse.json({ error: `${model} didn't work with this key: ${t.title || t.code || "test failed"}` }, { status: 400 });
+      const pr = anthropicPrice(model);
+      const name = String(b.name || "").trim().slice(0, 40) || src.name;
+      const { count } = await sb.from("ai_providers").select("id", { count: "exact", head: true });
+      await sb.from("ai_providers").insert({ name, base_url: src.base_url, key_enc: src.key_enc, last4: src.last4, model, position: count || 0, checked_at: now, ...(pr ? { price_in: pr.in, price_out: pr.out } : {}) });
       break;
     }
     case "ai_check": {

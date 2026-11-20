@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { Icon, Spinner, useToast } from "./ui";
+import { ANTHROPIC_MODELS, isAnthropic } from "@/lib/anthropicModels";
 
 type Tok = { label: string; last4: string | null; exhausted: boolean; remaining: number | null; start: number | null; rows: number; added: string | null; checked: string | null; source: "admin" | "env" };
 type Prov = { id: string; name: string; base: string; model: string; last4: string | null; ok: boolean; error: string | null; source: "admin" | "env" };
@@ -88,6 +89,12 @@ export function AdminKeys() {
         <div style={{ flex: "1 1 300px", minWidth: 0 }}><label htmlFor="kk" style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 6 }}>API key</label><input id="kk" className="in" type="password" autoComplete="off" style={{ width: "100%", ...mono }} placeholder={isAi ? "sk-…" : "apify_api_…"} value={ed?.key || ""} onChange={(e) => upd({ key: e.target.value })} /></div>
         {isAi && <div style={{ flex: "0 1 260px", minWidth: 0 }}><label htmlFor="km" style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 6 }}>Model</label><input id="km" className="in" style={{ width: "100%", ...mono, fontSize: 14 }} placeholder="model name" value={ed?.model || ""} onChange={(e) => upd({ model: e.target.value })} /></div>}
       </div>
+      {isAi && isAnthropic(ed?.base || "") && (
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <span className="mute" style={{ fontSize: 14 }}>Pick a model:</span>
+          {ANTHROPIC_MODELS.map((m) => <button key={m.id} className="opt" role="radio" aria-checked={ed?.model === m.id} onClick={() => upd({ model: m.id })} title={m.note}>{m.label} · ${m.in}/${m.out}</button>)}
+        </div>
+      )}
       {phase === "testing" && <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 16, fontWeight: 600 }}><Spinner size={18} />{isAi ? "Sending a 10-token test request…" : "Checking the key with Apify…"}</div>}
       {phase === "pass" && test && (
         <div className="note" style={{ background: "var(--green-bg)", color: "var(--green)" }}>
@@ -192,6 +199,20 @@ export function AdminKeys() {
                 </div>
               )}
             </div>
+            {a.source === "admin" && isAnthropic(a.base) && i === data.ai.findIndex((x) => isAnthropic(x.base) && x.last4 === a.last4) && (() => {
+              const have = new Set(data.ai.filter((x) => isAnthropic(x.base) && x.last4 === a.last4).map((x) => x.model));
+              const more = ANTHROPIC_MODELS.filter((m) => !have.has(m.id));
+              return more.length ? (
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", padding: "0 20px 16px" }}>
+                  <span className="mute" style={{ fontSize: 14 }}>Add another model with this key (tested first, price filled in):</span>
+                  {more.map((m) => (
+                    <button key={m.id} className="btn sec sm" disabled={busy === `m-${m.id}`} title={m.note} onClick={() => act({ type: "ai_add_model", from: a.id, model: m.id, name: `Anthropic ${m.label}` }, `m-${m.id}`, `${m.label} added. Pick it under "Writing" or "Ranking" below`)}>
+                      {busy === `m-${m.id}` ? <Spinner size={14} /> : "+"} {m.label} · ${m.in} in / ${m.out} out
+                    </button>
+                  ))}
+                </div>
+              ) : null;
+            })()}
             {ed?.kind === "ai" && ed.target === a.id && editor}
           </div>
         ))}

@@ -73,6 +73,15 @@ export function OwnKeys() {
                 <div className="mute" style={{ fontSize: 14, lineHeight: 1.5 }}>
                   {r.k === "apify" ? "It's free: Apify gives every account $5 of credit each month, about 110 searches. Sign up at apify.com, then go to Settings → API & Integrations and copy your token." : "Groq and OpenRouter have free models. Paste the base URL, key and model name from your provider, or tap one below to fill in the address."}
                 </div>
+                <div className="note" style={{ background: "#ffefb0", color: "#4f3e00", fontSize: 14, lineHeight: 1.5 }}>
+                  <div style={{ fontSize: 16, fontWeight: 700 }}>⚠ Use a key made just for this, with a limit</div>
+                  <div style={{ marginTop: 4 }}>
+                    {r.k === "apify"
+                      ? "Make a new Apify token only for Hunting Fox and keep a low monthly usage limit on your Apify account (Settings → Usage limits). "
+                      : "Make a new key only for Hunting Fox and set a spending limit on it with your provider. "}
+                    Anything typed into a web page, including this box, can be read by browser extensions you&apos;ve installed, so only add a key you&apos;re fine to lose, and delete it at your provider if you stop using it.
+                  </div>
+                </div>
                 {r.k === "ai" && (
                   <>
                     <div role="radiogroup" aria-label="Where is your key from?" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>

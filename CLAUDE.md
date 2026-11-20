@@ -90,7 +90,7 @@ Server-only tables have RLS on and no policies; the app reads them with the serv
 
 `jobs.step` (0–5) + `step_detail` drive the progress popup, the live "three dots" step on Home/My jobs and admin Jobs. Job lists use `useLiveJobs` (ui.tsx): a new search shows up at once (`announceJob()` fires `hf:jobs` when a search starts; the hook pulls `/api/jobs` and adds new rows on top), running ones poll every 2.5 s, and a server refresh replaces the list.
 
-Student's own keys (`src/lib/ownKeys.ts`): if they have an Apify key, the search runs on it only and `jobs.own_key = true` (doesn't count). If it runs out: fall back to free searches or stop (`user_keys.fallback`).
+Student's own keys (`src/lib/ownKeys.ts`): the add-key form shows a ⚠ note: make a key just for Hunting Fox, set a usage/spending limit, and browser extensions can read what's typed into a page. Keys are still sent to our server (stored encrypted) because searches run on the server; browser-only keys are not built (see Open items). if they have an Apify key, the search runs on it only and `jobs.own_key = true` (doesn't count). If it runs out: fall back to free searches or stop (`user_keys.fallback`).
 
 Apify rotation (`src/lib/apify.ts` `runActor`): DB tokens in `added_at` order, then env. Rotates on 401/402/403/credit text and on 429/5xx/network; parks exhausted accounts; **never** retries a timeout on another account (it may still be running and costing money). Pooled credit = sum of all accounts; below $5 → "lean" mode.
 
@@ -168,6 +168,8 @@ Plain, descriptive words a student would use. No jargon ("plan", "pipeline", "cr
 3. Commit to `main` and push; Vercel deploys. Tell Rajveer if a migration needs running.
 
 ## Open items
+
+- Browser-only student keys (key never leaves the student's browser): needs the search to run in the student's open tab instead of on the server. Not built.
 
 - Spacing pass from the design audit (four spacing roles 12/16/32/48, panel indents) not done.
 - Phone bottom action bar on job page / resume / reach-out not done.

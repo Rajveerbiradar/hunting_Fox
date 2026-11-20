@@ -1,3 +1,4 @@
+import { recordVersion } from "@/lib/resumeHistory";
 import { NextResponse, after } from "next/server";
 import { adminClient, currentUser } from "@/lib/supabase/clients";
 import { writer } from "@/lib/ai";
@@ -46,6 +47,7 @@ async function readResume(userId: string, raw: string, path: string, fileName: s
       // Seed education once from the resume if the student hasn't added any.
       education: (p?.education || []).length ? p!.education : (profile.education || []),
     }).eq("id", userId);
+    await recordVersion(userId, { source: "upload", lines: lines.join("\n"), note: fileName, raw, filePath: path });
   } catch (e) {
     const msg = String((e as Error)?.message || e);
     console.error("[resume] AI failed:", msg);

@@ -78,6 +78,7 @@ export function AdminStudents({ initial, me, defaultSearches, onWaiting }: { ini
                   {isWaiting && u.declined_at && <span className="tag" style={{ background: "var(--tile)", color: "var(--mute)" }}>Told not yet · on the list</span>}
                 </div>
                 <div className="mute" style={{ fontSize: 14, wordBreak: "break-all" }}>{u.email}</div>
+                {u.resume_added_at && <a className="btn sec sm" style={{ marginTop: 8 }} href={`/admin/students/${u.id}`} target="_blank" rel="noopener">Resumes and changes</a>}
                 <div className="mute" style={{ fontSize: 14, marginTop: 4 }}>
                   Signed up {ago(u.created_at)}{u.resume_added_at ? " · resume added" : ""}{u.approved ? ` · used ${u.used} of ${u.search_limit}` : ""}
                 </div>

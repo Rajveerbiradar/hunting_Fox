@@ -1,3 +1,4 @@
+import { recordVersion } from "@/lib/resumeHistory";
 import { NextResponse, after } from "next/server";
 import { jlog, jobCtx } from "@/lib/joblog";
 import { adminClient, currentUser, userClient } from "@/lib/supabase/clients";
@@ -87,6 +88,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     if (b.action === "undo_main") {
       if (!r.main_before) return NextResponse.json({ error: "nothing_to_undo" }, { status: 400 });
       await sb.from("profiles").update({ resume_text: r.main_before }).eq("id", user.id);
+      await recordVersion(user.id, { source: "undo_main", lines: r.main_before, jobId: id });
       const next = { ...r, main_before: undefined, made_main_at: undefined };
       await sb.from("reports").update({ resume: next }).eq("job_id", id);
       return NextResponse.json({ resume: next });
@@ -99,6 +101,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       resume_text: lines.join("\n"),
       ...(profile?.resume_profile && headline ? { resume_profile: { ...profile.resume_profile, headline } } : {}),
     }).eq("id", user.id);
+    await recordVersion(user.id, { source: "make_main", lines: lines.join("\n"), jobId: id });
     const next = { ...r, main_before: r.main_before ?? profile?.resume_text ?? "", made_main_at: new Date().toISOString() };
     await sb.from("reports").update({ resume: next }).eq("job_id", id);
     return NextResponse.json({ resume: next });

@@ -1,3 +1,4 @@
+import { recordVersion, type VersionSource } from "@/lib/resumeHistory";
 import { NextResponse } from "next/server";
 import { adminClient, currentUser } from "@/lib/supabase/clients";
 import { writer } from "@/lib/ai";
@@ -55,10 +56,11 @@ export async function POST(req: Request) {
 
   const { p, lines, groups, setup } = await load(user.id);
   const sb = adminClient();
-  const saveProfile = async (nextLines: string[], nextSetup: Setup, extra: Record<string, unknown> = {}) => {
+  const saveProfile = async (nextLines: string[], nextSetup: Setup, extra: Record<string, unknown> = {}, why?: { source: VersionSource; note?: string }) => {
     const rp = { ...((p?.resume_profile as Record<string, unknown>) || {}), setup: nextSetup };
     const { error } = await sb.from("profiles").update({ resume_text: nextLines.join("\n"), resume_profile: rp, ...extra }).eq("id", user.id);
     if (error) throw error;
+    if (why) await recordVersion(user.id, { source: why.source, lines: nextLines.join("\n"), note: why.note });
   };
 
   // A part the resume doesn't have yet (Education, Skills, another job…): the AI writes it from the student's
@@ -81,7 +83,7 @@ export async function POST(req: Request) {
     const next = insertInSection(lines, section, added);
     const now = new Date().toISOString();
     const facts: Fact[] = Array.isArray(p?.facts) ? p!.facts : [];
-    await saveProfile(next, setup, { facts: [...facts, { q: `About "${section}" on my resume (added ${now.slice(0, 10)})`, a: note, at: now }] });
+    await saveProfile(next, setup, { facts: [...facts, { q: `About "${section}" on my resume (added ${now.slice(0, 10)})`, a: note, at: now }] }, { source: "setup_add", note: `${section}: ${note}` });
     return NextResponse.json({ ok: true, lines: added, changed: String(out?.changed || "").slice(0, 300) });
   }
 
@@ -103,7 +105,7 @@ export async function POST(req: Request) {
     const next = replaceGroup(lines, g, to);
     const newKey = groupLines(next).find((x) => x.start === g.start)?.key || key;
     const s = { ...setup }; delete s[key]; delete s[newKey];
-    await saveProfile(next, s);
+    await saveProfile(next, s, {}, { source: "setup_undo", note: g.title });
     return NextResponse.json({ ok: true, key: newKey, lines: to });
   }
 
@@ -130,7 +132,7 @@ export async function POST(req: Request) {
     const q = `About "${g.title}" on my resume`;
     const facts: Fact[] = Array.isArray(p?.facts) ? p!.facts : [];
     const nextFacts = [...facts.filter((f) => f.q !== q), { q, a: note, at: now }];
-    await saveProfile(next, s, { facts: nextFacts });
+    await saveProfile(next, s, { facts: nextFacts }, { source: "setup_fix", note: `${g.title}: ${note}` });
     return NextResponse.json({ ok: true, key: newKey, lines: fixed, before: g.lines, changed: String(out?.changed || "").slice(0, 300) });
   }
 

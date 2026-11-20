@@ -71,6 +71,7 @@ Run these in Supabase → SQL Editor, in order (all are idempotent):
 6. `006_job_logs.sql` — `job_logs` (per-job step log)
 7. `007_facts.sql` — `profiles.facts` (the student's own answers to resume gap questions, reused for every job)
 8. `008_ai_usage.sql` — `ai_usage` (every AI call: provider, model, task, tokens in/out, student, job), `ai_providers.price_in/price_out` ($ per million tokens), `profiles.ai_tokens_used` / `ai_token_limit` (default 250,000) for per-student AI budgets
+9. `009_resume_versions.sql` — `resume_versions` (a copy of the main resume after every change: upload with the file's raw text and path, setup fix/add/undo with the student's note, make main / undo main with the job), written by `recordVersion` in `src/lib/resumeHistory.ts`, never throws
 
 Server-only tables have RLS on and no policies; the app reads them with the service key (`adminClient()`). Students can only update whitelisted profile columns (see 002).
 
@@ -119,7 +120,7 @@ AI (`src/lib/ai.ts`): one call per task, JSON mode with fallback. **When a provi
 
 Student: `/` (Home: paste box, resume, news, ask-for-more), `/sign-in`, `/jobs` (My jobs: paste box at the top via `SearchBox`, empty state for new students; "My jobs" is in the header for every signed-in student), `/jobs/[id]` (job page), `/jobs/[id]/resume`, `/jobs/[id]/reach-out`, `/account` (resume, skills, links, education, **Use your own keys**), `/resume/setup` (check the resume part by part), `/remove-info`, `/terms`, `/privacy`, `/r/[token]` (shared resume).
 
-Admin: `/admin` single page with a menu (`#students`, `#requests`, `#jobs`, `#keys`, `#usage`, `#removals`, `#settings`). Server guard `requireAdmin()` on every admin API.
+Admin: `/admin/students/[id]` (Students → **Resumes and changes**, new tab: every uploaded file with a signed link, the main resume now, how it changed step by step with the student's notes and only the changed lines, and the resume made for every job with what changed and whether it was applied). `/admin` single page with a menu (`#students`, `#requests`, `#jobs`, `#keys`, `#usage`, `#removals`, `#settings`). Server guard `requireAdmin()` on every admin API.
 
 APIs: `src/app/api/**` — jobs, resume, resume/setup, profile, account, account/keys, requests, remove-info, cron (daily: retry stuck, flip no-reply, 30-day delete, refresh credit), admin, admin/{keys,requests,jobs,usage,removals,settings}.
 

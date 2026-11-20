@@ -3,6 +3,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { checkLink } from "@/lib/links";
 import { Icon, Spinner } from "./ui";
+import { NeedResume, saveLink } from "./NeedResume";
 
 /** The paste box. Checks the link as you type; signed-out students go to sign-in with the link kept. */
 export function LinkBox({ signedIn, initial = "", onStarting, onStarted, onFailed }: { signedIn: boolean; initial?: string; onStarting?: () => void; onStarted: (id: string) => void; onFailed?: () => void }) {
@@ -10,6 +11,7 @@ export function LinkBox({ signedIn, initial = "", onStarting, onStarted, onFaile
   const [link, setLink] = useState(initial);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [needResume, setNeedResume] = useState("");
   const c = checkLink(link);
 
   useEffect(() => { setErr(""); }, [link]);
@@ -28,10 +30,12 @@ export function LinkBox({ signedIn, initial = "", onStarting, onStarted, onFaile
     setBusy(false);
     if (!r) { onFailed?.(); return setErr("Couldn't reach Hunting Fox. Check your internet and try again."); }
     if (!r.ok || d.duplicate) onFailed?.();
+    if (r.status === 409 && d.error === "no_resume") { saveLink(c.url); setNeedResume(c.url); return; }
     if (r.status === 403) return setErr("You're on the waiting list. As soon as you're approved, this link will work.");
     if (r.status === 402) return setErr("You've used all your searches. Your saved jobs still work. Ask for more below, or add your own key in Account.");
     if (!r.ok) return setErr(d.msg || "Something went wrong on our side. Try again in a minute.");
     setLink("");
+    try { localStorage.removeItem("hf_pending_link"); } catch { /* fine */ }
     if (d.duplicate) router.push(`/jobs/${d.id}`);
     else onStarted(d.id);
   }
@@ -58,6 +62,7 @@ export function LinkBox({ signedIn, initial = "", onStarting, onStarted, onFaile
           {busy ? <><Spinner size={18} color="#fff" />{signedIn ? "Starting…" : "Opening sign-in…"}</> : <>Show me what to do{Icon.arrow()}</>}
         </button>
       </form>
+      {needResume && <NeedResume link={needResume} onClose={() => setNeedResume("")} />}
       <div id="linkmsg" role="status" style={{ margin: "10px 8px 0", fontSize: 14, minHeight: 20, fontWeight: c.kind === "empty" && !err ? 400 : 600, color }}>{msg}</div>
     </>
   );

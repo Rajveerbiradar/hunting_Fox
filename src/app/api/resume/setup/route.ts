@@ -3,7 +3,7 @@ import { adminClient, currentUser } from "@/lib/supabase/clients";
 import { writer } from "@/lib/ai";
 import { jobCtx } from "@/lib/joblog";
 import { access } from "@/lib/limits";
-import { groupLines, replaceGroup, sameLines } from "@/lib/resumeGroups";
+import { groupLines, insertInSection, replaceGroup, sameLines } from "@/lib/resumeGroups";
 import type { Fact } from "@/lib/pipeline/resume";
 
 export const maxDuration = 120;
@@ -54,18 +54,43 @@ export async function POST(req: Request) {
   const key = String(body.key || "");
 
   const { p, lines, groups, setup } = await load(user.id);
-  const g = groups.find((x) => x.key === key);
-  if (!g) return NextResponse.json({ error: "changed" }, { status: 409 });
-  const seen: string[] = Array.isArray(body.lines) ? body.lines.map(String) : [];
-  if (action !== "ok" && !sameLines(seen, g.lines)) return NextResponse.json({ error: "changed" }, { status: 409 });
-
   const sb = adminClient();
-  const now = new Date().toISOString();
   const saveProfile = async (nextLines: string[], nextSetup: Setup, extra: Record<string, unknown> = {}) => {
     const rp = { ...((p?.resume_profile as Record<string, unknown>) || {}), setup: nextSetup };
     const { error } = await sb.from("profiles").update({ resume_text: nextLines.join("\n"), resume_profile: rp, ...extra }).eq("id", user.id);
     if (error) throw error;
   };
+
+  // A part the resume doesn't have yet (Education, Skills, another job…): the AI writes it from the student's
+  // note alone, and it goes at the end of that section, or in a new section placed in the usual order.
+  if (action === "add") {
+    const section = String(body.section || "").trim().slice(0, 40);
+    const note = String(body.note || "").trim().slice(0, 3000);
+    if (!section || note.length < 3) return NextResponse.json({ error: "empty" }, { status: 400 });
+    let out: { lines?: string[]; changed?: string } | null = null;
+    try {
+      out = await jobCtx.run({ jobId: "", started: Date.now(), userId: user.id }, () =>
+        writer<{ lines?: string[]; changed?: string }>("resume-section-fix", { part_title: section, section, lines: [], note, mode: "add", whole_resume: lines }));
+    } catch (e) {
+      const msg = String((e as Error)?.message || e);
+      console.error("[resume setup] AI failed:", msg);
+      return NextResponse.json({ error: (e as { budget?: boolean })?.budget ? "budget" : /No AI provider/i.test(msg) ? "no_ai" : "ai_failed" }, { status: 502 });
+    }
+    const added = (Array.isArray(out?.lines) ? out!.lines : []).map((l) => String(l).replace(/\s+$/, "")).filter((l) => l.trim() && !l.trim().startsWith("## "));
+    if (!added.length) return NextResponse.json({ error: "ai_failed" }, { status: 502 });
+    const next = insertInSection(lines, section, added);
+    const now = new Date().toISOString();
+    const facts: Fact[] = Array.isArray(p?.facts) ? p!.facts : [];
+    await saveProfile(next, setup, { facts: [...facts, { q: `About "${section}" on my resume (added ${now.slice(0, 10)})`, a: note, at: now }] });
+    return NextResponse.json({ ok: true, lines: added, changed: String(out?.changed || "").slice(0, 300) });
+  }
+
+  const g = groups.find((x) => x.key === key);
+  if (!g) return NextResponse.json({ error: "changed" }, { status: 409 });
+  const seen: string[] = Array.isArray(body.lines) ? body.lines.map(String) : [];
+  if (action !== "ok" && !sameLines(seen, g.lines)) return NextResponse.json({ error: "changed" }, { status: 409 });
+
+  const now = new Date().toISOString();
 
   if (action === "ok") {
     await saveProfile(lines, { ...setup, [key]: { state: "ok", at: now } });

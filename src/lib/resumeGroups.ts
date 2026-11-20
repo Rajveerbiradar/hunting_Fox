@@ -64,3 +64,32 @@ export const sameLines = (a: string[], b: string[]) => a.length === b.length && 
 export function replaceGroup(lines: string[], g: ResumeGroup, next: string[]): string[] {
   return [...lines.slice(0, g.start), ...next, ...lines.slice(g.end)];
 }
+
+/** The usual order of sections on a resume; a new section goes before the first existing one that comes later. */
+export const SECTION_ORDER = ["Summary", "Experience", "Projects", "Education", "Skills", "Achievements"];
+/** Sections every resume should have: the setup page always shows a place to add these. */
+export const MANDATORY = ["Summary", "Experience", "Projects", "Education", "Skills"];
+
+const sectionName = (l: string) => l.trim().slice(3).replace(/\*\*/g, "").trim().toLowerCase();
+
+/** Put new lines at the end of a section, creating the section (in the usual order) when it isn't there. */
+export function insertInSection(lines: string[], section: string, added: string[]): string[] {
+  const want = section.toLowerCase();
+  const at = lines.findIndex((l) => l.trim().startsWith("## ") && (sectionName(l) === want || sectionName(l).includes(want)));
+  if (at >= 0) {
+    let end = lines.findIndex((l, i) => i > at && l.trim().startsWith("## "));
+    if (end < 0) end = lines.length;
+    return [...lines.slice(0, end), ...added, ...lines.slice(end)];
+  }
+  const rank = (name: string) => { const i = SECTION_ORDER.findIndex((x) => x.toLowerCase() === name); return i < 0 ? 99 : i; };
+  const mine = rank(want);
+  const before = lines.findIndex((l) => l.trim().startsWith("## ") && rank(sectionName(l)) > mine);
+  const block = [`## ${section}`, ...added];
+  return before < 0 ? [...lines, ...block] : [...lines.slice(0, before), ...block, ...lines.slice(before)];
+}
+
+/** Mandatory sections this resume doesn't have yet (by its `## ` titles). */
+export function missingSections(lines: string[]): string[] {
+  const names = lines.filter((l) => l.trim().startsWith("## ")).map(sectionName);
+  return MANDATORY.filter((m) => !names.some((n) => n.includes(m.toLowerCase())));
+}

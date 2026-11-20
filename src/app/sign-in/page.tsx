@@ -40,6 +40,10 @@ function SignIn() {
           </div>
         )}
         <button className="btn lg gbtn loading" onClick={google} disabled={busy} aria-busy={busy} style={{ width: "100%" }}>{busy ? <Spinner size={20} /> : <GoogleG />}{busy ? "Opening Google…" : "Continue with Google"}</button>
+        <div className="glow" style={{ borderRadius: 18, padding: "14px 16px", display: "flex", gap: 12, alignItems: "center" }}>
+          <span aria-hidden style={{ width: 32, height: 32, flex: "0 0 32px", borderRadius: 10, background: "linear-gradient(135deg,#0a2a6b,#2a74e6)", color: "#fff", display: "grid", placeItems: "center", fontWeight: 700 }}>2</span>
+          <div style={{ fontSize: 15, lineHeight: 1.45 }}><b>Then upload your resume to start the search.</b> <span className="mute">We need it to tell you what to change for {link ? "this" : "each"} job.</span></div>
+        </div>
         <p className="mute" style={{ margin: 0, fontSize: 14, lineHeight: 1.5 }}>We only see your name and email address. We never post, apply or send messages for you. By continuing you agree to the <Link href="/terms">terms</Link> and <Link href="/privacy">privacy policy</Link>.</p>
       </div>
       <p style={{ textAlign: "center", marginTop: 20, fontSize: 14 }}><Link href="/" className="mute">← Back</Link></p>

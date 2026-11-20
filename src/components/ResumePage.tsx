@@ -6,6 +6,8 @@ import { appliedUse, buildDiff } from "@/lib/resumeDiff";
 import { Spinner } from "./ui";
 import { CompareDoc, ResumeDoc, type CompareRow, type DocMark } from "./ResumeDoc";
 import { PdfButton } from "./PdfButton";
+import { MissingWarn, shouldWarn } from "./MissingWarn";
+import { missingSections } from "@/lib/resumeGroups";
 import { ADDS_TO_RESUME, SKILL_LEVELS } from "@/lib/status";
 
 type Skill = { name: string; level: number; from_job?: string };
@@ -119,6 +121,14 @@ export function ResumePage({ jobId, company, resume: start, hasResume, skills, i
     else toast.show("Couldn't do that just now. Try again.");
   }
 
+  // Before every apply: warn if the resume lacks a mandatory section (unless the student turned it off).
+  const [warn, setWarn] = useState<string[] | null>(null);
+  function tryApply() {
+    const miss = missingSections(diff?.final || []);
+    if (miss.length && shouldWarn()) setWarn(miss);
+    else void apply();
+  }
+
   async function apply() {
     setApplying(true);
     const r = await fetch(`/api/jobs/${jobId}/resume-plan`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "apply", decisions }) }).catch(() => null);
@@ -170,6 +180,7 @@ export function ResumePage({ jobId, company, resume: start, hasResume, skills, i
   return (
     <>
       <Header signedIn initial={initial} back={{ href: `/jobs/${jobId}`, label: `Back to ${company}` }} />
+      {warn && <MissingWarn missing={warn} action="Apply" onClose={() => setWarn(null)} onContinue={() => { setWarn(null); void apply(); }} />}
       <main className="wrap xwide">
         {/* Title with the download right beside it; the status and "make main" sit under the subtitle. */}
         <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
@@ -364,7 +375,7 @@ export function ResumePage({ jobId, company, resume: start, hasResume, skills, i
                     <button className="btn sec" style={{ minHeight: 36, fontSize: 14 }} onClick={() => setDecisions(Object.fromEntries(keys.map((k) => [k, true])))}>Keep all</button>
                     <button className="btn sec" style={{ minHeight: 36, fontSize: 14 }} onClick={() => setDecisions(Object.fromEntries(keys.map((k) => [k, false])))}>Drop all</button>
                   </div>
-                  <button className={dirty ? "btn lg pri" : "btn lg sec"} disabled={applying || !dirty} aria-busy={applying} onClick={apply}>
+                  <button className={dirty ? "btn lg pri" : "btn lg sec"} disabled={applying || !dirty} aria-busy={applying} onClick={tryApply}>
                     {applying ? <><Spinner size={16} />Applying…</> : dirty ? `Apply ${kept} ${kept === 1 ? "change" : "changes"}` : "✓ Applied"}
                   </button>
                 </div>

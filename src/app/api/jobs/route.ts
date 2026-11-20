@@ -37,6 +37,10 @@ export async function POST(req: Request) {
   }
   const a = await access(user.id, user.email);
   if (!a.approved) return NextResponse.json({ error: "pending" }, { status: 403 });
+  // No search without a resume (20 Nov): the resume is half of what a search gives. The page keeps the link
+  // and shows "upload your resume to start".
+  const { data: prof } = await sb.from("profiles").select("resume_text").eq("id", user.id).single();
+  if (!String(prof?.resume_text || "").trim()) return NextResponse.json({ error: "no_resume" }, { status: 409 });
   if (a.left <= 0 && !a.ownApify) return NextResponse.json({ error: "limit" }, { status: 402 });
 
   const { data: job, error } = await sb

@@ -16,7 +16,8 @@ This is not tailoring for a job. It is the student's base resume, the source eve
 2. `section`: the section the part sits in ("Experience", "Projects"…), empty for the top.
 3. `lines`: the part as it is now, one line per item, in our template. Markers: `# Name`, `> Headline`, `@ contact`, `### Role, Organisation | Dates` (an entry title), `- bullet`, `**Label:** a, b, c` (a skills row), plain lines (summary text). `**bold**` can appear in any line.
 4. `note`: what the student wrote. Rough, short, maybe with spelling mistakes or mixed languages. This is the instruction.
-5. `whole_resume`: every line of the resume, for context only (to avoid repeating a fact another part already says, and to match the page's style). Never change anything outside `lines`.
+5. `mode`: `"fix"` (change the part in `lines`) or `"add"` (`lines` is empty: write a NEW part for `section` from the note alone, e.g. an education entry, a new job, the skills rows, a summary).
+6. `whole_resume`: every line of the resume, for context only (to avoid repeating a fact another part already says, and to match the page's style). Never change anything outside `lines`.
 
 ---
 
@@ -31,6 +32,13 @@ This is not tailoring for a job. It is the student's base resume, the source eve
 *Step 4: Reword only what they asked to reword.* Lines the note doesn't touch stay exactly as they are, character for character.
 
 *Step 5: Keep the template.* An entry part starts with its `### ` title line; keep role, organisation and dates unless the note corrects them. Bullets start with `- `. Skills rows keep `**Label:** a, b, c`. The top keeps `# Name`, `> Headline`, `@ contact`. Summary lines are plain text.
+
+*Step 5b: Adding a new part (mode "add").* Build it only from the note, in the template for its section:
+- Experience / Projects / Education / Volunteering: first line `### Role or Degree, Organisation | Dates` (leave out what the note doesn't give: no invented dates), then 1 to 4 `- ` bullets with what the student did or achieved (none for Education unless the note gives grades, subjects or achievements).
+- Skills: one or more `**Label:** a, b, c` rows, grouping what the student named.
+- Summary: 2 or 3 plain sentences from the note.
+- Achievements / anything else: `- ` bullets.
+Never add a `## ` section title: the app adds it.
 
 *Step 6: Check before answering.*
 - Every request in the note is done.

@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Header, Spinner } from "./ui";
 import { ResumeDoc } from "./ResumeDoc";
-import type { ResumeGroup } from "@/lib/resumeGroups";
+import { MANDATORY, type ResumeGroup } from "@/lib/resumeGroups";
+import { MissingWarn, shouldWarn } from "./MissingWarn";
 
 type Setup = Record<string, { state: "ok" | "edited"; at: string }>;
 type Last = { before: string[]; changed: string };
@@ -79,6 +81,75 @@ export function ResumeSetup({ initial, fresh }: { initial: string; fresh?: boole
 
   const done = groups ? groups.filter((g) => setup[g.key]).length : 0;
 
+  // Missing sections always get a place to add them; entry sections get "add another".
+  const router = useRouter();
+  const [addOpen, setAddOpen] = useState<Record<string, boolean>>({});
+  const [addNote, setAddNote] = useState<Record<string, string>>({});
+  const [addBusy, setAddBusy] = useState("");
+  const [addErr, setAddErr] = useState<Record<string, string>>({});
+  const [addDone, setAddDone] = useState<Record<string, string>>({});
+  const [warnDone, setWarnDone] = useState(false);
+  const present = new Set((groups || []).map((g) => g.section.toLowerCase()).filter(Boolean));
+  const has = (sec: string) => [...present].some((x) => x.includes(sec.toLowerCase()));
+  const missingSecs = groups && groups.length ? MANDATORY.filter((m) => !has(m)) : [];
+  const ENTRY = ["Experience", "Projects", "Education"];
+  const HINT: Record<string, string> = {
+    Summary: "2 or 3 lines about you: what you do, what you're good at, what you want next.",
+    Experience: "Where you worked, your role, when, and what you did there. Internships and part-time work count.",
+    Projects: "Project name, what it does, what you built, and any numbers (users, downloads, testers).",
+    Education: "College or school, degree, years, and marks or CGPA if you want.",
+    Skills: "Tools, languages and skills you've really used.",
+  };
+  async function addPart(section: string) {
+    setAddBusy(section); setAddErr((e) => ({ ...e, [section]: "" }));
+    const r = await fetch("/api/resume/setup", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "add", section, note: addNote[section] || "" }) }).catch(() => null);
+    const d = r ? await r.json().catch(() => ({})) : {};
+    setAddBusy("");
+    if (!r || !r.ok) { setAddErr((e) => ({ ...e, [section]: ERR[d.error] || ERR.ai_failed })); return; }
+    setAddNote((n) => ({ ...n, [section]: "" })); setAddOpen((o) => ({ ...o, [section]: false }));
+    setAddDone((x) => ({ ...x, [section]: d.changed || `Added to ${section}.` }));
+    await load();
+  }
+  // A plain function (not a component), so typing in its textarea never remounts it and loses focus.
+  const addSlot = (section: string, again?: boolean) => {
+    const openNow = !again || addOpen[section];
+    return (
+      <section className="card" style={{ marginTop: again ? 10 : 16, padding: again && !openNow ? "10px 18px" : "18px 18px 16px", ...(again ? {} : { border: "2px dashed var(--line-strong)" }) }}>
+        {!again && <>
+          <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", color: "var(--mute)" }}>Missing</div>
+          <h2 style={{ margin: "2px 0 0", fontSize: 18, fontWeight: 700 }}>{section}: nothing here yet</h2>
+          <p className="mute" style={{ margin: "4px 0 0", fontSize: 14 }}>Every resume needs this. Write it your way and we&apos;ll add it properly.</p>
+        </>}
+        {again && !openNow ? (
+          <button className="btn ghost" style={{ padding: 0 }} onClick={() => setAddOpen((o) => ({ ...o, [section]: true }))}>+ Add another to {section}</button>
+        ) : (
+          <div style={{ marginTop: again ? 0 : 12 }}>
+            {again && <label htmlFor={`a-${section}`} style={{ display: "block", fontSize: 16, fontWeight: 600, marginBottom: 8 }}>Add another to {section}</label>}
+            <textarea id={`a-${section}`} className="ta" rows={4} maxLength={3000} value={addNote[section] || ""} onChange={(e) => setAddNote((n) => ({ ...n, [section]: e.target.value }))} placeholder={HINT[section] || "Write it your way, in rough lines."} />
+            <div style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
+              <button className="btn sec" disabled={addBusy === section || (addNote[section] || "").trim().length < 3} onClick={() => addPart(section)}>Add to my resume</button>
+              {again && <button className="btn ghost" onClick={() => setAddOpen((o) => ({ ...o, [section]: false }))}>Cancel</button>}
+            </div>
+          </div>
+        )}
+        {addDone[section] && <p style={{ margin: "8px 0 0", fontSize: 14, fontWeight: 600, color: "#1a6b3c" }}>✓ {addDone[section]}</p>}
+        {addErr[section] && <p style={{ margin: "8px 0 0", fontSize: 14, fontWeight: 600, color: "#b8132f" }}>{addErr[section]}</p>}
+      </section>
+    );
+  };
+
+  // A job link saved before the resume was in: start it from here once the resume is checked.
+  const [saved, setSaved] = useState("");
+  useEffect(() => { try { setSaved(localStorage.getItem("hf_pending_link") || ""); } catch { /* fine */ } }, []);
+  async function startSaved() {
+    const r = await fetch("/api/jobs", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ link: saved }) }).catch(() => null);
+    const d = r ? await r.json().catch(() => ({})) : {};
+    if (r?.ok && d.id) {
+      try { localStorage.removeItem("hf_pending_link"); } catch { /* fine */ }
+      router.push(d.duplicate ? `/jobs/${d.id}` : "/");
+    } else setAddErr((e) => ({ ...e, _saved: r?.status === 402 ? "You've used all your searches. Ask Rajveer for more." : "Couldn't start it. Try again." }));
+  }
+
   function closeIntro() {
     setIntro(false);
     // Drop ?new=1 so a refresh doesn't show it again.
@@ -124,12 +195,25 @@ export function ResumeSetup({ initial, fresh }: { initial: string; fresh?: boole
           </div>
         )}
 
-        {groups?.map((g) => {
+        {saved && groups && groups.length > 0 && (
+          <div className="card glow" style={{ marginTop: 16, padding: "16px 18px", display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
+            <div style={{ flex: "1 1 240px", minWidth: 0 }}>
+              <b style={{ display: "block", fontSize: 16 }}>Your job link is saved</b>
+              <span className="mute" style={{ fontSize: 14, display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{saved.replace(/^https?:\/\/(www\.)?/, "")}</span>
+              {addErr._saved && <span style={{ fontSize: 14, fontWeight: 600, color: "#b8132f" }}>{addErr._saved}</span>}
+            </div>
+            <button className="btn lg pri" onClick={startSaved}>Start the search</button>
+          </div>
+        )}
+
+        {groups?.map((g, gi) => {
           const st = setup[g.key]?.state;
+          const lastOfSection = ENTRY.some((e) => g.section.toLowerCase().includes(e.toLowerCase())) && groups[gi + 1]?.section !== g.section;
           const isOpen = open[g.key];
           const l = last[g.key];
           return (
-            <section key={g.key} className="card" style={{ marginTop: 16, padding: "18px 18px 16px" }}>
+            <Fragment key={g.key}>
+            <section className="card" style={{ marginTop: 16, padding: "18px 18px 16px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                 <div style={{ flex: "1 1 200px", minWidth: 0 }}>
                   {g.section && <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", color: "var(--mute)" }}>{g.section}</div>}
@@ -180,12 +264,17 @@ export function ResumeSetup({ initial, fresh }: { initial: string; fresh?: boole
 
               {err[g.key] && <p style={{ margin: "10px 0 0", fontSize: 14, fontWeight: 600, color: "#b8132f" }}>{err[g.key]}</p>}
             </section>
+            {lastOfSection && addSlot(ENTRY.find((e) => g.section.toLowerCase().includes(e.toLowerCase()))!, true)}
+            </Fragment>
           );
         })}
 
+        {missingSecs.map((m) => <Fragment key={m}>{addSlot(m)}</Fragment>)}
+
         {groups && groups.length > 0 && (
           <div style={{ margin: "24px 8px 0", display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-            <Link href="/account" className="btn pri lg">Done</Link>
+            <button className={`btn lg ${saved ? "sec" : "pri"}`} onClick={() => { if (missingSecs.length && shouldWarn()) setWarnDone(true); else router.push("/account"); }}>Save and finish</button>
+            {warnDone && <MissingWarn missing={missingSecs} action="Save" onClose={() => setWarnDone(false)} onContinue={() => { setWarnDone(false); router.push("/account"); }} />}
             <span className="mute" style={{ fontSize: 14 }}>Jobs you already added keep their old suggestions. Use &quot;Try again&quot; on a job&apos;s resume page to redo it with this version.</span>
           </div>
         )}

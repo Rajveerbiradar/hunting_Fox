@@ -35,6 +35,37 @@ export async function GET(req: Request) {
     const people = Array.isArray(r?.people) ? r!.people.map((p: { name?: string; title?: string }) => `${p.name || "?"} · ${p.title || ""}`) : [];
     return NextResponse.json({ job: j, verdict: r?.verdict, checks: r?.checks, company: r?.company_data, people, log });
   }
+  // ?stats=1: counts only, for the submission sheet (no names or emails).
+  if (u.searchParams.get("stats")) {
+    const [{ data: profs }, { data: jobs }, { data: reps }] = await Promise.all([
+      sb.from("profiles").select("id,created_at,resume_text"),
+      sb.from("jobs").select("id,user_id,status,error,portal,created_at,company,title,sent_to"),
+      sb.from("reports").select("job_id,verdict,people"),
+    ]);
+    const P = profs || [], J = jobs || [], R = new Map((reps || []).map((r) => [r.job_id, r]));
+    const by = <T,>(xs: T[], k: (x: T) => string) => xs.reduce((m, x) => { const key = k(x) || "none"; m[key] = (m[key] || 0) + 1; return m; }, {} as Record<string, number>);
+    const searchers = new Set(J.map((j) => j.user_id));
+    const people = J.map((j) => { const r = R.get(j.id); return Array.isArray(r?.people) ? r!.people : []; });
+    const withEmail = people.map((ps) => ps.filter((p: { email?: string; emails?: unknown[] }) => p?.email || (Array.isArray(p?.emails) && p.emails.length)).length);
+    return NextResponse.json({
+      students_signed_in: P.length,
+      students_with_resume: P.filter((p) => (p.resume_text || "").trim()).length,
+      students_who_searched: searchers.size,
+      searches: J.length,
+      searches_by_status: by(J, (j) => j.status),
+      verdicts: by(J, (j) => R.get(j.id)?.verdict || ""),
+      errors: by(J.filter((j) => j.error), (j) => j.error),
+      portals: by(J, (j) => j.portal),
+      ready_with_people: people.filter((ps) => ps.length).length,
+      people_found_total: people.reduce((a, ps) => a + ps.length, 0),
+      people_with_email_total: withEmail.reduce((a, n) => a + n, 0),
+      marked_contacted: J.filter((j) => Array.isArray(j.sent_to) ? j.sent_to.length : j.sent_to).length,
+      signups_by_day: by(P, (p) => String(p.created_at).slice(0, 10)),
+      searches_by_day: by(J, (j) => String(j.created_at).slice(0, 10)),
+      searches_per_student: Object.values(by(J, (j) => j.user_id)).sort((a, b) => b - a),
+      companies: [...new Set(J.map((j) => j.company).filter(Boolean))],
+    });
+  }
   const q = (u.searchParams.get("q") || "").trim();
   let query = sb.from("jobs").select("id,url,status,error,title,company,created_at").order("created_at", { ascending: false }).limit(20);
   if (q) query = query.or(`url.ilike.%${q.replace(/[%,()]/g, "")}%,title.ilike.%${q.replace(/[%,()]/g, "")}%,company.ilike.%${q.replace(/[%,()]/g, "")}%`);

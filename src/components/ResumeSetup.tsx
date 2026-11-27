@@ -7,6 +7,7 @@ import { Header, Spinner } from "./ui";
 import { ResumeDoc } from "./ResumeDoc";
 import { MANDATORY, type ResumeGroup } from "@/lib/resumeGroups";
 import { MissingWarn, shouldWarn } from "./MissingWarn";
+import { PdfButton } from "./PdfButton";
 
 type Setup = Record<string, { state: "ok" | "edited"; at: string }>;
 type Last = { before: string[]; changed: string };
@@ -286,6 +287,7 @@ export function ResumeSetup({ initial, fresh }: { initial: string; fresh?: boole
         {groups && groups.length > 0 && (
           <div style={{ margin: "24px 8px 0", display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
             <button className={`btn lg ${saved ? "sec" : "pri"}`} onClick={() => { if (missingSecs.length && shouldWarn()) setWarnDone(true); else router.push("/account"); }}>Save and finish</button>
+            <PdfButton source="/api/resume/lines" className="btn lg sec">Download PDF</PdfButton>
             {warnDone && <MissingWarn missing={missingSecs} action="Save" onClose={() => setWarnDone(false)} onContinue={() => { setWarnDone(false); router.push("/account"); }} />}
             <span className="mute" style={{ fontSize: 14 }}>Jobs you already added keep their old suggestions. Use &quot;Try again&quot; on a job&apos;s resume page to redo it with this version.</span>
           </div>

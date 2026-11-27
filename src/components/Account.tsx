@@ -5,6 +5,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Header, Icon } from "./ui";
 import { ResumeUpload } from "./ResumeUpload";
+import { PdfButton } from "./PdfButton";
 import { OwnKeys } from "./OwnKeys";
 import { browserClient } from "@/lib/supabase/browser";
 import { SKILL_LEVELS } from "@/lib/status";
@@ -68,6 +69,15 @@ export function Account({ profile, email, left, limit, approved, ai }: { profile
         <SectionHead title="Your resume" />
         <p className="mute" style={{ margin: "4px 8px 0", fontSize: 14 }}>We use it for every new job you paste.</p>
         <ResumeUpload signedIn current={profile?.resume_profile?.file_name || (profile?.resume_text ? "Your resume" : undefined)} />
+        {profile?.resume_text && (
+          <div className="card" style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 12, padding: "16px 18px", flexWrap: "wrap" }}>
+            <div style={{ flex: "1 1 220px", minWidth: 0 }}>
+              <div style={{ fontSize: 16, fontWeight: 700 }}>Download your resume</div>
+              <div className="mute" style={{ fontSize: 14, lineHeight: 1.45 }}>Your main resume as a PDF, with every change you&apos;ve made so far.</div>
+            </div>
+            <PdfButton source="/api/resume/lines" className="btn sec">Download PDF</PdfButton>
+          </div>
+        )}
         {profile?.resume_text && (
           <Link href="/resume/setup" className="card" style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 12, padding: "16px 18px", textDecoration: "none", color: "inherit" }}>
             <div style={{ flex: 1, minWidth: 0 }}>
